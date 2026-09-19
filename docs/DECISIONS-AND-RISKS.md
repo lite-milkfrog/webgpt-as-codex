@@ -36,3 +36,20 @@ Every stage closure must:
 - require the receiving window to repeat the same protocol.
 
 The chain terminates only after the planned final stage and Final Overall Acceptance are both closed.
+
+## Stage 6 — Manager control plane
+
+### Decision: reference Manager is evidence, not source
+The existing service on `127.0.0.1:9199` was inspected read-only. Its machine-specific service inventory, external addresses, local authentication state and recovery implementation were not copied into the repository.
+
+### Decision: shallow polling, deep Doctor evidence
+Manager polling is cached and limited to inexpensive discovery/listener evidence. Protocol initialize, tools/list, safe-call, OAuth and remote checks remain distinct and are supplied by the durable last-Doctor result. This preserves diagnostic fidelity without creating a continuous performance tax.
+
+### Decision: action contracts precede action executors
+Stage 6 exposes a fixed allowlist for Start All, Restart, Doctor, Repair and Update but ships with no real executor wired. Later owner stages inject the bounded implementations. This prevents Stage 6 from acquiring arbitrary shell authority or restarting healthy production-like services.
+
+### Risk: stale Doctor evidence
+Protocol/OAuth/remote fields may be unknown or stale until Stage 7 writes a fresh Doctor result. The UI must display unknown separately from failed and must never infer protocol health from a listener.
+
+### Risk: workspace binding drift
+The shared Coding Tools service was bound to a different repository during Stage 6. Repository writes were therefore moved into a dedicated Git worktree inside the Coding Tools workspace rather than bypassing its path boundary. Future windows must verify workspace binding before writes.

@@ -54,5 +54,10 @@ See `experience-ledger.md`.
 New MCPs are added through manifests + discovery + health checks + gateway registration + optional Tool Group + Skill routing.
 See `add-mcp.md`.
 
+## Manager boundary
+The Manager is a loopback-only local control surface backed by the component registry and durable Doctor evidence.
+Its browser UI never owns agent runtimes, polling stays bounded/shallow, and health levels remain distinct.
+Manager actions are a fixed allowlist whose real executors are supplied only by the stage that owns their safety contract.
+
 ## Completion
 A stage is complete only when owned behavior is implemented, relevant tests are green, post-state is verified, affected docs are updated, and remaining work is represented in CURRENT/NEXT/AFTER_NEXT.

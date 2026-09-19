@@ -69,3 +69,37 @@ Protected lesson:
 - tolerate data payload fragmentation/line wrapping before JSON decode;
 - share one MCP decoder across Doctor, Gateway tests and Playwright handoff;
 - a handoff that fails before composer typing has not submitted anything and is safe to repair/retry after a new prompt HEAD is generated.
+
+## 2026-09-19 — Coding Tools workspace binding is authoritative
+
+Origin:
+- Stage 6 found Coding Tools attached to `coding-tools-mcp-demo` instead of the target repository.
+- Repo-relative access therefore did not address WebGPT-as-Codex.
+
+Protected lesson:
+- verify the reported Coding Tools workspace before repository operations;
+- honor the configured workspace boundary;
+- when rebinding is unavailable, use a dedicated Git worktree located inside the configured workspace and fast-forward the canonical tree only after validation;
+- workspace mismatch is harness state, not evidence that target files are absent.
+
+## 2026-09-19 — Manager polling must not become deep-health polling
+
+Origin:
+- Stage 6 needed component status while preserving the process/listener/protocol/safe-call/OAuth/remote distinction.
+
+Protected lesson:
+- use a bounded status cache and inexpensive listener discovery in the Manager;
+- consume deep Doctor evidence rather than running MCP safe calls on every browser refresh;
+- unknown, failed and healthy are separate states;
+- never render raw manifests or private/loopback service addresses.
+
+## 2026-09-19 — Control actions are owner-stage capabilities
+
+Origin:
+- Stage 6 owns Manager contracts, while Doctor/Repair and runtime launch/restart belong to later stages.
+
+Protected lesson:
+- expose only a fixed action allowlist;
+- no arbitrary command or argument surface belongs in the Manager API;
+- confirmation is required for mutating contracts;
+- real executors are injected by the stage that owns their safety and rollback semantics.

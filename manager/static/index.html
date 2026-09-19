@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>WebGPT-as-Codex Manager</title>
+<style>
+:root{font-family:Inter,Segoe UI,sans-serif;color-scheme:dark;background:#111;color:#eee}
+body{margin:0}.shell{max-width:1180px;margin:auto;padding:32px 24px 48px}
+header{display:flex;gap:24px;justify-content:space-between;align-items:end;border-bottom:1px solid #333;padding-bottom:18px}
+h1{margin:0;font-size:28px}.muted{color:#999}.actions{display:flex;gap:8px;flex-wrap:wrap}
+button{background:#222;color:#eee;border:1px solid #444;border-radius:7px;padding:8px 11px;cursor:pointer}
+button:disabled{opacity:.45;cursor:not-allowed}.cards{display:grid;grid-template-columns:repeat(5,1fr);gap:10px;margin:22px 0}
+.card,.component{border:1px solid #333;border-radius:10px;background:#171717;padding:14px}.label{font-size:11px;text-transform:uppercase;color:#999}
+.value{font-size:14px;margin-top:6px;word-break:break-word}.components{display:grid;gap:8px}.component-head{display:flex;justify-content:space-between;gap:12px}
+.health{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}.chip{font-size:11px;border:1px solid #444;border-radius:999px;padding:3px 7px}
+.ok{border-color:#477b58}.bad{border-color:#8a4848}.unknown{color:#888}.notice{min-height:20px;margin:12px 0;color:#cbb98a}
+@media(max-width:900px){.cards{grid-template-columns:1fr 1fr}header{align-items:start;flex-direction:column}}
+</style>
+</head>
+<body><main class="shell">
+<header><div><div class="label">Local control plane</div><h1>WebGPT-as-Codex Manager</h1><div class="muted">Loopback-only UI. Closing this page does not own or stop agent runtimes.</div></div><div id="actions" class="actions"></div></header>
+<div id="notice" class="notice"></div>
+<section id="cards" class="cards"></section>
+<h2>Components</h2><section id="components" class="components"></section>
+</main>
+<script>
+const esc=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const healthClass=v=>v===true?"ok":v===false?"bad":"unknown";
+const healthText=v=>v===true?"OK":v===false?"FAIL":"UNKNOWN";
+async function getJson(url,opt){const r=await fetch(url,opt);const j=await r.json();if(!r.ok)throw Object.assign(new Error(j.error||j.status||r.status),{payload:j});return j}
+function plane(label,p){const h=p?.health||{};const active=Object.values(h).some(v=>v===true);return '<div class="card"><div class="label">'+esc(label)+'</div><div class="value">'+(p?.configured===false?'Not configured':active?'Observed':'No live proof')+'</div></div>'}
+function renderStatus(s){
+  const pub=s.public_mcp_url?esc(s.public_mcp_url):'Not configured';
+  const doc=s.last_doctor||{};
+  document.querySelector('#cards').innerHTML=plane('Gateway',s.gateway)+plane('OAuth',s.oauth)+plane('Tailscale',s.tailscale)+'<div class="card"><div class="label">Public MCP</div><div class="value">'+pub+'</div></div><div class="card"><div class="label">Last Doctor</div><div class="value">'+esc(doc.status||'never-run')+'</div></div>';
+  document.querySelector('#components').innerHTML=s.components.map(c=>'<article class="component"><div class="component-head"><div><strong>'+esc(c.display_name)+'</strong><div class="muted">'+esc(c.role)+'</div></div><div>'+esc(c.version||'version unknown')+'</div></div><div class="health">'+s.health_levels.map(k=>'<span class="chip '+healthClass(c.health[k])+'">'+esc(k)+': '+healthText(c.health[k])+'</span>').join('')+'</div></article>').join('');
+  window.setTimeout(refresh,Math.max(3000,Number(s.poll_after_ms)||5000));
+}
+async function action(name,confirmRequired){
+  if(confirmRequired&&!window.confirm('Run '+name+'?'))return;
+  try{const r=await getJson('/api/actions/'+name,{method:'POST',headers:{'Content-Type':'application/json','X-WebGPT-Control':'1'},body:JSON.stringify({confirm:confirmRequired})});document.querySelector('#notice').textContent=r.status||'completed'}
+  catch(e){document.querySelector('#notice').textContent=e.payload?.status||e.payload?.error||e.message}
+  refresh();
+}
+async function loadActions(){const a=await getJson('/api/actions');document.querySelector('#actions').innerHTML=a.actions.map(x=>'<button data-name="'+esc(x.name)+'" data-confirm="'+String(x.confirmation_required)+'" '+(x.available?'':'title="Owned by '+esc(x.owner_stage)+'; executor not wired in this stage"')+'>'+esc(x.label)+(x.available?'':' · contract')+'</button>').join('');document.querySelectorAll('#actions button').forEach(b=>b.onclick=()=>action(b.dataset.name,b.dataset.confirm==='true'))}
+async function refresh(){try{renderStatus(await getJson('/api/status'))}catch(e){document.querySelector('#notice').textContent='Status unavailable: '+e.message;window.setTimeout(refresh,5000)}}
+loadActions().catch(e=>document.querySelector('#notice').textContent=e.message);refresh();
+</script>
+</body>
+</html>
