@@ -1,0 +1,25 @@
+{
+  "current_stage": "PROJECT-COMPLETE",
+  "next_stage": "TERMINAL",
+  "after_next_stage": "TERMINAL",
+  "stage_objective": "Terminalize the already accepted WebGPT-as-Codex project without adding features: verify the Final Overall Acceptance commit and canonical main post-state, confirm the repository remains clean/public-safe and the final acceptance/handoff receipt is consistent, write only the minimum PROJECT-COMPLETE bookkeeping required by evidence, commit if repository state changes, then generate and exactly-once Playwright-submit a fresh TERMINAL prompt from the verified committed HEAD.",
+  "required_outputs": [
+    "read the Final Overall Acceptance closure and verify its committed SOURCE_HEAD/canonical main post-state rather than reopening implementation",
+    "confirm final repository status and public-safe boundary remain clean, and distinguish any external MCP/session health drift from repository correctness",
+    "verify the machine-local Final Overall Acceptance handoff receipt/prompt hash when available without copying private browser or endpoint state into Git",
+    "update only PROJECT-COMPLETE/current-state terminal bookkeeping that is actually required by verified evidence",
+    "if repository bookkeeping changes, commit it and regenerate TERMINAL from the new committed HEAD; otherwise use the already verified committed HEAD",
+    "validate/hash the exact TERMINAL prompt, Playwright-submit exactly once, and verify sent-message SOURCE_HEAD + /c/ URL + new assistant run before closing"
+  ],
+  "do_not_redo": [
+    "Stages 0-12 or Final Overall Acceptance implementation and tests unless new contradictory repository-owned evidence appears",
+    "new features, architecture redesigns, release repackaging or speculative cleanup",
+    "machine-local OAuth/Tailscale credentials, private endpoints, browser profiles, cookies, tokens, PIDs or unrelated repositories",
+    "turning transient Serena/Coding Tools/Playwright/external-service health drift into retroactive project failure without repository contradiction"
+  ],
+  "known_risks": [
+    "Terminal bookkeeping can accidentally reopen already accepted scope; changes must stay minimal and evidence-driven.",
+    "The final external handoff remains exactly-once: after send is attempted, only post-state verification is allowed.",
+    "External MCP/session availability may drift independently of the accepted repository and must remain classified as harness/runtime evidence."
+  ]
+}

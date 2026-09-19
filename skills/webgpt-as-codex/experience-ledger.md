@@ -384,3 +384,16 @@ Protected lesson:
 - normalize exact duplicate tab rows before set-difference/unique-blank reasoning;
 - keep true conflicting duplicate indexes ambiguous rather than guessing;
 - a pre-submit false ambiguity is recoverable after fixing the evidence parser because no external send side effect occurred.
+
+## 2026-09-19 — Final acceptance must separate build-harness failure from release failure
+
+Origin:
+- Final Overall Acceptance first attempted a no-build-isolation wheel build with the repository development venv.
+- That caller venv did not contain setuptools, so the build backend could not load even though the repository tests were green.
+- Re-running the same source build with normal isolated build dependencies succeeded, and the resulting wheel passed installed-layout verification.
+
+Protected lesson:
+- a missing caller-side build backend is harness evidence until the source can be rebuilt through the declared build-system contract;
+- do not weaken or skip installed-artifact verification after a harness failure;
+- final acceptance should verify the installed resource root, public manifests, static UI and representative control surfaces from outside the source checkout;
+- when an acceptance probe itself fails from a parsing assumption, verify the returned product data before classifying it as a target defect.

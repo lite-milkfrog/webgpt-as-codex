@@ -194,3 +194,17 @@ The release wheel includes only public component manifests and the Manager stati
 
 ### Risk resolved: source-layout assumptions can create a false-green release
 The Stage 12 baseline wheel installed successfully and exposed the console entry point, but `load_components()` returned zero built-ins and the Manager static page path did not exist because `repo_root()` pointed into the installed environment. The minimum release boundary was reopened, resource packaging/path resolution was corrected, and an isolated rebuilt wheel then loaded all eight built-in component manifests and the Manager UI.
+
+## Final Overall Acceptance
+
+### Decision: final acceptance requires both source-tree and installed-artifact evidence
+The final gate does not treat a green import, listener, build command or source-tree test suite as sufficient release evidence. Acceptance requires the complete repository gates plus a freshly built wheel installed outside the source checkout, with metadata, console entry point, public runtime resources and representative loopback Manager surfaces exercised from that installed layout.
+
+### Decision: transient MCP/session drift is not a release blocker without target contradiction
+The final window observed Serena connector unavailability and an initial Coding Tools workspace mismatch. The target repository remained independently verifiable, and Coding Tools was used only after a Git worktree inside its authorized workspace reported the expected repository HEAD. These are harness/binding observations, not reasons to weaken the product gates or reopen closed ownership.
+
+### Result: no unresolved release, security or ownership blocker
+The accepted release preserves the documented boundaries for OAuth/edge, runtime lifecycle ownership, generic Add MCP visibility versus authority, durable Loop Engineering, exactly-once handoff and Stage 11 trust/mutation hardening. The installed artifact loads all eight public component manifests and Manager UI, and the Manager still exposes only the fixed action contract set. No contradictory final evidence requires reopening Stages 0-12.
+
+### Residual risk: external service health can drift after acceptance
+Serena, Coding Tools, Playwright, Windows-MCP, Tailscale and other external/runtime services can change independently of repository correctness. PROJECT-COMPLETE and TERMINAL must not reinterpret later listener/session drift as retroactive acceptance failure unless it produces repository-owned contradictory evidence.
