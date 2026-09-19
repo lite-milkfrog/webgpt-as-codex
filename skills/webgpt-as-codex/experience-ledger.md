@@ -44,3 +44,16 @@ Protected lesson:
 - do not use a temporary integration test to mutate a shared Serena active project;
 - verify active project before repo-relative writes;
 - after any suspicious project switch, verify both target and unrelated repository git status before continuing.
+
+## 2026-09-19 — Playwright Extension handoff must stay in one MCP session
+
+Origin:
+- Stage 5 automatic handoff hardening.
+- A new Playwright MCP session re-entered through the extension Welcome page; a tab index visible in a previous MCP session was not selectable in the next one.
+
+Protected lesson:
+- new ChatGPT tab, snapshot, composer target, submit and verification belong to one Playwright MCP session;
+- never carry Playwright element refs or tab indexes across MCP sessions;
+- verify handoff from ChatGPT DOM state, not from a click or URL assumption;
+- sent-message proof is the user-message DOM containing SOURCE_HEAD;
+- new-run proof is an assistant-message DOM node plus a /c/ conversation URL.

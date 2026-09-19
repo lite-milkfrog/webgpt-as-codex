@@ -36,11 +36,12 @@ Store the prompt SHA-256 in the local handoff receipt.
 ## Automatic continuation
 When authorized:
 1. use Playwright MCP with the logged-in ChatGPT browser state;
-2. open a new ChatGPT conversation;
-3. enter the exact validated prompt file;
-4. submit once;
-5. verify the prompt appears as a sent user message;
-6. verify a new assistant run/response begins;
-7. write a handoff receipt with prompt path, SHA-256, source HEAD and verification evidence.
+2. keep one MCP session for the entire handoff; extension tab indexes/refs are not stable across MCP sessions;
+3. open a new ChatGPT conversation;
+4. snapshot the new page and resolve the current composer target from that same session;
+5. enter the exact validated prompt file and submit once;
+6. verify the sent user-message DOM contains SOURCE_HEAD;
+7. verify an assistant-message DOM node exists and the conversation URL has moved to /c/...;
+8. write a handoff receipt with prompt path, SHA-256, source HEAD, conversation URL and verification evidence.
 
 A filled textbox, click, navigation, prompt file, or URL change alone is not proof of successful handoff.

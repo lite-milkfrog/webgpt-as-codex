@@ -10,7 +10,8 @@ Result: CLOSED_LOCAL_VERIFIED
 - access-token and refresh-token validation;
 - generic OAuth compatibility adapter preserving forwarded HTTPS origin and consent continuity;
 - real public HTTPS Stage 5 E2E harness;
-- stable handoff prompt generator/validator and SHA-256 contract.
+- stable handoff prompt generator/validator and SHA-256 contract;
+- reusable Playwright MCP handoff executor that keeps one MCP session across new-chat, composer resolution, submission and DOM verification.
 
 ## Real E2E evidence
 A temporary public Funnel on port 10003 was created without touching the existing 443/8443/10000-10002 mappings.
