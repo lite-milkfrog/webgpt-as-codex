@@ -13,6 +13,18 @@
   "version_command": [],
   "machine_binary": "bin/mcp-auth-proxy/mcp-auth-proxy.exe",
   "process_contains": ["mcp-auth-proxy"],
-  "install_hint": "resolve an official compatible release; verify binary/source provenance before use",
+  "install_hint": "resolve the latest stable official release and require its GitHub SHA-256 digest",
+  "install": {
+    "strategy": "github-release",
+    "latest": {"source": "github-release", "repo": "sigbit/mcp-auth-proxy"},
+    "github_repo": "sigbit/mcp-auth-proxy",
+    "assets": {
+      "amd64": "mcp-auth-proxy-windows-amd64.exe",
+      "arm64": "mcp-auth-proxy-windows-arm64.exe"
+    },
+    "destination": "bin/mcp-auth-proxy/mcp-auth-proxy.exe",
+    "requirements": [],
+    "compatibility": {"min_version": "2.10.2", "max_version_exclusive": "3.0.0"}
+  },
   "safe_tool": null
 }

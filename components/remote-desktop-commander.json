@@ -1,1 +1,21 @@
-{"id":"remote-desktop-commander","display_name":"Remote Desktop Commander","role":"full_machine_relay","required":false,"enabled_by_default":false,"upstream":"https://github.com/desktop-commander/remote-desktop-commander","license_note":"hosted relay proprietary; repository docs/manifests only","transport":"vendor_remote","default_endpoint":null,"version_command":["npx","@wonderwhy-er/desktop-commander@latest","--version"],"process_contains":["desktop-commander","remote"],"install_hint":"npx @wonderwhy-er/desktop-commander@latest remote","safe_tool":null}
+{
+  "id": "remote-desktop-commander",
+  "display_name": "Remote Desktop Commander",
+  "role": "full_machine_relay",
+  "required": false,
+  "enabled_by_default": false,
+  "upstream": "https://github.com/desktop-commander/remote-desktop-commander",
+  "license_note": "hosted relay proprietary; repository docs/manifests only",
+  "transport": "vendor_remote",
+  "default_endpoint": null,
+  "version_command": [],
+  "process_contains": ["desktop-commander", "remote"],
+  "install_hint": "use the ChatGPT-side Remote Desktop Commander integration and pair the machine",
+  "install": {
+    "strategy": "manual",
+    "package": "@wonderwhy-er/desktop-commander",
+    "latest": {"source": "npm", "package": "@wonderwhy-er/desktop-commander"},
+    "requirements": ["node", "npm"]
+  },
+  "safe_tool": null
+}

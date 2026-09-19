@@ -247,6 +247,40 @@ Tailscale is now an explicit environment gate. Installation may be automated fro
 
 WebGPT-owned MCPJungle/mcp-auth-proxy bootstrap uses repository-approved official release origins and SHA-256 verification. Existing binaries are preserved by default. Stage 15 may add latest-stable resolution, but source-origin and compatibility validation remain mandatory.
 
+## Stage 15 — component install / upgrade / lifecycle
+
+### Decision: latest stable is resolved at deployment time but is not blind mutation authority
+
+Component manifests declare the package/upstream and the allowed resolver. PyPI/npm/winget metadata may establish the current stable package version; GitHub binary installation additionally requires a release-provided SHA-256 digest and the expected asset identity. The planner may report that an external service is behind without replacing it while that service is healthy and actively used.
+
+Automatic adapters also declare a compatibility window. Installed version, upstream latest and compatibility are separate evidence fields. Latest outside the window blocks install/upgrade; newer compatible installed versions are preserved; unavailable upstream metadata remains unavailable rather than becoming an implicit “up-to-date” result.
+
+### Decision: availability evidence outranks shell PATH absence
+
+The current machine intentionally has healthy Serena and Coding Tools services even though the Coding Tools execution environment does not expose uv or those executables on PATH. A live healthy service is therefore preserved and no duplicate install is attempted. PATH/package discovery is used for installation/version evidence, not as the sole existence truth.
+
+### Decision: install ownership and runtime lifecycle ownership stay separate
+
+When WebGPT performs an installation it writes a machine-local ownership receipt. That receipt records the installed component/version/strategy and still leaves `runtime_lifecycle_authority=false`. Kill/restart authority continues to require the stricter runtime ownership contract.
+
+### Decision: system services have a process-only healthy state
+
+Tailscale does not expose an MCP listener and must not be classified as unhealthy solely because `listener_up=null`. A live system process can be preserved while OAuth/Funnel/remote readiness remains a separate deeper health question.
+
+### Risk: version domains can look comparable while meaning different things
+
+The current Windows-MCP package source reports 0.8.5 while a live server has separately exposed a different product/server version family. Numeric string comparison across those domains could trigger a false downgrade/upgrade. Stage 15 therefore preserves a healthy external instance and only compares versions when the adapter establishes a compatible version source.
+
+### Risk: upstream latest metadata can become temporarily unavailable
+
+Stage 15 resolved the official GitHub latest-release API successfully for MCPJungle 0.4.6 and mcp-auth-proxy 2.10.2, including expected Windows asset digests. An intermediate strict deployment dry-run received GitHub HTTP errors for both lookups; on the final rerun MCPJungle again resolved fresh 0.4.6 evidence while mcp-auth-proxy still returned `HTTPError`. The lifecycle planner preserved both running services and refused to invent fresh latest evidence for the unavailable lookup.
+
+The bounded resilience rule is now: a successful latest query may create a machine-local verified cache entry usable for at most 24 hours **as evidence only**. Cache reuse must revalidate component identity and GitHub asset URL/digest shape, is surfaced as `latest_fresh=false` / `latest_provenance=verified-cache`, and cannot authorize install/upgrade. A cache miss/expired entry remains blocking, so historical repository text cannot be silently promoted into a fresh latest result.
+
+### Risk: pre-closure prompts can become stale artifacts
+
+Commit `d08603a` prepared a Stage-15 continuation prompt before Stage 15 implementation/docs closure. It remains historical evidence only. The docs-before-prompt barrier requires the Stage 16 prompt to be regenerated from the real Stage 15 closure commit HEAD rather than submitted from that earlier artifact.
+
 ## Stage 14 — Production Unified Gateway / Edge
 
 ### Decision: route synchronization is idempotent and private to WebGPT

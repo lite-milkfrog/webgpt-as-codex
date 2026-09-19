@@ -1,1 +1,23 @@
-{"id":"coding-tools","display_name":"Coding Tools MCP","role":"code_execution","required":true,"enabled_by_default":true,"upstream":"https://github.com/xyTom/coding-tools-mcp","license":"Apache-2.0","transport":"streamable_http","default_endpoint":"http://127.0.0.1:8766/mcp","version_command":["coding-tools-mcp","--version"],"process_contains":["coding-tools-mcp"],"install_hint":"uv tool install coding-tools-mcp","safe_tool":"server_info","operating_guide":"skills/webgpt-as-codex/mcp-guides/coding-tools.md"}
+{
+  "id": "coding-tools",
+  "display_name": "Coding Tools MCP",
+  "role": "code_execution",
+  "required": true,
+  "enabled_by_default": true,
+  "upstream": "https://github.com/xyTom/coding-tools-mcp",
+  "license": "Apache-2.0",
+  "transport": "streamable_http",
+  "default_endpoint": "http://127.0.0.1:8766/mcp",
+  "version_command": ["coding-tools-mcp", "--version"],
+  "process_contains": ["coding-tools-mcp"],
+  "install_hint": "uv tool install coding-tools-mcp",
+  "install": {
+    "strategy": "uv-tool",
+    "package": "coding-tools-mcp",
+    "latest": {"source": "pypi", "package": "coding-tools-mcp"},
+    "requirements": ["uv"],
+    "compatibility": {"min_version": "0.3.0", "max_version_exclusive": "0.4.0"}
+  },
+  "safe_tool": "server_info",
+  "operating_guide": "skills/webgpt-as-codex/mcp-guides/coding-tools.md"
+}

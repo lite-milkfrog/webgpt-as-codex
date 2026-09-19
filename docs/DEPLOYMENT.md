@@ -6,6 +6,14 @@ An Agent or user starts from this repository only. The repository decides the de
 
 Deployment is discovery-first, idempotent and version-aware.
 
+The Stage 15 repository CLI for the component lifecycle plan is:
+
+```powershell
+webgpt-codex deploy
+```
+
+This is a dry-run by default. It reports preserve/install/upgrade/diagnose/manual state without mutating services. `--apply` installs missing components and upgrades already WebGPT-installed stopped components. A stopped older external install still requires the additional explicit `--adopt-external` flag before upgrade/adoption; a live external service is never silently taken over.
+
 ## Phase 0 — language and repository truth
 
 1. Select English or Chinese instructions.
@@ -62,6 +70,27 @@ For each declared MCP:
 8. mutate only after component-specific authority is established.
 
 Never deploy a duplicate healthy instance merely because a package executable is absent from PATH.
+
+Supported automatic installation channels are intentionally explicit:
+- Python MCP packages: `uv tool`;
+- Node MCP packages: global npm package;
+- Windows system prerequisites: allowlisted winget IDs;
+- WebGPT private binary dependencies: official GitHub Release asset + expected asset identity + SHA-256 digest;
+- hosted/account-pairing integrations such as Remote Desktop Commander: manual/authenticated action surfaced in the deployment report.
+
+Every automatic adapter also declares:
+- the toolchain it actually needs (for example `uv`, `node` + `npm`, or `winget`);
+- a compatibility window for versions WebGPT is allowed to install.
+
+Installed version, upstream latest and verified compatibility are separate fields. If the latest resolver is unavailable, the deployment report remains unknown/blocking rather than claiming the installed copy is current. If latest is outside the compatibility window, install/upgrade is blocked. If the existing installed version is newer but compatible, it is preserved and never downgraded.
+
+A successful latest lookup is cached machine-locally for no more than 24 hours. During a transient registry/API failure, only a still-fresh previously verified entry may be reused. For GitHub binary releases that entry must still contain the expected repository asset URL/name and SHA-256 evidence. With no valid cache, latest remains unknown/blocking.
+
+If uv or Node/npm is missing on a genuinely fresh machine, the deployment adapter may install the required toolchain through the approved winget package. If the target MCP is already healthy, missing PATH/toolchain evidence does not authorize a duplicate installation.
+
+Version comparison is only used inside a compatible version domain. A package version and an independently reported server/product version are not assumed comparable merely because both contain dotted numbers.
+
+Do not use commands such as `npx package@latest --version` to infer the installed version: that measures/fetches upstream latest and can fabricate a false local version. Package-manager metadata, owned receipts, a known machine binary or a real local version command may establish installed-version evidence; otherwise it stays unknown.
 
 ## Phase 5 — unified local Gateway
 

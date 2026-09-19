@@ -64,6 +64,40 @@ Machine state is outside Git.
 Secrets are generated/stored machine-locally and never embedded in manifests.
 Existing healthy services are discovered before any install or restart.
 
+## Component installation / version / ownership plane
+
+Stage 15 turns the repository into the deployment authority without treating discovery as mutation permission.
+
+Each built-in component can declare:
+- install strategy;
+- package/upstream identity;
+- latest-stable metadata source;
+- toolchain requirements used only when mutation is actually needed;
+- a compatibility window that is evaluated independently for the installed version and the latest candidate;
+- approved Windows artifact mapping when a binary release is used;
+- machine-local destination where WebGPT owns the artifact.
+
+The deployment planner resolves latest stable evidence from PyPI, npm, GitHub Releases or winget. GitHub binary releases additionally require the expected repository, expected asset name and release-provided SHA-256 digest.
+
+Successful latest resolution is cached only in machine-local state for a bounded 24-hour freshness window. Cache reuse preserves the already-validated component/version/source and, for GitHub binaries, asset URL/name/SHA-256 evidence. It is a resilience path for transient registry/API failure, not a permanent replacement for latest resolution; a fresh machine without online evidence or a valid cache still fails closed.
+
+The planner keeps three version truths separate: installed version, upstream latest version and compatibility status. A latest candidate outside the declared compatibility window is blocking and is never installed. A newer compatible existing install is preserved rather than downgraded. Network failure leaves latest evidence unknown; it is not translated into “already current”.
+
+Planning is discovery-first:
+- a healthy listener is preserved even if the package executable is absent from the current PATH;
+- an `@latest` package invocation is not an installed-version probe;
+- a healthy system process may be preserved without an HTTP listener;
+- a running but unhealthy component is diagnosed rather than blindly duplicated;
+- a newer compatible external installation is preserved;
+- an older external installation is reported as upgrade-available but is not silently adopted while it may still be serving active users;
+- a stopped older external installation can be upgraded only through an explicit adoption action; only then may WebGPT record install ownership;
+- missing components may be installed at the resolved stable version;
+- WebGPT-owned stopped components may be upgraded through their approved adapter.
+
+Installation ownership is persisted outside Git under machine-local state. That receipt records who installed the component, not an automatic right to kill/restart it. Runtime lifecycle authority remains a separate contract with its own identity evidence.
+
+The fresh-machine toolchain path may provision missing uv and Node/npm through allowlisted winget packages. Existing healthy MCP services remain the stronger availability signal on an already configured machine.
+
 ## Edge contract
 The public path is one HTTPS MCP endpoint.
 Tailscale Funnel terminates public HTTPS and forwards to the local OAuth compatibility adapter.

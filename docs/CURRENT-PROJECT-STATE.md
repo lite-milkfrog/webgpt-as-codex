@@ -1,9 +1,9 @@
 # Current Project State
 
 PROJECT = WebGPT-as-Codex
-CURRENT_STAGE = STAGE-15-COMPONENT-INSTALL-UPGRADE-LIFECYCLE
-NEXT_STAGE = STAGE-16-CONCURRENCY-SESSION-ISOLATION-FALLBACK
-AFTER_NEXT_STAGE = STAGE-17-MANAGER-UX-BILINGUAL-DESKTOP
+CURRENT_STAGE = STAGE-16-CONCURRENCY-SESSION-ISOLATION-FALLBACK
+NEXT_STAGE = STAGE-17-MANAGER-UX-BILINGUAL-DESKTOP
+AFTER_NEXT_STAGE = STAGE-18-CHINESE-MIRROR-AND-THIRD-PARTY-NOTICES
 
 Stage 1: CLOSED_LOCAL_VERIFIED
 Stage 2: CLOSED_LOCAL_VERIFIED
@@ -23,8 +23,8 @@ Project Complete: CLOSED_LOCAL_VERIFIED
 Supplemental chain (user requirements added after the accepted TERMINAL state):
 - Stage 13: CLOSED_LOCAL_VERIFIED
 - Stage 14: CLOSED_LOCAL_VERIFIED
-- Stage 15: IN_PROGRESS
-- Stage 16: PLANNED
+- Stage 15: CLOSED_LOCAL_VERIFIED
+- Stage 16: IN_PROGRESS
 - Stage 17: PLANNED
 - Stage 18: PLANNED
 - Stage 19: PLANNED
@@ -53,6 +53,21 @@ Stage 14 proof:
 - full repository gate: 120 PASS, Ruff PASS, secret scan PASS, `git diff --check` PASS.
 
 Stage 14 closure: `docs/STAGE-14-CLOSURE.md`.
+
+Stage 15 proof:
+- all eight built-in components now carry explicit install/latest-source metadata; automatic adapters additionally carry explicit toolchain requirements and compatibility windows;
+- `webgpt-codex deploy` resolves latest stable evidence through PyPI, npm, GitHub Releases or winget and keeps installed/latest/verified-compatible/install/lifecycle authority separate;
+- GitHub Release artifacts require expected repository/asset identity plus release-provided SHA-256 before provisioning;
+- healthy existing listeners are preserved even when the executable/package is absent from the current shell PATH;
+- `@latest` is never used as an installed-version probe; unknown local versions remain unknown rather than being replaced by upstream metadata;
+- an upstream version outside the manifest compatibility window fails closed; a newer compatible local install is preserved and never downgraded;
+- system-process components such as Tailscale are not misclassified merely because they have no MCP HTTP listener;
+- WebGPT install ownership is persisted machine-locally and does not automatically grant runtime kill/restart authority; stopped external installs require explicit `--adopt-external` before controlled upgrade/adoption;
+- current-machine dry-runs made no mutation and proposed no duplicate install. Live PyPI/npm/winget metadata resolved successfully; same-stage GitHub API evidence resolved MCPJungle 0.4.6 and mcp-auth-proxy 2.10.2. An intermediate strict rerun saw both GitHub lookups fail; on the final rerun MCPJungle recovered fresh 0.4.6 evidence while mcp-auth-proxy still returned `HTTPError`, so only that row remained blocking/unavailable;
+- successful latest-release metadata is cached machine-locally for at most 24 hours as verified fallback evidence. Cache reuse is explicitly marked `latest_fresh=false` / `latest_provenance=verified-cache` and cannot authorize install/upgrade; a cacheless failure remains unavailable/blocking;
+- full repository gate: 146 PASS, Ruff PASS, secret scan PASS, `git diff --check` PASS.
+
+Stage 15 closure: `docs/STAGE-15-CLOSURE.md`.
 
 Repository: local checkout; use the active project/workspace binding rather than committing a machine-specific absolute path.
 Stage 4 proof: unified Gateway, 4 core MCP backends, 87 tools, safe calls PASS.

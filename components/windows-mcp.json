@@ -1,1 +1,22 @@
-{"id":"windows-mcp","display_name":"Windows-MCP","role":"windows_gui","required":true,"enabled_by_default":true,"upstream":"https://github.com/CursorTouch/Windows-MCP","license":"MIT","transport":"streamable_http","default_endpoint":"http://127.0.0.1:8001/mcp","version_command":["windows-mcp","--version"],"process_contains":["windows-mcp"],"install_hint":"uv tool install windows-mcp","safe_tool":"DisplayInventory"}
+{
+  "id": "windows-mcp",
+  "display_name": "Windows-MCP",
+  "role": "windows_gui",
+  "required": true,
+  "enabled_by_default": true,
+  "upstream": "https://github.com/CursorTouch/Windows-MCP",
+  "license": "MIT",
+  "transport": "streamable_http",
+  "default_endpoint": "http://127.0.0.1:8001/mcp",
+  "version_command": ["windows-mcp", "--version"],
+  "process_contains": ["windows-mcp"],
+  "install_hint": "uv tool install windows-mcp",
+  "install": {
+    "strategy": "uv-tool",
+    "package": "windows-mcp",
+    "latest": {"source": "pypi", "package": "windows-mcp"},
+    "requirements": ["uv"],
+    "compatibility": {"min_version": "0.8.5", "max_version_exclusive": "1.0.0"}
+  },
+  "safe_tool": "DisplayInventory"
+}

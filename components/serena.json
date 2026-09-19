@@ -1,1 +1,23 @@
-{"id":"serena","display_name":"Serena","role":"code_semantics","required":true,"enabled_by_default":true,"upstream":"https://github.com/oraios/serena","license_note":"v1.7.0 historical release; upstream main application GPL-3.0-or-later, SolidLSP MIT","transport":"streamable_http","default_endpoint":"http://127.0.0.1:9121/mcp","version_command":["serena","--version"],"process_contains":["serena","start-mcp-server"],"install_hint":"uv tool install serena-agent","safe_tool":"get_current_config","operating_guide":"skills/webgpt-as-codex/mcp-guides/serena.md"}
+{
+  "id": "serena",
+  "display_name": "Serena",
+  "role": "code_semantics",
+  "required": true,
+  "enabled_by_default": true,
+  "upstream": "https://github.com/oraios/serena",
+  "license_note": "v1.7.0 historical release; upstream main application GPL-3.0-or-later, SolidLSP MIT",
+  "transport": "streamable_http",
+  "default_endpoint": "http://127.0.0.1:9121/mcp",
+  "version_command": ["serena", "--version"],
+  "process_contains": ["serena", "start-mcp-server"],
+  "install_hint": "uv tool install serena-agent",
+  "install": {
+    "strategy": "uv-tool",
+    "package": "serena-agent",
+    "latest": {"source": "pypi", "package": "serena-agent"},
+    "requirements": ["uv"],
+    "compatibility": {"min_version": "1.7.0", "max_version_exclusive": "2.0.0"}
+  },
+  "safe_tool": "get_current_config",
+  "operating_guide": "skills/webgpt-as-codex/mcp-guides/serena.md"
+}

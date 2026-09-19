@@ -1,1 +1,22 @@
-{"id":"playwright","display_name":"Playwright MCP","role":"browser_webapp","required":true,"enabled_by_default":true,"upstream":"https://github.com/microsoft/playwright-mcp","license":"Apache-2.0","transport":"streamable_http","default_endpoint":"http://127.0.0.1:8931/mcp","version_command":["npx","@playwright/mcp@latest","--version"],"process_contains":["@playwright","mcp"],"install_hint":"npm install -g @playwright/mcp","safe_tool":"browser_snapshot"}
+{
+  "id": "playwright",
+  "display_name": "Playwright MCP",
+  "role": "browser_webapp",
+  "required": true,
+  "enabled_by_default": true,
+  "upstream": "https://github.com/microsoft/playwright-mcp",
+  "license": "Apache-2.0",
+  "transport": "streamable_http",
+  "default_endpoint": "http://127.0.0.1:8931/mcp",
+  "version_command": [],
+  "process_contains": ["@playwright", "mcp"],
+  "install_hint": "npm install -g @playwright/mcp",
+  "install": {
+    "strategy": "npm-global",
+    "package": "@playwright/mcp",
+    "latest": {"source": "npm", "package": "@playwright/mcp"},
+    "requirements": ["node", "npm"],
+    "compatibility": {"min_version": "0.0.80", "max_version_exclusive": "0.1.0"}
+  },
+  "safe_tool": "browser_snapshot"
+}

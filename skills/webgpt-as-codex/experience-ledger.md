@@ -1,3 +1,53 @@
+## 2026-09-20 — Installed, latest and compatible are different facts
+
+Origin:
+- Stage 15 component lifecycle hardening and real existing-machine dry-runs.
+
+Protected lesson:
+- never use `package@latest --version` as proof of what is installed locally;
+- model installed version, upstream latest and compatibility independently;
+- newer compatible installs are preserve/no-downgrade;
+- latest outside the verified compatibility window blocks mutation;
+- upstream metadata failure remains unknown/blocking instead of becoming “already latest”;
+- external install upgrade requires explicit adoption before WebGPT records install ownership.
+
+## 2026-09-20 — Deployment discovery must outrank PATH/package absence
+
+Origin:
+- Stage 15 real deploy dry-run in a service-like Coding Tools environment.
+- Serena/Coding Tools were live and healthy while uv/the corresponding package executable was not visible in that shell.
+
+Protected lesson:
+- do not infer “MCP absent” from PATH/package-manager evidence alone;
+- listener/protocol/process truth can prove an existing service that must be preserved;
+- fresh-machine installation and existing-machine preservation are different branches of the same deployment state machine;
+- never create a duplicate instance merely to make package discovery look tidy.
+
+## 2026-09-20 — Latest version and lifecycle authority are separate decisions
+
+Origin:
+- Stage 15 latest-stable resolution across PyPI/npm/GitHub Releases/winget.
+- current Tailscale was healthy at 1.102.2 while winget reported 1.102.4.
+
+Protected lesson:
+- latest stable is useful deployment evidence, not automatic permission to mutate an actively used external service;
+- WebGPT-installed ownership is durable machine-local evidence, but runtime stop/restart authority stays separate;
+- GitHub binary upgrades require expected upstream/asset identity plus release SHA-256;
+- version strings from different package/server/product domains are not automatically comparable.
+
+## 2026-09-20 — Latest metadata cache is bounded evidence, not truth substitution
+
+Origin:
+- Stage 15 first resolved official GitHub release metadata successfully, then reproduced transient GitHub HTTP errors during a later strict dry-run.
+
+Protected lesson:
+- registry/API availability and target component health are separate states;
+- never reinstall/restart a healthy component because latest metadata is temporarily unavailable;
+- persist successful latest metadata only machine-locally and only with a bounded freshness window;
+- GitHub cache entries must retain validated repository asset URL/name/SHA-256 evidence;
+- cached metadata must be labeled non-fresh and may inform diagnosis/compatibility display but must never authorize install/upgrade;
+- a fresh machine without current online evidence remains fail-closed.
+
 # Experience Ledger Contract
 
 For every defensive rule keep:

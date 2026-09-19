@@ -193,11 +193,19 @@ def provision_component(
             "architecture": arch,
         }
 
+    return provision_artifact(artifact, force=force)
+
+
+def provision_artifact(
+    artifact: ApprovedArtifact,
+    *,
+    force: bool = False,
+) -> dict[str, Any]:
     target = _destination(artifact)
     if target.is_file() and not force:
         return {
             "ok": True,
-            "component_id": component_id,
+            "component_id": artifact.component_id,
             "status": "preserved-existing",
             "version": artifact.version,
             "destination": artifact.destination,
@@ -208,11 +216,11 @@ def provision_component(
         ensure_state_dirs()
         / "downloads"
         / "provision"
-        / component_id
+        / artifact.component_id
         / artifact.version
     )
     suffix = ".zip" if artifact.archive_member is not None else ".exe"
-    downloaded = download_root / f"{component_id}-{arch}{suffix}"
+    downloaded = download_root / f"{artifact.component_id}-{artifact.architecture}{suffix}"
 
     if not downloaded.is_file() or _sha256(downloaded) != artifact.sha256:
         downloaded.unlink(missing_ok=True)
@@ -221,13 +229,13 @@ def provision_component(
     if target.exists() and force:
         backup_root = ensure_state_dirs() / "runtime" / "provision-backups"
         backup_root.mkdir(parents=True, exist_ok=True)
-        backup = backup_root / f"{target.name}.{component_id}.bak"
+        backup = backup_root / f"{target.name}.{artifact.component_id}.bak"
         shutil.copy2(target, backup)
 
     _stage_executable(artifact, downloaded, target)
     return {
         "ok": True,
-        "component_id": component_id,
+        "component_id": artifact.component_id,
         "status": "provisioned",
         "version": artifact.version,
         "destination": artifact.destination,
