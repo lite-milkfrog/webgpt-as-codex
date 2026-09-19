@@ -1,0 +1,14 @@
+{
+  "name": "webgpt-as-codex",
+  "version": "0.1.0",
+  "roles": ["local-sot", "mcp-routing", "loop-engineering", "doctor-repair", "handoff"],
+  "invariants": [
+    "local_sot_before_chat_memory",
+    "current_next_after_next",
+    "validation_before_closure",
+    "docs_before_handoff",
+    "failure_diagnosis_before_fallback",
+    "worktree_isolation_for_parallel_writers",
+    "no_secrets_in_git"
+  ]
+}

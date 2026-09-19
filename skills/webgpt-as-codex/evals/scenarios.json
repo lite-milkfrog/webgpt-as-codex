@@ -1,0 +1,9 @@
+[
+  {"id":"repo-long-task","expect":"read-local-sot-first"},
+  {"id":"serena-down","expect":"diagnose-before-repo-search-fallback"},
+  {"id":"web-form","expect":"playwright-before-coordinate-gui"},
+  {"id":"parallel-edit","expect":"separate-worktree"},
+  {"id":"handoff","expect":"docs-then-submit-then-verify-run"},
+  {"id":"old-rule","expect":"trace-origin-before-retire"},
+  {"id":"mcp-port-open","expect":"do-not-equate-listener-with-protocol-health"}
+]
