@@ -40,3 +40,14 @@ Machine-local Manager configuration lives outside Git under the normal state roo
 The UI lifecycle does not own runtime lifecycle. Closing a tab only removes the browser view. Manager and later runtime supervisors are independent processes, and agent runtimes are not children of the browser UI.
 
 Stage 6 defines fixed action contracts only: Start All, Restart, Doctor, Repair and Update. There is no arbitrary-command endpoint. Mutating contracts require confirmation, POST requests require the same-origin control header, and real executors are injected only by their owner stages: Doctor/Repair in Stage 7, Start/Restart in Stage 8, and Update hardening later.
+
+## Bootstrap / Doctor / Repair
+Bootstrap is discovery-first and idempotent. It evaluates component manifests plus live discovery before proposing work. A component with an already healthy listener is preserved. Installed-but-stopped runtimes are reported as deferred to Stage 8 rather than being started by bootstrap. Bootstrap apply only creates/verifies machine-local state layout and persists a sanitized plan; it does not install, start or restart services.
+
+Doctor owns deep, explicit health evidence. Process, listener, MCP protocol, safe call, OAuth and remote remain separate fields. Deeper checks are prerequisite-aware: a failed listener does not create synthetic protocol/safe-call failures, and a listener never proves protocol health. Safe MCP checks use initialize, tools/list and only the manifest-declared safe tool. Network-capable version commands such as `@latest` are skipped; ambiguous banner output falls back to verified manifest version instead of guessing.
+
+Doctor persists `doctor/last-result.json` under the machine-local state root only after recursive sanitization. Raw process command lines, credentials, private URLs and machine-only paths are not repository evidence. The Manager continues to poll shallowly and consumes this durable Doctor result.
+
+OAuth Doctor checks are intentionally read-only. Local metadata can establish local metadata health, but the project still treats real public HTTPS as authoritative for OAuth acceptance. Doctor may validate a configured public HTTPS edge with protected-resource metadata plus the unauthenticated 401 challenge; it does not create DCR clients, tokens or mutate the OAuth database merely to refresh a status screen.
+
+Repair is a fixed allowlist, not a shell. Stage 7 permits only state-layout creation and bounded Manager-config repairs. Mutating use requires confirmation and configuration edits create a machine-local backup first. Runtime recovery remains a diagnostic hint until Stage 8 owns start/restart supervision.

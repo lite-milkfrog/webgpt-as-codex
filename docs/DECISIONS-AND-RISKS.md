@@ -53,3 +53,26 @@ Protocol/OAuth/remote fields may be unknown or stale until Stage 7 writes a fres
 
 ### Risk: workspace binding drift
 The shared Coding Tools service was bound to a different repository during Stage 6. Repository writes were therefore moved into a dedicated Git worktree inside the Coding Tools workspace rather than bypassing its path boundary. Future windows must verify workspace binding before writes.
+
+## Stage 7 — Bootstrap / Doctor / Repair
+
+### Decision: bootstrap discovers before it mutates
+Bootstrap preserves an already healthy listener and never treats “installed” as permission to restart it. Stage 7 apply is limited to creating/verifying machine-local state directories and persisting the plan. Runtime start/restart remains Stage 8 ownership.
+
+### Decision: health evidence is prerequisite-aware
+Process, listener, protocol, safe-call, OAuth and remote are stored independently. Protocol is attempted only after a listener is present; safe-call only after protocol succeeds; OAuth metadata only when its local listener is present; remote only when a valid credential-free public HTTPS endpoint is configured. Unattempted deeper checks remain unknown rather than becoming cascaded failures.
+
+### Decision: Doctor is read-only with respect to OAuth authority
+The normal Doctor checks OAuth metadata locally and may probe the configured real HTTPS edge for protected-resource metadata plus the expected unauthenticated 401 challenge. It does not create clients/tokens or mutate OAuth state. Full DCR/PKCE/consent/token/refresh acceptance remains an explicit real-HTTPS integration gate.
+
+### Decision: bounded Repair has no shell surface
+Repair accepts only named repository-defined actions. Apply requires explicit confirmation. Manager configuration repairs back up the original machine-local file before replacement/edit. Runtime failures produce targeted hints instead of generic command execution.
+
+### Risk: version probes can lie if arbitrary banner text is parsed
+Doctor accepts explicit version-labelled or exact-semver command output and otherwise falls back to verified manifest evidence. This prevents dotted addresses or banner decoration from being reported as versions.
+
+### Risk: live Doctor can correctly be red while the Stage is green
+A machine may intentionally have Gateway/OAuth runtime listeners stopped. Stage 7 closure means the diagnostic/bootstrap/repair contracts are verified, not that Stage 7 silently starts later-stage runtimes. Stage 8 owns bringing repository-managed services up.
+
+### Risk: test environment can import the wrong editable worktree
+The shared virtual environment points at the canonical repository. Stage 7 tests in the Coding Tools worktree therefore used an explicit worktree `PYTHONPATH`. A missing pytest/module import in the harness is not target-code evidence.

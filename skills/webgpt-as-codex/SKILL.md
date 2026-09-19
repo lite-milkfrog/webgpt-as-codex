@@ -2,7 +2,7 @@
 name: webgpt-as-codex
 description: Local-first MCP computer/coding agent workflow with durable SoT, Loop Engineering, verified handoff, Doctor/Repair, gateway routing and multi-window continuation.
 metadata:
-  version: 0.1.0
+  version: 0.2.0
   portability: public-safe-local-first
   secrets-policy: no-secrets-in-skill
 ---
@@ -58,6 +58,16 @@ See `add-mcp.md`.
 The Manager is a loopback-only local control surface backed by the component registry and durable Doctor evidence.
 Its browser UI never owns agent runtimes, polling stays bounded/shallow, and health levels remain distinct.
 Manager actions are a fixed allowlist whose real executors are supplied only by the stage that owns their safety contract.
+
+## Bootstrap / Doctor / Repair discipline
+- bootstrap must discover first and preserve a healthy service; installed-but-stopped does not authorize an automatic restart;
+- Doctor records process, listener, protocol, safe-call, OAuth and remote independently and respects prerequisites between deeper checks;
+- a listener is never protocol proof, and an unattempted deeper check is unknown rather than failed;
+- skip version probes that can fetch/update packages (for example an `@latest` command) and reject ambiguous dotted banner text as version evidence;
+- persist Doctor results only in sanitized machine-local state; never persist raw process command lines, credentials or private endpoints into Git;
+- local OAuth metadata is useful diagnosis, while real HTTPS remains authoritative for final OAuth acceptance;
+- Repair is a fixed action allowlist with dry-run/confirmation/backups; never turn Repair into a generic shell;
+- runtime start/restart belongs to the runtime-owner stage, not to Bootstrap or Doctor.
 
 ## Completion
 A stage is complete only when owned behavior is implemented, relevant tests are green, post-state is verified, affected docs are updated, and remaining work is represented in CURRENT/NEXT/AFTER_NEXT.

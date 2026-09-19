@@ -11,6 +11,8 @@
   "version_strategy": "resolve official GitHub Releases; verified latest during Stage 4 was 0.4.5",
   "verified_release": "0.4.5",
   "version_command": ["mcpjungle", "version"],
+  "machine_binary": "bin/mcpjungle/mcpjungle.exe",
+  "process_contains": ["mcpjungle", "start"],
   "install_hint": "download official GitHub release asset and verify checksums.txt",
   "safe_tool": null
 }

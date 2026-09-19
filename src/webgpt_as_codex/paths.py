@@ -57,6 +57,17 @@ def state_root() -> Path:
 
 def ensure_state_dirs() -> Path:
     root = state_root()
-    for name in ("logs", "pids", "downloads", "config", "secrets", "bin"):
+    for name in (
+        "logs",
+        "pids",
+        "downloads",
+        "config",
+        "secrets",
+        "bin",
+        "doctor",
+        "bootstrap",
+        "repair",
+        "handoffs",
+    ):
         (root / name).mkdir(parents=True, exist_ok=True)
     return root

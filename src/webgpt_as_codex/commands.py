@@ -15,7 +15,7 @@ def dispatch(command: str, argv: list[str]) -> int:
         from .runtime import cli_stop
         return cli_stop(argv)
     if command == "repair":
-        from .runtime import cli_repair
+        from .repair import cli_repair
         return cli_repair(argv)
     if command == "manager":
         from .manager import cli_manager

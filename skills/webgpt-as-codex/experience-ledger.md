@@ -103,3 +103,34 @@ Protected lesson:
 - no arbitrary command or argument surface belongs in the Manager API;
 - confirmation is required for mutating contracts;
 - real executors are injected by the stage that owns their safety and rollback semantics.
+
+## 2026-09-19 — Deep health checks must respect prerequisites
+
+Origin:
+- Stage 7 live Doctor found a real process/listener split: the OAuth proxy process existed while its expected listener was down, and MCPJungle was installed but not running.
+
+Protected lesson:
+- process alive, listener alive, MCP protocol healthy and safe-call healthy are independent evidence;
+- do not report protocol/safe-call unknowns as extra failures when listener prerequisite is absent;
+- do not report remote unknown as degradation when no public endpoint is configured or remote checking is explicitly disabled;
+- a red live Doctor can be correct without authorizing Stage 7 to start the service.
+
+## 2026-09-19 — Version output is evidence only when unambiguous
+
+Origin:
+- the first Stage 7 MCPJungle version parser matched dotted address-like banner text as `127.0.0`.
+
+Protected lesson:
+- accept explicit version-labelled values or exact semver lines;
+- otherwise fall back to verified manifest evidence instead of guessing;
+- skip network-capable version commands such as `@latest` during Doctor.
+
+## 2026-09-19 — Editable environments can import the wrong worktree
+
+Origin:
+- Coding Tools was correctly constrained to its configured workspace, so Stage 7 used an isolated Git worktree there; the shared virtual environment still pointed its editable package at the canonical tree.
+
+Protected lesson:
+- distinguish missing test dependencies from target failures;
+- when validating an isolated worktree with a shared venv, make the target source root explicit (for example through `PYTHONPATH`);
+- do not install into or rewrite a shared environment merely to hide a harness-binding mismatch.

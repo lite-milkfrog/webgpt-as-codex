@@ -224,10 +224,20 @@ def build_server(
 ) -> ManagerHTTPServer:
     if host not in {"127.0.0.1", "::1", "localhost"}:
         raise ValueError("Manager is loopback-only")
+    if action_runner is None:
+        from .doctor import manager_doctor_executor
+        from .repair import manager_repair_executor
+
+        action_runner = ActionRunner(
+            {
+                "doctor": manager_doctor_executor,
+                "repair": manager_repair_executor,
+            }
+        )
     return ManagerHTTPServer(
         (host, port),
         status_service=status_service or ManagerStatusService(),
-        action_runner=action_runner or ActionRunner(),
+        action_runner=action_runner,
     )
 
 
