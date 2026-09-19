@@ -246,3 +246,33 @@ Tailscale is now an explicit environment gate. Installation may be automated fro
 ### Risk: fresh-machine binary bootstrap becomes an unbounded downloader
 
 WebGPT-owned MCPJungle/mcp-auth-proxy bootstrap uses repository-approved official release origins and SHA-256 verification. Existing binaries are preserved by default. Stage 15 may add latest-stable resolution, but source-origin and compatibility validation remain mandatory.
+
+## Stage 14 — Production Unified Gateway / Edge
+
+### Decision: route synchronization is idempotent and private to WebGPT
+
+The Edge queries the WebGPT MCPJungle registry before mutation. A healthy backend whose existing route already has the same Streamable HTTP transport and URL is preserved. A missing route is registered; a same-name route whose URL changed is force-replaced only inside WebGPT's private Gateway database. Upstream MCP configuration is never rewritten by route synchronization.
+
+### Decision: the production Edge wrapper, not third-party backends, is the owned runtime
+
+Runtime Supervisor owns the Python Edge wrapper plus the child OAuth process it launches. Serena, Coding Tools, Playwright and Windows-MCP remain external/preserved until a later explicit lifecycle stage gives WebGPT ownership evidence. Manager restart scope therefore expands only to the fixed WebGPT Edge id, not to routed MCPs.
+
+### Decision: production OAuth credentials are separate machine-local runtime state
+
+The Stage 5 integration-test password/database are not reused as runtime authority. The production Edge owns a separate machine-local credential and OAuth data directory. Source, docs, manifests and static UI never contain the credential.
+
+### Live acceptance
+
+The current machine's WebGPT production Edge on the dedicated Funnel port passed:
+- public protected-resource metadata;
+- unauthenticated MCP 401;
+- dynamic client registration;
+- PKCE authorization-code token exchange;
+- authenticated unified Gateway MCP with 87 routed tools and a safe Coding Tools call;
+- Runtime Supervisor restart;
+- refresh token after restart;
+- authenticated MCP again with the same 87-tool surface.
+
+### Risk: repeated Gateway registration can destroy useful registry continuity
+
+Using `register --force` on every Edge start could churn MCPJungle registry records and any identity-associated state. The implementation therefore queries current registry state and uses force only when a same-name route actually changed.

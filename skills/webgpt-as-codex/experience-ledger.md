@@ -21,6 +21,31 @@ Protected examples:
 
 Never delete a lesson only because current code looks simpler.
 
+## 2026-09-20 — Unified Gateway route sync must preserve identical registrations
+
+Origin:
+- Supplemental Stage 14 productionization.
+- The first route-sync draft used MCPJungle `register --force` on every Edge start.
+
+Protected lesson:
+- query the private Gateway registry before mutation;
+- same route identity + transport + URL is a preserve operation, not an update;
+- force replacement is justified only when a same-name route actually changed;
+- route ownership does not imply lifecycle ownership of the upstream MCP;
+- verify the aggregated MCP surface after synchronization rather than inferring success from a registry CLI exit code.
+
+## 2026-09-20 — Production OAuth Edge requires restart continuity, not only first-login success
+
+Origin:
+- Supplemental Stage 14 real production Edge acceptance.
+
+Protected lesson:
+- production OAuth credentials and OAuth database are explicit machine-local runtime state, separate from integration-test credentials;
+- real HTTPS remains the authority for metadata, DCR/PKCE/token and authenticated MCP behavior;
+- acceptance includes an unauthenticated 401 gate;
+- restart the owned Edge through the Runtime Supervisor, then prove an existing refresh token still works and the unified MCP tool surface remains stable;
+- do not restart routed external MCP backends merely because the Edge restarts.
+
 ## 2026-09-19 — Real HTTPS is authoritative for OAuth acceptance
 
 Origin:

@@ -226,7 +226,7 @@ def test_manager_restart_requires_fixed_component_scope() -> None:
     result = runtime.manager_restart_executor(object(), {"component": "serena"})
     assert result["ok"] is False
     assert result["status"] == "invalid-component-scope"
-    assert result["allowed_components"] == ["mcpjungle"]
+    assert result["allowed_components"] == ["mcp-auth-proxy", "mcpjungle"]
 
 
 def test_desktop_launcher_and_autostart_are_reversible_and_credential_free(

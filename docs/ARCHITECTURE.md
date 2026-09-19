@@ -71,6 +71,18 @@ The compatibility adapter preserves forwarded HTTPS host/proto semantics and ser
 mcp-auth-proxy owns OAuth 2.1, dynamic client registration, PKCE, access/refresh tokens and backend authorization.
 MCPJungle owns protocol aggregation only.
 
+The production Edge lifecycle is repository-owned through a wrapper runtime. The wrapper:
+- waits for the local Gateway;
+- synchronizes only healthy enabled Streamable HTTP backends into the WebGPT-private MCPJungle registry;
+- preserves an already identical route instead of force-replacing it on every restart;
+- creates/reuses its OAuth credential under machine-local `secrets/`;
+- starts mcp-auth-proxy and the compatibility adapter;
+- publishes the compatibility adapter through the dedicated Tailscale Funnel port;
+- persists only non-secret Edge status/public URL into machine-local state;
+- tears down only the Funnel/child processes that belong to this owned Edge wrapper.
+
+The Edge wrapper gaining lifecycle authority does not grant lifecycle authority over its routed backend MCPs.
+
 ## Health model
 Process -> listener -> MCP initialize -> tools/list -> safe tool call -> OAuth metadata -> DCR/PKCE -> refresh -> remote endpoint.
 Each level is reported separately.

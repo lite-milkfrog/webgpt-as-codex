@@ -21,6 +21,7 @@ def build_parser() -> argparse.ArgumentParser:
     sub.add_parser("autostart")
     sub.add_parser("repair")
     sub.add_parser("manager")
+    sub.add_parser("edge-runtime")
     sub.add_parser("bootstrap")
     sub.add_parser("add-mcp")
     sub.add_parser("loop")
@@ -50,6 +51,7 @@ def main(argv: list[str] | None = None) -> int:
         "autostart",
         "repair",
         "manager",
+        "edge-runtime",
         "bootstrap",
         "add-mcp",
         "loop",

@@ -73,6 +73,21 @@ def _manager_cwd() -> Path:
     return ensure_state_dirs()
 
 
+def _auth_edge_argv() -> list[str]:
+    return [
+        sys.executable,
+        "-m",
+        "webgpt_as_codex",
+        "edge-runtime",
+    ]
+
+
+def _auth_edge_cwd() -> Path:
+    path = ensure_state_dirs() / "edge"
+    path.mkdir(parents=True, exist_ok=True)
+    return path
+
+
 RUNTIME_SPECS: dict[str, RuntimeSpec] = {
     "manager": RuntimeSpec(
         "manager",
@@ -81,6 +96,14 @@ RUNTIME_SPECS: dict[str, RuntimeSpec] = {
         "http://127.0.0.1:9200/healthz",
         _manager_argv,
         _manager_cwd,
+    ),
+    "mcp-auth-proxy": RuntimeSpec(
+        "mcp-auth-proxy",
+        "WebGPT OAuth Edge",
+        "http://127.0.0.1:9341/mcp",
+        "http://127.0.0.1:9341/.well-known/oauth-protected-resource",
+        _auth_edge_argv,
+        _auth_edge_cwd,
     ),
     "mcpjungle": RuntimeSpec(
         "mcpjungle",
@@ -92,7 +115,7 @@ RUNTIME_SPECS: dict[str, RuntimeSpec] = {
     ),
 }
 
-MANAGER_RESTARTABLE = frozenset({"mcpjungle"})
+MANAGER_RESTARTABLE = frozenset({"mcpjungle", "mcp-auth-proxy"})
 
 
 def _pid_path(component_id: str) -> Path:
@@ -469,7 +492,15 @@ class RuntimeSupervisor:
         snapshot = process_snapshot()
         rows: list[dict[str, Any]] = []
         required_unmanaged_missing: list[str] = []
-        for component_id, component in sorted(components.items()):
+        from .prerequisites import environment_report
+
+        environment = environment_report()
+        start_priority = {"mcpjungle": 0, "mcp-auth-proxy": 1}
+        ordered_components = sorted(
+            components.items(),
+            key=lambda item: (start_priority.get(item[0], 10), item[0]),
+        )
+        for component_id, component in ordered_components:
             live = discovery.get(component_id, {})
             process_up = process_health(component, snapshot)
             if live.get("listener_up") is True or (
@@ -486,6 +517,15 @@ class RuntimeSupervisor:
                             if live.get("listener_up") is True
                             else "process"
                         ),
+                    }
+                )
+            elif component_id == "mcp-auth-proxy" and component.enabled_by_default and not environment["ready_for_edge"]:
+                rows.append(
+                    {
+                        "component_id": component_id,
+                        "status": "prerequisites-not-ready",
+                        "ok": False,
+                        "next_steps": environment["next_steps"],
                     }
                 )
             elif component_id in self.specs and component.enabled_by_default:

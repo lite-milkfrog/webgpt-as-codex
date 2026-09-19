@@ -32,6 +32,9 @@ def dispatch(command: str, argv: list[str]) -> int:
     if command == "manager":
         from .manager import cli_manager
         return cli_manager(argv)
+    if command == "edge-runtime":
+        from .edge_runtime import cli_edge_runtime
+        return cli_edge_runtime(argv)
     if command == "bootstrap":
         from .bootstrap import cli_bootstrap
         return cli_bootstrap(argv)

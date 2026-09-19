@@ -1,9 +1,9 @@
 # Current Project State
 
 PROJECT = WebGPT-as-Codex
-CURRENT_STAGE = STAGE-14-PRODUCTION-UNIFIED-GATEWAY-EDGE
-NEXT_STAGE = STAGE-15-COMPONENT-INSTALL-UPGRADE-LIFECYCLE
-AFTER_NEXT_STAGE = STAGE-16-CONCURRENCY-SESSION-ISOLATION-FALLBACK
+CURRENT_STAGE = STAGE-15-COMPONENT-INSTALL-UPGRADE-LIFECYCLE
+NEXT_STAGE = STAGE-16-CONCURRENCY-SESSION-ISOLATION-FALLBACK
+AFTER_NEXT_STAGE = STAGE-17-MANAGER-UX-BILINGUAL-DESKTOP
 
 Stage 1: CLOSED_LOCAL_VERIFIED
 Stage 2: CLOSED_LOCAL_VERIFIED
@@ -22,8 +22,8 @@ Project Complete: CLOSED_LOCAL_VERIFIED
 
 Supplemental chain (user requirements added after the accepted TERMINAL state):
 - Stage 13: CLOSED_LOCAL_VERIFIED
-- Stage 14: PLANNED
-- Stage 15: PLANNED
+- Stage 14: CLOSED_LOCAL_VERIFIED
+- Stage 15: IN_PROGRESS
 - Stage 16: PLANNED
 - Stage 17: PLANNED
 - Stage 18: PLANNED
@@ -42,6 +42,17 @@ Stage 13 live implementation evidence so far:
 - live Coding Tools evidence shows more than one server-managed command can be active with overlapping execution windows, while one server remains bound to one configured workspace; parallel writers therefore still require worktree/workspace isolation.
 
 Stage 13 closure: `docs/STAGE-13-CLOSURE.md`.
+
+Stage 14 proof:
+- WebGPT's private MCPJungle route sync is idempotent: same name/transport/URL is preserved, missing routes are registered, changed routes are replaced only inside the WebGPT Gateway registry;
+- current live Gateway aggregated Coding Tools, Serena, Playwright and Windows-MCP through localhost endpoints and returned MCP initialize 200 plus `tools/list=87`;
+- production OAuth Edge is now a repository-owned Runtime Supervisor target while external MCP backends remain outside WebGPT kill/restart authority;
+- OAuth credential is generated/reused only in the machine-local WebGPT secrets root;
+- a real production Tailscale `:10003` run passed public OAuth metadata, unauthenticated MCP 401, DCR + PKCE + token, authenticated MCP safe call, controlled Edge restart, refresh-token continuity and a second authenticated MCP call with the same 87-tool surface;
+- the real Edge restart did not restart Serena, Coding Tools, Playwright or Windows-MCP;
+- full repository gate: 120 PASS, Ruff PASS, secret scan PASS, `git diff --check` PASS.
+
+Stage 14 closure: `docs/STAGE-14-CLOSURE.md`.
 
 Repository: local checkout; use the active project/workspace binding rather than committing a machine-specific absolute path.
 Stage 4 proof: unified Gateway, 4 core MCP backends, 87 tools, safe calls PASS.
