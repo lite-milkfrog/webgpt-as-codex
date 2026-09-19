@@ -1,0 +1,1 @@
+{"id":"tailscale","display_name":"Tailscale","role":"remote_transport","required":true,"enabled_by_default":true,"upstream":"https://github.com/tailscale/tailscale","license":"BSD-3-Clause core","transport":"system","default_endpoint":null,"version_command":["tailscale","version"],"install_hint":"install Tailscale for Windows","safe_tool":null}

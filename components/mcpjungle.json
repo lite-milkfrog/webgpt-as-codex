@@ -1,0 +1,1 @@
+{"id":"mcpjungle","display_name":"MCPJungle","role":"gateway","required":true,"enabled_by_default":true,"upstream":"https://github.com/mcpjungle/MCPJungle","license":"MPL-2.0","transport":"streamable_http","default_endpoint":"http://127.0.0.1:9330/mcp","version_command":["mcpjungle","version"],"install_hint":"download upstream release asset","safe_tool":null}

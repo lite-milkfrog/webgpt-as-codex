@@ -1,0 +1,1 @@
+{"id":"mcp-auth-proxy","display_name":"mcp-auth-proxy","role":"oauth_edge","required":true,"enabled_by_default":true,"upstream":"https://github.com/sigbit/mcp-auth-proxy","license":"MIT","transport":"http","default_endpoint":"http://127.0.0.1:9340","version_command":[],"install_hint":"download upstream release asset","safe_tool":null}
