@@ -98,7 +98,7 @@ Onboarding never creates lifecycle ownership. Stage 8 runtime adapters, PID iden
 
 ## Stage 10 Loop execution plane
 
-Stage 10 turns the self-evolving loop into executable project workflow. `loop.py` owns a public-safe stage-cost model, bounded sizing decisions and machine-local closure state. Closure state is monotonic and survives chat/context loss; it records stage pointers, source HEAD, public-safe scope, loop events, closure phase, handoff recovery classes and stage-cost evidence.
+Stage 10 turns the self-evolving loop into executable project workflow. `loop.py` owns a public-safe stage-cost model, bounded sizing decisions and machine-local closure state. Closure state is monotonic within one closure attempt and survives chat/context loss. After commit-time contradictory evidence, an explicit bounded reopen invalidates stale prompt/handoff state before a new closure attempt; it records stage pointers, source HEAD, public-safe scope, loop events, closure phase, handoff recovery classes and stage-cost evidence.
 
 The initial soft budget is 20 minutes with explicit closure reserve. After sufficient verified first-pass history, sizing uses bounded medians from observed total effort and closure share. The model is deliberately not a platform-timeout detector.
 

@@ -153,7 +153,7 @@ Stage 9 real discovery observed current local Coding Tools initialize/tools/list
 The approximately 20-minute stage target remains a heuristic. Stage 10 makes closure reserve explicit and recalibrates only after at least three verified, non-split, first-pass-handoff records. Total effort is bounded to a 15-25 minute planning range and closure share to 25-55% so a small sample cannot create extreme sizing rules.
 
 ### Decision: chat context is not execution state
-A stage keeps machine-local durable closure state outside Git. Phase is monotonic, stage pointers and committed source HEAD are explicit, and loop events/cost evidence survive window loss. Repository SoT remains authoritative for stage definition and closure.
+A stage keeps machine-local durable closure state outside Git. Phase is monotonic within one closure attempt; commit-time contradictory evidence may explicitly reopen the minimum affected boundary, invalidating stale prompt/handoff state while preserving stage pointers, evidence history and reopen provenance. Repository SoT remains authoritative for stage definition and closure.
 
 ### Decision: prompt plans are durable, SOURCE_HEAD is late-bound
 The next-stage plan may be committed before closure, but SOURCE_HEAD is injected only after the current stage commit. Prompt validation checks CURRENT/NEXT/AFTER_NEXT/SOURCE_HEAD before hashing and browser submission.

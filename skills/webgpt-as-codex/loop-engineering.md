@@ -43,7 +43,7 @@ Execute -> Observe -> Diagnose -> Explore -> Compare -> Select -> Verify -> Reco
 Ask the user only after reasonable independent exploration cannot resolve the issue or the missing information is genuinely user-exclusive.
 
 ## Durable closure state
-`webgpt-codex loop start/step/phase/show` persists machine-local stage state outside Git. Closure phase is monotonic and survives chat/window loss. Repository SoT remains authoritative; durable state is execution evidence and recovery support, not a replacement for committed closure.
+`webgpt-codex loop start/step/phase/reopen/cost/handoff/show` persists machine-local stage state outside Git. Closure phase is monotonic within one closure attempt and survives chat/window loss. After commit-time contradictory evidence, `loop reopen` may reopen only the minimum affected boundary, records a public-safe reason/count, clears stale prompt/handoff state and preserves prior evidence. Repository SoT remains authoritative; durable state is execution evidence and recovery support, not a replacement for committed closure.
 
 The machine-local state may contain only sanitized/public-safe stage descriptions. Endpoints, secrets, raw process details and private absolute paths belong in the existing machine-local inventory/log layers.
 

@@ -19,6 +19,7 @@ from webgpt_as_codex.loop import (
 )
 from webgpt_as_codex.playwright_handoff import (
     AmbiguousSubmissionError,
+    _open_and_select_chatgpt_tab,
     _prepare_prompt_draft,
     _submit_once_and_verify,
     _target_new_chatgpt_tab_index,
@@ -353,3 +354,97 @@ def test_closure_state_rejects_cost_for_other_stage_or_head() -> None:
     )
     with pytest.raises(ValueError, match="stage does not match"):
         state.record_cost(wrong)
+
+
+def test_open_tab_reuses_unique_blank_after_pre_submit_recovery() -> None:
+    before = (
+        "### Result\n"
+        "- 0: (current) [Welcome](chrome-extension://example)\n"
+        "- 1: [ChatGPT](https://chatgpt.com/)"
+    )
+    same = before
+
+    class FakeClient:
+        def __init__(self) -> None:
+            self.calls: list[tuple[str, dict]] = []
+            self.list_count = 0
+
+        def tool(self, name: str, arguments: dict, *, request_id: int) -> dict:
+            self.calls.append((name, arguments))
+            if name == "browser_tabs" and arguments["action"] == "list":
+                self.list_count += 1
+                text = before if self.list_count == 1 else same
+            else:
+                text = "### Result\nOK"
+            return {"result": {"content": [{"type": "text", "text": text}]}}
+
+    client = FakeClient()
+    recoveries: list[str] = []
+    next_id = _open_and_select_chatgpt_tab(
+        client,
+        first_request_id=2,
+        recoveries=recoveries,
+    )
+    assert next_id == 7
+    assert client.calls[-1] == ("browser_tabs", {"action": "select", "index": 1})
+    assert recoveries == ["tab-selection-refresh", "unique-blank-tab-reuse"]
+
+
+def test_closure_state_reopen_invalidates_stale_prompt() -> None:
+    state = StageClosureState(
+        current_stage="STAGE-10-TEST",
+        next_stage="STAGE-11-TEST",
+        after_next_stage="STAGE-12-TEST",
+        source_head="a" * 40,
+        scope="post commit contradictory handoff evidence",
+        phase="prompt-validated",
+        prompt_sha256="b" * 64,
+        handoff_first_pass=False,
+        handoff_recoveries=["tab-selection-refresh"],
+        cost=StageCostEvidence(
+            stage="STAGE-10-TEST",
+            source_head="a" * 40,
+            scope="post commit contradictory handoff evidence",
+            almost_done_incidents=1,
+            handoff_first_pass=False,
+            closure_verified=True,
+        ),
+    )
+    state.reopen(
+        "real pre-submit tab evidence contradicted the handoff recovery assumption"
+    )
+    assert state.phase == "implementation-complete"
+    assert state.reopen_count == 1
+    assert state.prompt_sha256 is None
+    assert state.handoff_first_pass is None
+    assert state.handoff_recoveries == []
+    assert state.cost is not None
+    assert state.cost.closure_verified is False
+    assert state.cost.handoff_first_pass is None
+    assert state.cost.almost_done_incidents == 2
+
+
+def test_closure_state_reopen_requires_commit_time_evidence() -> None:
+    state = StageClosureState(
+        current_stage="STAGE-10-TEST",
+        next_stage="STAGE-11-TEST",
+        after_next_stage="STAGE-12-TEST",
+        source_head="a" * 40,
+        scope="pre commit state",
+        phase="ready-to-commit",
+    )
+    with pytest.raises(ValueError, match="only after commit-time"):
+        state.reopen("too early")
+
+
+def test_closure_state_reopen_reason_must_be_public_safe() -> None:
+    state = StageClosureState(
+        current_stage="STAGE-10-TEST",
+        next_stage="STAGE-11-TEST",
+        after_next_stage="STAGE-12-TEST",
+        source_head="a" * 40,
+        scope="post commit state",
+        phase="committed",
+    )
+    with pytest.raises(ValueError, match="machine-specific"):
+        state.reopen(r"evidence at C:\private\machine")

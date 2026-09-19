@@ -54,6 +54,7 @@ When authorized:
 1. use Playwright MCP with the already authenticated ChatGPT browser context; prefer a new tab/page in that context, not a fresh isolated browser profile;
 2. keep one MCP session for the entire handoff; extension tab indexes/refs are not stable across MCP sessions;
 3. open a new ChatGPT conversation, then enumerate/select that new ChatGPT tab in the same MCP session instead of assuming the extension made it current/focused;
+   If a pre-submit recovery starts after that tab was already created and a fresh MCP session cannot prove it by index set-difference, refresh once; only when exactly one blank ChatGPT tab exists may that unique blank be reused and explicitly selected. Multiple blank candidates remain ambiguous and must fail rather than guess.
 4. use live DOM geometry/style to focus a visible editable composer on the selected page, then reacquire a fresh snapshot and use that focused active ref; initial hydration may expose a hidden autofocus fallback textarea that can also appear `[active]`, so snapshot-active alone is not proof of visibility;
 5. type the exact validated prompt as a draft with submission disabled; hidden hydration, stale refs and tab-selection ambiguity may be recovered only before submission and only with fresh DOM/tab evidence;
 6. attempt the real submit exactly once;

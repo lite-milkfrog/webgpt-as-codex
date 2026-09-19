@@ -232,6 +232,8 @@ class StageClosureState:
     prompt_sha256: str | None = None
     handoff_first_pass: bool | None = None
     handoff_recoveries: list[str] = field(default_factory=list)
+    reopen_count: int = 0
+    reopen_reasons: list[str] = field(default_factory=list)
     cost: StageCostEvidence | None = None
     updated_at: float = field(default_factory=time.time)
 
@@ -248,6 +250,12 @@ class StageClosureState:
         self.handoff_recoveries = [
             _public_text("handoff_recovery", item, max_length=120)
             for item in self.handoff_recoveries
+        ]
+        if self.reopen_count < 0:
+            raise ValueError("reopen_count must be non-negative")
+        self.reopen_reasons = [
+            _public_text("reopen_reason", item, max_length=300)
+            for item in self.reopen_reasons
         ]
         for event in self.loop_events:
             event.validate()
@@ -269,6 +277,35 @@ class StageClosureState:
         event.validate()
         self.loop_events.append(event)
         self.updated_at = time.time()
+
+    def reopen(
+        self,
+        reason: str,
+        *,
+        phase: str = "implementation-complete",
+    ) -> None:
+        if CLOSURE_PHASES.index(self.phase) < CLOSURE_PHASES.index("committed"):
+            raise ValueError("stage may reopen only after commit-time contradictory evidence")
+        if phase not in {
+            "implementation-complete",
+            "validating",
+            "documenting",
+            "ready-to-commit",
+        }:
+            raise ValueError("invalid reopen phase")
+        public_reason = _public_text("reopen_reason", reason, max_length=300)
+        self.phase = phase
+        self.reopen_count += 1
+        self.reopen_reasons.append(public_reason)
+        self.prompt_sha256 = None
+        self.handoff_first_pass = None
+        self.handoff_recoveries = []
+        if self.cost is not None:
+            self.cost.handoff_first_pass = None
+            self.cost.closure_verified = False
+            self.cost.almost_done_incidents += 1
+        self.updated_at = time.time()
+        self.validate()
 
     def record_cost(self, evidence: StageCostEvidence) -> None:
         evidence.validate()
@@ -316,6 +353,8 @@ class StageClosureState:
             prompt_sha256=data.get("prompt_sha256"),
             handoff_first_pass=data.get("handoff_first_pass"),
             handoff_recoveries=list(data.get("handoff_recoveries", [])),
+            reopen_count=int(data.get("reopen_count", 0)),
+            reopen_reasons=list(data.get("reopen_reasons", [])),
             cost=cost,
             updated_at=float(data.get("updated_at", time.time())),
         )
@@ -396,6 +435,15 @@ def cli_loop(argv: list[str]) -> int:
     phase.add_argument("--stage", required=True)
     phase.add_argument("--phase", choices=CLOSURE_PHASES, required=True)
 
+    reopen = sub.add_parser("reopen")
+    reopen.add_argument("--stage", required=True)
+    reopen.add_argument("--reason", required=True)
+    reopen.add_argument(
+        "--phase",
+        choices=("implementation-complete", "validating", "documenting", "ready-to-commit"),
+        default="implementation-complete",
+    )
+
     cost = sub.add_parser("cost")
     cost.add_argument("--stage", required=True)
     cost.add_argument("--implementation-seconds", type=float, required=True)
@@ -436,6 +484,9 @@ def cli_loop(argv: list[str]) -> int:
             store.save(state)
         elif args.action == "phase":
             state.advance_phase(args.phase)
+            store.save(state)
+        elif args.action == "reopen":
+            state.reopen(args.reason, phase=args.phase)
             store.save(state)
         elif args.action == "cost":
             state.record_cost(

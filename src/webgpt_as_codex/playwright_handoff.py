@@ -136,6 +136,13 @@ def _target_new_chatgpt_tab_index(before_text: str, after_text: str) -> int:
     raise RuntimeError("new ChatGPT tab selection is ambiguous after tab refresh")
 
 
+def _unique_blank_chatgpt_tab_index(tabs_text: str) -> int:
+    blank = [row for row in _tab_rows(tabs_text) if row[2] == "https://chatgpt.com/"]
+    if len(blank) != 1:
+        raise RuntimeError("unique blank ChatGPT recovery target not found")
+    return blank[0][0]
+
+
 def _open_and_select_chatgpt_tab(
     client: PlaywrightMcpClient,
     *,
@@ -166,7 +173,12 @@ def _open_and_select_chatgpt_tab(
             client.tool("browser_tabs", {"action": "list"}, request_id=request_id)
         )
         request_id += 1
-        target_index = _target_new_chatgpt_tab_index(before, after)
+        try:
+            target_index = _target_new_chatgpt_tab_index(before, after)
+        except RuntimeError:
+            target_index = _unique_blank_chatgpt_tab_index(after)
+            if recoveries is not None:
+                recoveries.append("unique-blank-tab-reuse")
     client.tool(
         "browser_tabs",
         {"action": "select", "index": target_index},

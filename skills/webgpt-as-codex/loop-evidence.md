@@ -7,7 +7,7 @@ Stage 10 makes Loop Engineering execution evidence durable and machine-recoverab
 `webgpt-codex loop` persists one machine-local JSON state per active stage under the external WebGPT-as-Codex state root. The state carries:
 - CURRENT_STAGE / NEXT_STAGE / AFTER_NEXT_STAGE;
 - the committed source HEAD and public-safe scope;
-- a monotonic closure phase from execution through receiving-run verification;
+- a monotonic closure phase within each closure attempt, plus explicit commit-time contradictory-evidence reopen provenance;
 - evidence-backed Execute -> Observe -> Diagnose -> Explore -> Compare -> Improve -> Verify -> Record -> Reuse events;
 - prompt SHA-256, handoff first-pass result and bounded recovery classes when known;
 - a stage-cost record.

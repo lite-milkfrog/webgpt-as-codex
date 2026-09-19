@@ -315,3 +315,16 @@ Protected lesson:
 - projected implementation that consumes the reserve triggers a bounded split before tail work is endangered;
 - when expansion has already happened, freeze scope and close rather than add more work;
 - recalibrate from verified stage-cost evidence instead of claiming a fixed platform cutoff.
+
+## 2026-09-19 — Extension-current can hide an already-created blank ChatGPT tab
+
+Origin:
+- Stage 10 first post-commit handoff failed before typing/submission.
+- The Playwright extension Welcome page remained current while one blank ChatGPT tab already existed from the attempted new-tab action. A fresh MCP session could no longer prove that tab by before/after index difference.
+
+Protected lesson:
+- tab creation, extension focus and ChatGPT page focus are separate facts;
+- set-difference is preferred evidence for the newly created tab;
+- after one fresh tab-list retry, pre-submit recovery may reuse an existing target only when exactly one blank ChatGPT tab exists;
+- multiple blank candidates remain ambiguous and must fail rather than guessing;
+- this recovery is legal only before composer typing/submission; after submit is attempted, exactly-once post-state rules take over.

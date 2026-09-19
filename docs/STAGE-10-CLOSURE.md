@@ -10,7 +10,7 @@ SOURCE_HEAD = 2ff089473175972b65a803222d7b71662ad31a42
 
 ## Implemented
 
-- executable durable Loop Engineering state with monotonic closure phases and the full Execute -> Observe -> Diagnose -> Explore -> Compare -> Improve -> Verify -> Record -> Reuse event chain;
+- executable durable Loop Engineering state with monotonic per-attempt closure phases plus explicit commit-time contradictory-evidence reopen and the full Execute -> Observe -> Diagnose -> Explore -> Compare -> Improve -> Verify -> Record -> Reuse event chain;
 - public-safe StageCostEvidence schema for implementation/closure/test/docs effort, retries, tool switches, harness failures, first-pass handoff, almost-done incidents and split decisions;
 - evidence-driven soft-stage sizing with a 20-minute default, explicit closure reserve, bounded 15-25 minute recalibration, bounded 25-55% closure-share recalibration and finite split depth;
 - `webgpt-codex loop` state workflow for start/show/step/phase plus cost and handoff-result persistence;
@@ -47,10 +47,10 @@ A simulated lost submit response followed by successful DOM post-state verificat
 ## Validation
 
 Stage 10 / handoff narrow suite:
-- 28 PASS.
+- 32 PASS.
 
 Full repository:
-- 87 PASS.
+- 91 PASS.
 
 Static and safety gates:
 - Ruff PASS.
@@ -73,6 +73,22 @@ Stage 11 retains:
 - fail-closed/rollback/concurrency/idempotence regression work.
 
 Stage 12 retains README/release/final-acceptance packaging.
+
+## Post-commit minimum reopen evidence
+
+The first post-commit Stage 11 prompt was generated correctly from commit `74a1dab9a82654540386005ed79ccf8b3a53118d`, but it was never typed or submitted.
+
+The Playwright handoff failed during tab selection before any composer interaction. Real tab evidence showed the extension Welcome page still marked current while exactly one blank `https://chatgpt.com/` tab already existed. The previous helper required either a new index set-difference or a current blank tab, so it could not recover across a new MCP session after the tab had already been created.
+
+This contradicted the Stage 10 handoff closure at the minimum affected boundary. The helper was reopened only for pre-submit tab recovery:
+- first try new-tab set difference;
+- refresh the tab list once;
+- if both remain ambiguous, allow recovery only when exactly one blank ChatGPT tab exists;
+- record `unique-blank-tab-reuse`;
+- explicitly select it before acquiring composer evidence;
+- if more than one blank candidate exists, fail rather than guess.
+
+A real-shape regression test covers Welcome-current + one blank ChatGPT tab. The old `74a1dab...` prompt is stale after this follow-up change and must never be submitted. Stage 11 is regenerated only from the new follow-up commit HEAD.
 
 ## Post-commit recursive handoff
 
