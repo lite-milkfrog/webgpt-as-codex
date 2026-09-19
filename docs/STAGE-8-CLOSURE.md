@@ -44,7 +44,7 @@ The current machine has an mcp-auth-proxy binary plus Stage 5 E2E OAuth data but
 
 ## Validation
 - Stage 8 lifecycle/launcher tests cover unmanaged preservation, stale/reused PID handling, duplicate prevention, bounded stop/restart, fixed Manager scope, reversible launcher/autostart and UI/runtime lifetime independence.
-- Full repository tests: 54 PASS.
+- Full repository tests: 55 PASS.
 - Ruff: PASS.
 - Secret scan: PASS.
 - Live Start All: idempotent and discovery-first.
@@ -57,7 +57,9 @@ The current machine has an mcp-auth-proxy binary plus Stage 5 E2E OAuth data but
 - Coding Tools default Python lacked pytest. The known shared venv was reused with explicit worktree PYTHONPATH to avoid importing the canonical editable tree.
 - Mocked tests initially missed that ctypes.wintypes required an explicit import on this host; a real Windows identity probe is now part of the evidence.
 - Windows text newline normalization initially caused a project-created .cmd file to look unmanaged; ownership comparison now normalizes line endings while still requiring complete managed content.
+- final canonical launcher dogfood exposed that Desktop Commander service context had no USERPROFILE/APPDATA while registry User Shell Folders still contained those tokens; the first install therefore landed in a literal token-relative directory. Only the two Stage 8-created launcher files/tree were removed, shell-folder resolution was hardened, and a real host-context re-probe resolved absolute C:\Users\... Desktop/Startup paths before reinstallation.
 - listener discovery alone was insufficient for Tailscale/system transports; process evidence was factored into shared discovery without promoting it to protocol health.
+- final canonical launcher dogfood also observed Serena's external listener down. The supervisor correctly reported it as required/unmanaged missing and did not convert discovery into restart authority.
 
 ## Stage sizing evidence
 This stage stayed one coherent runtime/launcher concern but required several closure-critical iterations:

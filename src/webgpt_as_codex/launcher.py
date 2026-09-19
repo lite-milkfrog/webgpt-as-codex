@@ -3,6 +3,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import re
 import sys
 import webbrowser
 from pathlib import Path
@@ -16,6 +17,25 @@ _DESKTOP_NAME = "WebGPT-as-Codex.cmd"
 _AUTOSTART_NAME = "WebGPT-as-Codex-Autostart.cmd"
 
 
+def _expand_shell_value(value: str) -> Path:
+    home = user_home()
+    expanded = os.path.expandvars(value)
+    replacements = {
+        "%USERPROFILE%": str(home),
+        "%HOME%": str(home),
+        "%APPDATA%": str(home / "AppData" / "Roaming"),
+        "%LOCALAPPDATA%": str(home / "AppData" / "Local"),
+    }
+    for token, replacement in replacements.items():
+        expanded = re.sub(
+            re.escape(token),
+            lambda _match, value=replacement: value,
+            expanded,
+            flags=re.IGNORECASE,
+        )
+    return Path(expanded)
+
+
 def _shell_folder(value_name: str, fallback: Path, override_env: str) -> Path:
     override = os.getenv(override_env)
     if override:
@@ -24,14 +44,20 @@ def _shell_folder(value_name: str, fallback: Path, override_env: str) -> Path:
         try:
             import winreg
 
-            key_path = r"Software\Microsoft\Windows\CurrentVersion\Explorer\User Shell Folders"
-            with winreg.OpenKey(winreg.HKEY_CURRENT_USER, key_path) as key:
-                value, _ = winreg.QueryValueEx(key, value_name)
-            if value:
-                return Path(os.path.expandvars(str(value)))
+            for key_name in ("Shell Folders", "User Shell Folders"):
+                key_path = rf"Software\Microsoft\Windows\CurrentVersion\Explorer\{key_name}"
+                try:
+                    with winreg.OpenKey(winreg.HKEY_CURRENT_USER, key_path) as key:
+                        value, _ = winreg.QueryValueEx(key, value_name)
+                except OSError:
+                    continue
+                if value:
+                    candidate = _expand_shell_value(str(value))
+                    if candidate.is_absolute():
+                        return candidate
         except (OSError, ImportError):
             pass
-    return fallback
+    return fallback.expanduser().resolve()
 
 
 def desktop_dir() -> Path:

@@ -108,7 +108,7 @@ The machine contains an mcp-auth-proxy binary and Stage 5 E2E OAuth data, but no
 The Manager accepts only a named component from a repository-fixed restart allowlist; Stage 8 currently allows MCPJungle. It does not accept arbitrary shell, PID, executable, URL or argv input. Healthy unmanaged components such as Serena cannot be restarted through this action.
 
 ### Decision: Windows Startup folder is the bounded autostart mechanism
-The project uses a transparent user Startup-folder `.cmd` launcher rather than hidden registry persistence, scheduled tasks or credential-bearing scripts. Install/status/uninstall verify exact managed content (newline-insensitive for Windows text normalization) and refuse to overwrite/delete user-owned files.
+The project uses a transparent user Startup-folder `.cmd` launcher rather than hidden registry persistence, scheduled tasks or credential-bearing scripts. Install/status/uninstall verify exact managed content (newline-insensitive for Windows text normalization) and refuse to overwrite/delete user-owned files. Windows shell-folder lookup must also work in service/MCP contexts where `USERPROFILE` and `APPDATA` are missing, so it prefers expanded `Shell Folders` registry values and rejects unresolved relative token paths in favor of a known user-home fallback.
 
 ### Risk: graceful shutdown is component-dependent
 The supervisor first attempts a bounded graceful signal and then applies a bounded forced fallback. Live MCPJungle evidence on Windows required the forced fallback after the graceful window. This is recorded as runtime behavior, not hidden by reporting restart as intrinsically graceful.

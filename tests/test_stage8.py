@@ -269,6 +269,16 @@ def test_launcher_refuses_to_overwrite_unmanaged_file(
     assert "user-owned" in target.read_text(encoding="utf-8")
 
 
+def test_shell_value_expands_userprofile_when_service_env_is_missing(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.delenv("USERPROFILE", raising=False)
+    monkeypatch.setattr(launcher, "user_home", lambda: Path("C:/Users/TestUser"))
+    path = launcher._expand_shell_value(r"%USERPROFILE%\Desktop")
+    assert path == Path("C:/Users/TestUser/Desktop")
+    assert "%" not in str(path)
+
+
 def test_launcher_exits_without_owning_runtime_lifetime(monkeypatch: pytest.MonkeyPatch) -> None:
     class FakeSupervisor:
         def start(self, component_id: str) -> dict:

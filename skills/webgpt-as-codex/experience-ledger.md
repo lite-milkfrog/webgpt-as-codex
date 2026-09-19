@@ -202,6 +202,8 @@ Protected lesson:
 - ownership checks for Windows text launchers may normalize line endings while still requiring the entire expected content and a project marker;
 - never weaken that into marker-only deletion/overwrite authority;
 - reversible install/uninstall must fail closed when the target file is user-owned or modified.
+- service/MCP host processes may have no `USERPROFILE`/`APPDATA` even when HKCU `User Shell Folders` contains those tokens; prefer expanded `Shell Folders` or explicitly resolve known tokens from a registry-derived user home before writing;
+- a launcher install is not verified until a host-context status probe shows an absolute real Desktop/Startup path with no unresolved `%...%` token.
 
 ## 2026-09-19 — Integration-test credentials are not production runtime authority
 
