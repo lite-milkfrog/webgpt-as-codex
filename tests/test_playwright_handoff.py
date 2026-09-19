@@ -10,6 +10,24 @@ def test_extracts_chatgpt_textbox_ref() -> None:
     assert _textbox_ref(snapshot) == "e131"
 
 
+def test_prefers_active_composer_over_hydration_fallback() -> None:
+    snapshot = (
+        '- textbox "Chat with ChatGPT" [ref=e133]:\n'
+        '- textbox "与 ChatGPT 聊天" [active] [ref=e716]:'
+    )
+    assert _textbox_ref(snapshot, require_active=True) == "e716"
+
+
+def test_active_composer_is_required_when_requested() -> None:
+    snapshot = '- textbox "Chat with ChatGPT" [ref=e133]:'
+    try:
+        _textbox_ref(snapshot, require_active=True)
+    except RuntimeError as exc:
+        assert "active ChatGPT composer" in str(exc)
+    else:
+        raise AssertionError("hidden hydration fallback must not satisfy active composer gate")
+
+
 def test_evaluation_json_parses_result() -> None:
     text = '### Result\n{"url":"https://chatgpt.com/c/abc","users":[],"assistantCount":1}'
     assert _evaluation_json(text)["assistantCount"] == 1

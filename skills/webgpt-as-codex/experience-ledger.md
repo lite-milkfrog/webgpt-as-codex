@@ -134,3 +134,38 @@ Protected lesson:
 - distinguish missing test dependencies from target failures;
 - when validating an isolated worktree with a shared venv, make the target source root explicit (for example through `PYTHONPATH`);
 - do not install into or rewrite a shared environment merely to hide a harness-binding mismatch.
+
+## 2026-09-19 — ChatGPT composer hydration can expose a hidden fallback first
+
+Origin:
+- Stage 7 -> Stage 8 automatic handoff opened a new authenticated ChatGPT tab in the existing Playwright context.
+- the first snapshot exposed a hidden fallback textarea before the real composer hydrated; choosing the first textbox ref caused browser_type to wait on an invisible element and time out before any message was sent.
+
+Protected lesson:
+- preserve the already authenticated browser context and the same Playwright MCP session;
+- after opening the new page, poll fresh snapshots for the real active composer instead of selecting the first textbox;
+- never reuse stale refs or compensate with blind coordinates;
+- verify sent SOURCE_HEAD + assistant run + /c/ URL before declaring handoff success.
+
+## 2026-09-19 — Closure budget belongs inside the Stage
+
+Origin:
+- repeated long-window experience showed that implementation can be mostly complete while docs, commit or recursive handoff remain as fragile last steps.
+- the user's observed longest runs were around 25 minutes, but there is no verified platform cutoff or stable task-size unit.
+
+Protected lesson:
+- use approximately 20 minutes as a soft stage budget including closure/handoff, not as a hard timeout;
+- shorter fully closed stages are better than maximizing implementation volume;
+- split the owner concern when continuation would threaten validation/docs/commit/handoff;
+- collect stage-cost evidence over the next 5-10 stages and recalibrate instead of hardcoding an unsupported limit.
+
+## 2026-09-19 — One tool failure is not tool unavailability
+
+Origin:
+- real MCP work has encountered session, workspace-binding, authentication, hydration and harness failures that were initially indistinguishable from tool failure.
+
+Protected lesson:
+- inspect actual tool schema/capability, workspace/session/auth state, logs and failure category before fallback;
+- distinguish misuse or harness state from capability absence;
+- prefer independent exploration before asking the user;
+- when user guidance reveals the correct mental model, classify and preserve the reusable principle rather than only the historical click sequence.

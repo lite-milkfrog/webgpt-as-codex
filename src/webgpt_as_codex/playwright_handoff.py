@@ -81,11 +81,45 @@ def _tool_text(body: dict[str, Any]) -> str:
     )
 
 
-def _textbox_ref(snapshot_text: str) -> str:
+def _textbox_ref(snapshot_text: str, *, require_active: bool = False) -> str:
+    active_patterns = (
+        r"textbox .*?\[active\].*?\[ref=(e\d+)\]",
+        r"textbox .*?\[ref=(e\d+)\].*?\[active\]",
+    )
+    for pattern in active_patterns:
+        match = re.search(pattern, snapshot_text)
+        if match:
+            return match.group(1)
+    if require_active:
+        raise RuntimeError("active ChatGPT composer textbox not found in Playwright snapshot")
     match = re.search(r"textbox .*?\[ref=(e\d+)\]", snapshot_text)
     if not match:
         raise RuntimeError("ChatGPT composer textbox not found in Playwright snapshot")
     return match.group(1)
+
+
+def _wait_for_active_composer(
+    client: PlaywrightMcpClient,
+    *,
+    timeout_seconds: float,
+    first_request_id: int = 3,
+) -> tuple[str, int]:
+    deadline = time.monotonic() + timeout_seconds
+    request_id = first_request_id
+    last_snapshot = ""
+    while time.monotonic() < deadline:
+        last_snapshot = _tool_text(
+            client.tool("browser_snapshot", {}, request_id=request_id)
+        )
+        request_id += 1
+        try:
+            return _textbox_ref(last_snapshot, require_active=True), request_id
+        except RuntimeError:
+            time.sleep(0.25)
+    raise RuntimeError(
+        "active ChatGPT composer did not hydrate before timeout; "
+        f"last_snapshot={last_snapshot[-800:]!r}"
+    )
 
 
 def _evaluation_json(tool_text: str) -> dict[str, Any]:
@@ -135,8 +169,10 @@ def handoff_via_playwright(
         {"action": "new", "url": "https://chatgpt.com/"},
         request_id=2,
     )
-    snapshot = _tool_text(client.tool("browser_snapshot", {}, request_id=3))
-    target = _textbox_ref(snapshot)
+    target, request_id = _wait_for_active_composer(
+        client,
+        timeout_seconds=min(15.0, timeout_seconds),
+    )
 
     client.tool(
         "browser_type",
@@ -146,11 +182,11 @@ def handoff_via_playwright(
             "submit": True,
             "slowly": False,
         },
-        request_id=4,
+        request_id=request_id,
     )
 
     deadline = time.monotonic() + timeout_seconds
-    request_id = 10
+    request_id += 1
     last_state: dict[str, Any] = {}
     while time.monotonic() < deadline:
         state_body = client.tool(

@@ -14,7 +14,7 @@ Result: CLOSED_LOCAL_VERIFIED
 
 ## Validation
 Narrow Stage 7/Manager tests: PASS.
-Full repository tests: 37 PASS.
+Full repository tests: 39 PASS.
 Ruff: PASS.
 Secret scan: PASS.
 
@@ -28,6 +28,16 @@ Doctor persisted only sanitized machine-local evidence. No public MCP URL was co
 - Coding Tools was still bound to `coding-tools-mcp-demo`; Stage 7 therefore used an isolated Git worktree under that authorized workspace.
 - the shared virtual environment editable install pointed at the canonical tree, so worktree tests used an explicit source path rather than modifying the shared environment.
 - a first version parser accepted address-like banner text; the parser was tightened and regression-tested.
+- the first Stage 8 Playwright handoff exposed a hidden ChatGPT fallback textarea before the active composer hydrated. No message was sent. This contradictory evidence reopened only the handoff helper boundary: it now waits for the active composer in the same authenticated MCP session and regression coverage protects against selecting the first hidden textbox.
+
+## Supplemental self-evolving contract incorporated
+The cross-stage Self-Evolving Skill / MCP Operating Guide / Loop Engineering requirement is now canonical rather than chat-only:
+- execution friction across the full chain is observed, diagnosed, compared, verified and written back at the correct durable layer;
+- Stage 9 owns formal MCP Operating Guide/onboarding/capability-discovery productization;
+- Stage 10 owns formal Loop Engineering self-evolution, stage-sizing/closure-budget and recursive-handoff robustness productization;
+- approximately 20 minutes is a soft stage budget including closure, not a claimed platform limit;
+- subsequent stages collect baseline evidence and may split bounded owner concerns when closure is at risk;
+- Playwright handoff prefers a new page in the existing authenticated browser context and verifies the active composer, sent message and next assistant run.
 
 ## Ownership boundary
 Stage 7 does not own service startup, restart, launcher/autostart or browser/runtime lifecycle. Those remain Stage 8 work. It also does not repeat Stage 5 OAuth DCR/PKCE/token database mutation merely to refresh Doctor.

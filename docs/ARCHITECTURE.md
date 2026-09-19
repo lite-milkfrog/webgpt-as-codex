@@ -30,6 +30,23 @@ Prefer a curated gateway Tool Group over exposing every tool.
 Do not duplicate overlapping MCPs merely because they are installed.
 Routing belongs in the Skill; protocol aggregation belongs in the Gateway.
 
+## Self-evolving operating-knowledge plane
+WebGPT-as-Codex treats execution experience as an input to the Skill, not as disposable chat history. The operating loop is:
+Execute -> Observe -> detect friction -> Diagnose -> Explore alternatives -> Compare -> Select -> Verify -> Record -> Reuse.
+
+This applies to the entire path from SoT loading and stage sizing through routing, MCP usage, implementation, tests, documentation, commit, prompt generation, Playwright submission and next-run verification. Repeated almost-finished behavior, avoidable retries, premature fallback, incomplete docs or failed handoff closure are process defects to diagnose rather than normal tail work.
+
+Operating knowledge is separated by scope:
+- routing.md decides WHICH structured capability should own an intent;
+- MCP Operating Guides describe HOW to use an MCP from its actual exposed tools/schema, verification signals, failure modes and performance/cost behavior;
+- the inventory records what is installed/configured/available and machine-specific facts without turning them into portable Skill rules;
+- the Experience Ledger records evidence-backed lessons and provenance;
+- one-off incidents stay out of long-term Skill unless they expose a reusable failure mechanism.
+
+Stage 9 owns formal MCP Guide/onboarding productization. Stage 10 owns formal Loop Engineering self-evolution and sizing/closure productization. The rules are active before those stages; those stages make them systematic.
+
+The current stage-duration target is a soft approximately 20-minute execution budget including closure and verified handoff. It is a heuristic, not a hard platform fact. If implementation expansion threatens validation/docs/commit/handoff, split the owner concern rather than borrowing from closure. Baseline evidence from subsequent stages is used to recalibrate the heuristic.
+
 ## Manager control plane
 The repository-owned Manager is a loopback-only local control surface. Its default bind is `127.0.0.1:9200`; the existing private/reference Manager on port 9199 is evidence only and is neither copied nor mutated.
 

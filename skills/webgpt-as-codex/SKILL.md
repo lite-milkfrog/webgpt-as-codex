@@ -2,7 +2,7 @@
 name: webgpt-as-codex
 description: Local-first MCP computer/coding agent workflow with durable SoT, Loop Engineering, verified handoff, Doctor/Repair, gateway routing and multi-window continuation.
 metadata:
-  version: 0.2.0
+  version: 0.3.0
   portability: public-safe-local-first
   secrets-policy: no-secrets-in-skill
 ---
@@ -34,6 +34,20 @@ Closed stages are not re-audited without contradictory evidence.
 Validation and documentation updates happen before closure/handoff.
 See `loop-engineering.md`.
 
+## Self-evolving execution
+Do not merely execute. Execute, observe, learn and improve.
+Any repeated friction across SoT loading, planning, stage sizing, routing, MCP use, implementation, validation, docs, Git or handoff should trigger:
+Execute -> Observe -> Diagnose -> Explore -> Compare -> Improve -> Verify -> Record -> Reuse.
+
+Explore reasonable tool/schema/environment/log/history evidence before asking the user. One failed call is not proof an MCP is unavailable. Diagnose binding, session, authentication, capability mismatch and harness state before fallback; when fallback is justified, record why.
+
+Classify lessons narrowly:
+- general reusable rule -> Skill;
+- MCP-specific operating behavior -> MCP Guide;
+- machine-specific state -> machine-local inventory/config;
+- one-off incident -> stage evidence only.
+User guidance that reveals a reusable principle is valid experience input and should be classified the same way.
+
 ## Local memory
 For long tasks, durable facts go to local SoT files during the run.
 Chat context is a transport cache, not the authoritative project state.
@@ -49,6 +63,10 @@ See `handoff.md`.
 Do not silently delete an old defensive rule.
 Trace its origin, test whether the failure remains possible, then keep, relocate or retire it with evidence.
 See `experience-ledger.md`.
+
+## MCP operating knowledge
+Routing decides WHICH tool. Operating knowledge decides HOW to use it. Real evidence decides whether it worked. Experience decides how to do it better next time.
+Do not invent capability from an MCP name; inspect actual tool/schema evidence. Formal per-MCP Operating Guide onboarding is Stage 9 ownership, with the Guide template covering mental model, best/poor use cases, exposed capability, goal-oriented patterns, mistakes, failure diagnosis, verification, performance/cost, lessons and better alternatives.
 
 ## Generic MCP extension
 New MCPs are added through manifests + discovery + health checks + gateway registration + optional Tool Group + Skill routing.
@@ -70,4 +88,6 @@ Manager actions are a fixed allowlist whose real executors are supplied only by 
 - runtime start/restart belongs to the runtime-owner stage, not to Bootstrap or Doctor.
 
 ## Completion
-A stage is complete only when owned behavior is implemented, relevant tests are green, post-state is verified, affected docs are updated, and remaining work is represented in CURRENT/NEXT/AFTER_NEXT.
+A stage is complete only when owned behavior is implemented, validation is green, post-state is verified, affected docs/ledger are updated, closure is written, the stage is committed, the next prompt is generated from that committed HEAD, validated/hashed, Playwright-submitted, the sent user message is verified and the next assistant run is verified.
+
+Use an approximately 20-minute soft stage budget including closure/handoff; it is a heuristic, not a hard timeout. Split a stage when continuing implementation would endanger true closure. Short fully closed stages are preferable to repeated almost-complete windows.

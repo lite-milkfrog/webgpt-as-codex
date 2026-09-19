@@ -37,6 +37,22 @@ Every stage closure must:
 
 The chain terminates only after the planned final stage and Final Overall Acceptance are both closed.
 
+## Cross-stage decision — self-evolving Skill and operating knowledge
+
+Execution is not complete merely because the immediate task worked. Reusable friction must be diagnosed, verified and written back at the narrowest durable layer: general principles to the Skill, MCP-specific behavior to an Operating Guide, machine facts to local inventory/config, and one-off evidence only to the relevant stage/ledger.
+
+Routing and operating knowledge remain distinct. Routing selects the narrowest appropriate capability. An MCP Guide is based on actual exposed schema/capability evidence and teaches correct goal-oriented usage, verification, common misuse and justified fallback. Tool names are never treated as proof of capability.
+
+User guidance is reusable evidence when it exposes a stable operating principle. It does not become a brittle click recipe by default; record the mental model, goal, constraints, verification and failure signals.
+
+### Decision: stage sizing protects closure
+The current target is an approximately 20-minute soft stage budget with closure included. This is a planning heuristic derived from observed workflow continuity needs, not a claimed 25-minute platform cutoff. A shorter fully closed stage is preferable to a larger stage that ends before docs/commit/handoff verification.
+
+Collect baseline data over the next 5-10 stages: implementation versus closure effort, files/tests changed, major tool switches/calls, retries/harness failures, docs effort, first-pass handoff success, almost-done incidents and emergency splits. Recalibrate from evidence.
+
+### Risk: self-improvement can bloat or overfit the Skill
+Do not append every incident to core rules. Merge duplicates, retire obsolete methods with provenance, move machine details out of portable docs and keep detailed MCP-specific behavior in Guides. Optimize for the fastest known safe/reliable/low-context path without weakening verification.
+
 ## Stage 6 — Manager control plane
 
 ### Decision: reference Manager is evidence, not source
