@@ -8,6 +8,56 @@
 5. Edge plane: OAuth compatibility adapter -> mcp-auth-proxy -> MCPJungle, published by Tailscale Funnel.
 6. Optional full-machine plane: Remote Desktop Commander vendor relay.
 
+## Supplemental deployment topology
+
+WebGPT-as-Codex is the repository-level deployment authority. A user or Agent starts from this repository, not from a manual checklist spread across each MCP project.
+
+The target public topology is:
+
+```text
+ChatGPT
+├─ Remote Desktop Commander (independent rescue/control plane)
+└─ WebGPT-as-Codex public HTTPS /mcp
+   -> OAuth compatibility adapter
+   -> mcp-auth-proxy
+   -> MCPJungle
+   -> localhost MCP backends
+```
+
+Backend-specific public tunnels are optional and are not required by the unified path. In particular, Coding Tools may remain a localhost MCP even if its own distribution also offers a Cloudflare-based remote client.
+
+The deployment controller separates:
+- upstream/source authority;
+- installation/version authority;
+- route authority;
+- lifecycle authority.
+
+An existing healthy externally managed MCP can be routed through WebGPT without granting WebGPT kill/restart authority. A fresh instance installed by WebGPT may later gain lifecycle authority after identity/ownership evidence is established.
+
+See `docs/DEPLOYMENT.md`.
+
+## Complementary rescue planes
+
+Remote Desktop Commander and the Unified Gateway are deliberately independent.
+
+If a Gateway backend or local WebGPT runtime fails while Remote Desktop Commander remains usable, Agent routing may use Remote Desktop Commander to inspect/recover the local process and then retry the structured MCP.
+
+If Remote Desktop Commander fails while the Unified Gateway remains healthy, Agent routing may use Gateway-routed Windows-MCP/Coding Tools/WebGPT control capability to inspect/recover the Remote Desktop Commander runtime where lifecycle/security policy permits.
+
+The entire public WebGPT endpoint cannot use itself to rescue a transport outage; independent rescue selection therefore belongs partly to the Agent/Skill routing layer. Recovery never bypasses OAuth/security and no two recovery paths may mutate the same component concurrently.
+
+## Concurrency model
+
+Concurrency is component-specific rather than a blanket MCP property.
+
+- Serena's standard single server process owns one process-wide active project. Project activation may shut down the previous project's language server, so two conversations must not share one mutable project slot when they work on different projects. WebGPT will provide fixed-project Serena instances/project slots or the read-only multi-project query path where suitable.
+- Coding Tools can overlap independent tool/process activity, but one instance has one configured workspace. Parallel writers require separate worktrees/workspaces or explicit write serialization.
+- Remote Desktop Commander can overlap independent terminal/filesystem/process sessions, but physical GUI focus/mouse/keyboard is a singleton resource and needs a machine-level GUI lease.
+- Windows-MCP follows the shared native-GUI rule.
+- Playwright can parallelize isolated pages/contexts; one page/profile/login-state still follows one-writer ownership.
+
+See `docs/CONCURRENCY-AND-FALLBACK.md`.
+
 ## Trust boundaries
 Repository source is public-safe.
 Machine state is outside Git.

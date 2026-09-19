@@ -1,9 +1,9 @@
 # Current Project State
 
 PROJECT = WebGPT-as-Codex
-CURRENT_STAGE = TERMINAL
-NEXT_STAGE = TERMINAL
-AFTER_NEXT_STAGE = TERMINAL
+CURRENT_STAGE = STAGE-14-PRODUCTION-UNIFIED-GATEWAY-EDGE
+NEXT_STAGE = STAGE-15-COMPONENT-INSTALL-UPGRADE-LIFECYCLE
+AFTER_NEXT_STAGE = STAGE-16-CONCURRENCY-SESSION-ISOLATION-FALLBACK
 
 Stage 1: CLOSED_LOCAL_VERIFIED
 Stage 2: CLOSED_LOCAL_VERIFIED
@@ -19,6 +19,29 @@ Stage 11: CLOSED_LOCAL_VERIFIED
 Stage 12: CLOSED_LOCAL_VERIFIED
 Final Overall Acceptance: CLOSED_LOCAL_VERIFIED
 Project Complete: CLOSED_LOCAL_VERIFIED
+
+Supplemental chain (user requirements added after the accepted TERMINAL state):
+- Stage 13: CLOSED_LOCAL_VERIFIED
+- Stage 14: PLANNED
+- Stage 15: PLANNED
+- Stage 16: PLANNED
+- Stage 17: PLANNED
+- Stage 18: PLANNED
+- Stage 19: PLANNED
+- Supplemental Final Acceptance: PLANNED
+
+The supplemental chain does not invalidate the accepted Stage 1-12 evidence. It owns only the later one-repository deployment, production unified Gateway, fresh-machine dependency/bootstrap, complementary Remote Desktop Commander recovery, multi-window concurrency, bilingual Manager/desktop experience and complete Chinese mirror requirements.
+
+Stage 13 live implementation evidence so far:
+- fresh-machine environment reporting now distinguishes Windows/Python/winget/Tailscale installed/version/login/online/MagicDNS/Funnel state plus WebGPT private runtime-binary readiness;
+- current host verified Tailscale 1.102.2, online state, MagicDNS and configured Funnel evidence, with `ready_for_edge=true`;
+- bootstrap can optionally install an absent Tailscale through the allowlisted winget package while preserving an existing installation;
+- WebGPT private runtime provisioning now has approved official release URLs and SHA-256 verification for MCPJungle and mcp-auth-proxy, preserving existing binaries by default;
+- production Edge/runtime and route-sync work is present as Stage 13/14 work-in-progress and is not yet closed;
+- installed Serena source confirms its standard agent has process-wide active-project state, and switching projects shuts down the previously active project; this explains observed cross-window project collisions and is owned by Stage 16;
+- live Coding Tools evidence shows more than one server-managed command can be active with overlapping execution windows, while one server remains bound to one configured workspace; parallel writers therefore still require worktree/workspace isolation.
+
+Stage 13 closure: `docs/STAGE-13-CLOSURE.md`.
 
 Repository: local checkout; use the active project/workspace binding rather than committing a machine-specific absolute path.
 Stage 4 proof: unified Gateway, 4 core MCP backends, 87 tools, safe calls PASS.
@@ -52,14 +75,20 @@ Cross-stage supplemental contract is active immediately:
 - future verified stages/runs continue collecting stage-cost evidence (implementation/closure effort, retries, tool switches, tests/docs, handoff first-pass success and almost-done incidents) so the heuristic can self-correct without inventing a platform timeout.
 
 Remaining planned roadmap:
-- Terminal confirmation only
+- `STAGE-13-SUPPLEMENTAL-SOT-DEPLOYMENT-FOUNDATION`
+- `STAGE-14-PRODUCTION-UNIFIED-GATEWAY-EDGE`
+- `STAGE-15-COMPONENT-INSTALL-UPGRADE-LIFECYCLE`
+- `STAGE-16-CONCURRENCY-SESSION-ISOLATION-FALLBACK`
+- `STAGE-17-MANAGER-UX-BILINGUAL-DESKTOP`
+- `STAGE-18-CHINESE-MIRROR-AND-THIRD-PARTY-NOTICES`
+- `STAGE-19-END-TO-END-DEPLOYMENT-ACCEPTANCE`
+- `SUPPLEMENTAL-FINAL-ACCEPTANCE`
 
-Automatic continuation remains authorized only for the final PROJECT-COMPLETE -> TERMINAL handoff.
-The TERMINAL sentinel closes the chain after verifying the committed Project Complete post-state; it does not reopen implementation.
+See `docs/ROADMAP-2026-09-20.md`, `docs/SUPPLEMENTAL-PRODUCT-GOALS-2026-09-20.md`, `docs/DEPLOYMENT.md` and `docs/CONCURRENCY-AND-FALLBACK.md`.
 
 Supplemental ownership:
 - Stage 9 productizes MCP Guide template/onboarding, capability discovery, inventory/routing attachment and guide validation/feedback.
 - Stage 10 productizes self-evolving Loop Engineering, stage sizing/closure budget, context/execution-window resilience, recursive Playwright continuation and handoff failure recovery. Bounded follow-up stages are allowed if evidence justifies them.
 
 Recursive handoff invariant:
-Final Overall Acceptance and Project Complete are CLOSED_LOCAL_VERIFIED. The final PROJECT-COMPLETE -> TERMINAL handoff remains exactly-once; after the TERMINAL sentinel verifies that committed post-state, the recursion termination condition is satisfied and the chain stops.
+The original Final Overall Acceptance and Project Complete remain CLOSED_LOCAL_VERIFIED. The supplemental chain inherits the same exact closure/handoff rules if a new window is required. The current user has explicitly authorized continuous Loop Engineering until the supplemental roadmap is fully closed; do not terminate at an intermediate supplemental stage merely because a prior TERMINAL sentinel once existed.

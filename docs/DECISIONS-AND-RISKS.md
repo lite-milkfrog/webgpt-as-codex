@@ -208,3 +208,41 @@ The accepted release preserves the documented boundaries for OAuth/edge, runtime
 
 ### Residual risk: external service health can drift after acceptance
 Serena, Coding Tools, Playwright, Windows-MCP, Tailscale and other external/runtime services can change independently of repository correctness. PROJECT-COMPLETE and TERMINAL must not reinterpret later listener/session drift as retroactive acceptance failure unless it produces repository-owned contradictory evidence.
+
+## Supplemental chain — one-repository deployment / Gateway / concurrency
+
+### Decision: the repository is the single deployment authority
+
+Users and Agents start from WebGPT-as-Codex. Third-party source trees do not need to be vendored wholesale; component manifests plus installer/provision/version/health adapters are the reproducibility boundary. Existing healthy installations are detected and preserved, while missing components are installed from approved official sources.
+
+### Decision: latest-stable intent needs a compatibility gate
+
+Deployment should target the latest stable upstream release, but `latest` is not treated as proof of compatibility. The component adapter records upstream/latest evidence, validates source/provenance, installs or stages the candidate, runs the component's compatibility health contract and only then promotes it to verified/current state. Already-newer compatible installations are not downgraded.
+
+### Decision: route ownership is separate from lifecycle ownership
+
+WebGPT may register an existing localhost MCP into MCPJungle without changing that MCP's own launch configuration. Stop/restart authority requires separate WebGPT ownership evidence. This enables gradual migration without breaking currently used services.
+
+### Decision: Remote Desktop Commander and Unified Gateway are complementary
+
+Neither replaces the other. The Unified Gateway is the structured MCP path; Remote Desktop Commander is an independent host rescue/control path. Agent routing may use one to recover the other only after classifying the failure layer and only through bounded recovery authority.
+
+### Decision: one Serena MCP process is not a multi-project parallel slot
+
+Installed Serena source confirms one `SerenaAgent` has one process-wide `_active_project`; activating a different project shuts down the previous active project. Its read-only ProjectServer explicitly protects this process-wide state with an active-project lock. A shared mutable Serena server therefore cannot safely represent different projects for concurrent ChatGPT conversations. Stage 16 owns fixed-project instance pooling/project-slot routing rather than papering over this conflict.
+
+### Decision: Coding Tools parallelism is bounded by workspace/write ownership, not by a one-call global model
+
+Live evidence showed multiple server-managed commands can have overlapping execution intervals. The server is nevertheless configured with one workspace. Independent read/process work may overlap, while concurrent writers must use separate worktrees/workspaces or a one-writer lease. This distinction becomes explicit in Stage 16.
+
+### Risk: automatic deployment can duplicate a healthy service
+
+PATH/package absence is not sufficient evidence that an MCP is absent. Discovery must check listener/protocol/process/known install evidence before install. If a healthy service is already reachable, bootstrap preserves it instead of creating a second instance.
+
+### Risk: a new machine may have no Tailscale or no account session
+
+Tailscale is now an explicit environment gate. Installation may be automated from the allowlisted official package; account login/approval remains an interactive boundary when required. Public-edge success is blocked until online/MagicDNS/Funnel evidence exists.
+
+### Risk: fresh-machine binary bootstrap becomes an unbounded downloader
+
+WebGPT-owned MCPJungle/mcp-auth-proxy bootstrap uses repository-approved official release origins and SHA-256 verification. Existing binaries are preserved by default. Stage 15 may add latest-stable resolution, but source-origin and compatibility validation remain mandatory.

@@ -8,6 +8,8 @@ from typing import Any
 from .discovery import discover_all
 from .health import sanitize_for_output
 from .paths import ensure_state_dirs
+from .prerequisites import environment_report, install_tailscale_with_winget
+from .provision import provision_runtime_binaries
 from .registry import Component, load_components
 from .stateio import atomic_write_json
 
@@ -65,11 +67,32 @@ def build_bootstrap_plan(
     }
 
 
-def run_bootstrap(*, apply: bool = False) -> dict[str, Any]:
+def run_bootstrap(
+    *,
+    apply: bool = False,
+    install_missing: bool = False,
+    provision_runtime: bool = False,
+) -> dict[str, Any]:
     plan = build_bootstrap_plan()
+    environment_before = environment_report()
+    installations: list[dict[str, Any]] = []
+    if install_missing and not environment_before["tailscale"]["installed"]:
+        installations.append(install_tailscale_with_winget(confirm=True))
+    runtime_provision = (
+        provision_runtime_binaries()
+        if provision_runtime
+        else {"ok": True, "status": "not-requested", "results": []}
+    )
+    environment_after = environment_report()
     result = {
         **plan,
         "applied": apply,
+        "install_missing": install_missing,
+        "provision_runtime": provision_runtime,
+        "runtime_provision": runtime_provision,
+        "environment": environment_after,
+        "environment_changed": environment_before != environment_after,
+        "installations": installations,
         "generated_at": time.time(),
     }
     if apply:
@@ -86,6 +109,28 @@ def cli_bootstrap(argv: list[str]) -> int:
         action="store_true",
         help="create/verify machine-local state layout and persist the plan; never starts services",
     )
+    parser.add_argument(
+        "--install-missing",
+        action="store_true",
+        help="install allowlisted missing system dependencies; currently Tailscale through winget only",
+    )
+    parser.add_argument(
+        "--provision-runtime",
+        action="store_true",
+        help="download approved MCPJungle/OAuth binaries when missing; preserve existing binaries",
+    )
+    parser.add_argument(
+        "--require-edge-ready",
+        action="store_true",
+        help="exit non-zero until the OAuth/Tailscale HTTPS edge prerequisites are ready",
+    )
     args = parser.parse_args(argv)
-    print(json.dumps(run_bootstrap(apply=args.apply), ensure_ascii=False, indent=2))
+    result = run_bootstrap(
+        apply=args.apply,
+        install_missing=args.install_missing,
+        provision_runtime=args.provision_runtime,
+    )
+    print(json.dumps(result, ensure_ascii=False, indent=2))
+    if args.require_edge_ready and not result["environment"]["ready_for_edge"]:
+        return 2
     return 0
