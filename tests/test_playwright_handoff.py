@@ -2,6 +2,7 @@ from webgpt_as_codex.playwright_handoff import (
     _evaluation_json,
     _target_blank_chatgpt_tab_index,
     _textbox_ref,
+    _wait_for_active_composer,
     prompt_sha256,
 )
 
@@ -27,6 +28,28 @@ def test_active_composer_is_required_when_requested() -> None:
         assert "active ChatGPT composer" in str(exc)
     else:
         raise AssertionError("hidden hydration fallback must not satisfy active composer gate")
+
+
+def test_wait_focuses_visible_dom_composer_before_accepting_active_ref() -> None:
+    class FakeClient:
+        def __init__(self) -> None:
+            self.calls: list[str] = []
+
+        def tool(self, name: str, _arguments: dict, *, request_id: int) -> dict:
+            self.calls.append(name)
+            if name == "browser_evaluate":
+                text = '### Result\n{"value":"{\\\"focused\\\":true,\\\"tag\\\":\\\"DIV\\\"}"}'
+            else:
+                text = '### Snapshot\n- textbox "Chat with ChatGPT" [active] [ref=e716]:'
+            return {"result": {"content": [{"type": "text", "text": text}]}}
+
+    client = FakeClient()
+    ref, next_id = _wait_for_active_composer(
+        client, timeout_seconds=1.0, first_request_id=5
+    )
+    assert ref == "e716"
+    assert next_id == 7
+    assert client.calls == ["browser_evaluate", "browser_snapshot"]
 
 
 def test_targets_current_blank_chatgpt_tab_when_new_action_marks_it_current() -> None:

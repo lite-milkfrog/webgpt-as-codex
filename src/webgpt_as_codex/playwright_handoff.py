@@ -153,7 +153,50 @@ def _wait_for_active_composer(
     deadline = time.monotonic() + timeout_seconds
     request_id = first_request_id
     last_snapshot = ""
+    last_focus_state: dict[str, Any] = {}
     while time.monotonic() < deadline:
+        focus_body = client.tool(
+            "browser_evaluate",
+            {
+                "function": (
+                    "() => {"
+                    "const visible = el => {"
+                    "const s=getComputedStyle(el), r=el.getBoundingClientRect();"
+                    "return s.display!=='none' && s.visibility!=='hidden' && s.opacity!=='0' "
+                    "&& r.width>1 && r.height>1 && !el.disabled "
+                    "&& el.getAttribute('aria-hidden')!=='true';"
+                    "};"
+                    "const selectors=["
+                    "'[contenteditable=\"true\"][data-lexical-editor=\"true\"]',"
+                    "'[contenteditable=\"true\"][role=\"textbox\"]',"
+                    "'textarea[name=\"prompt-textarea\"]',"
+                    "'[contenteditable=\"true\"]','textarea'"
+                    "];"
+                    "const seen=new Set(), candidates=[];"
+                    "for(const sel of selectors){for(const el of document.querySelectorAll(sel)){"
+                    "if(!seen.has(el)){seen.add(el);candidates.push(el);}}}"
+                    "const el=candidates.find(visible);"
+                    "if(!el)return JSON.stringify({focused:false,reason:'no-visible-composer'});"
+                    "el.focus();"
+                    "return JSON.stringify({focused:document.activeElement===el,"
+                    "tag:el.tagName,role:el.getAttribute('role'),"
+                    "contenteditable:el.getAttribute('contenteditable')});"
+                    "}"
+                )
+            },
+            request_id=request_id,
+        )
+        request_id += 1
+        focus_outer = _evaluation_json(_tool_text(focus_body))
+        focus_value: dict[str, Any] = focus_outer
+        if set(focus_outer) == {"value"} and isinstance(focus_outer["value"], str):
+            parsed = json.loads(focus_outer["value"])
+            if isinstance(parsed, dict):
+                focus_value = parsed
+        last_focus_state = focus_value
+        if not bool(focus_value.get("focused")):
+            time.sleep(0.25)
+            continue
         last_snapshot = _tool_text(
             client.tool("browser_snapshot", {}, request_id=request_id)
         )
@@ -164,7 +207,7 @@ def _wait_for_active_composer(
             time.sleep(0.25)
     raise RuntimeError(
         "active ChatGPT composer did not hydrate before timeout; "
-        f"last_snapshot={last_snapshot[-800:]!r}"
+        f"last_focus_state={last_focus_state!r}; last_snapshot={last_snapshot[-800:]!r}"
     )
 
 

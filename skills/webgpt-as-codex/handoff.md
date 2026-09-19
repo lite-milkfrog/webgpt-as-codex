@@ -52,11 +52,11 @@ When authorized:
 1. use Playwright MCP with the already authenticated ChatGPT browser context; prefer a new tab/page in that context, not a fresh isolated browser profile;
 2. keep one MCP session for the entire handoff; extension tab indexes/refs are not stable across MCP sessions;
 3. open a new ChatGPT conversation, then enumerate/select that new ChatGPT tab in the same MCP session instead of assuming the extension made it current/focused;
-4. snapshot the selected page and wait for the real active composer from that same session; initial hydration may expose a hidden fallback textarea, so the first textbox ref is not automatically valid;
+4. use live DOM geometry/style to focus a visible editable composer on the selected page, then reacquire a fresh snapshot and use that focused active ref; initial hydration may expose a hidden autofocus fallback textarea that can also appear `[active]`, so snapshot-active alone is not proof of visibility;
 5. enter the exact validated prompt file and submit once;
 6. verify the sent user-message DOM contains SOURCE_HEAD;
 7. verify an assistant-message DOM node exists and the conversation URL has moved to /c/...;
 8. write a handoff receipt with prompt path, SHA-256, source HEAD, conversation URL and verification evidence.
 
 A filled textbox, click, navigation, prompt file, or URL change alone is not proof of successful handoff.
-A prompt typed into a hidden hydration fallback is also not progress; reacquire live DOM evidence and select the active composer rather than using stale refs or coordinate clicks.
+A prompt typed into a hidden hydration fallback is also not progress; reacquire live DOM visibility evidence, focus the visible editable composer and then select its fresh active ref rather than using stale refs or coordinate clicks.

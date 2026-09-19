@@ -144,7 +144,8 @@ Origin:
 Protected lesson:
 - preserve the already authenticated browser context and the same Playwright MCP session;
 - after browser_tabs new, enumerate/resolve and explicitly select the new blank ChatGPT tab in that same session; do not assume the extension automatically focused it;
-- after opening the new page, poll fresh snapshots for the real active composer instead of selecting the first textbox;
+- after opening the new page, do not trust snapshot `[active]` alone: ChatGPT's hidden fallback textarea can carry autofocus and still be invisible to Playwright;
+- first find a visible editable composer from live DOM geometry/style, focus it, then reacquire a fresh snapshot and use the focused active ref;
 - never reuse stale refs or compensate with blind coordinates;
 - verify sent SOURCE_HEAD + assistant run + /c/ URL before declaring handoff success.
 
