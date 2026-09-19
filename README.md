@@ -1,49 +1,75 @@
 # WebGPT-as-Codex
 
-WebGPT-as-Codex is a local-first control plane for using a web AI client as a durable coding/computer agent over MCP.
+WebGPT-as-Codex is a local-first control plane for using a web AI client as a durable coding/computer agent over MCP. Repository state is the public-safe source of truth; machine-local runtime state, credentials and browser/account state stay outside Git.
 
-The project deliberately separates:
-- upstream MCP servers;
-- one replaceable local gateway;
-- OAuth and remote transport;
-- machine-local state/secrets;
-- a local Manager/Doctor;
-- the reusable Computer Agent + Loop Engineering Skill.
+## Architecture
 
-## Current implementation baseline
-Core backends: Serena, Coding Tools MCP, Playwright MCP, Windows-MCP.
-Default gateway: MCPJungle.
-OAuth edge: WebGPT-as-Codex compatibility adapter + mcp-auth-proxy.
-Remote ingress: Tailscale Funnel.
-Remote Desktop Commander remains an optional direct vendor relay.
+The verified implementation separates:
+- **Agent plane:** project SoT, WebGPT-as-Codex Skill, Loop Engineering and verified recursive handoff.
+- **Control plane:** bootstrap, component registry, Doctor/Repair and the loopback Manager.
+- **Runtime plane:** Serena, Coding Tools MCP, Playwright MCP and Windows-MCP.
+- **Gateway plane:** MCPJungle as the replaceable local aggregator.
+- **Edge plane:** compatibility adapter -> mcp-auth-proxy -> MCPJungle, published through Tailscale Funnel.
+- **Optional full-machine plane:** Remote Desktop Commander.
 
-The repository-owned Manager is available as `webgpt-codex manager --open` and binds to loopback only by default. It shows registry-backed component/version status, distinct health levels, Gateway/OAuth/Tailscale state, an optional configured public MCP URL, the last Doctor result, and fixed Start All / Restart / Doctor / Repair / Update contracts. Closing the browser UI does not own or stop runtimes. Stage 7 and Stage 8 wire the actual Doctor/Repair and bounded runtime executors; Update remains a later-stage contract.
+The browser UI never owns runtime lifetime. Health is reported in separate layers rather than treating a live process/listener as proof of MCP, OAuth or remote health.
 
-Stage 8 also provides `webgpt-codex launcher`, `desktop-launcher install|status|uninstall` and `autostart install|status|uninstall`. The Windows launcher starts/opens the local Manager workflow without making the browser its process owner. Start All preserves healthy external MCP/system services and starts only repository-owned missing runtimes.
+## Install
 
-Validated so far:
-- four core MCP backends through one Gateway endpoint;
-- real public HTTPS OAuth metadata, dynamic registration and PKCE;
-- authenticated MCP calls through Tailscale Funnel;
-- refresh-token reuse after OAuth proxy restart;
-- unauthorized public MCP access rejected with HTTP 401;
-- loopback Manager status/actions API and web UI;
-- Manager output suppresses sensitive state and private/loopback service addresses;
-- bounded Manager polling does not perform deep MCP safe-calls.
-- repository-owned PID/birth-image lifecycle receipts reject stale/reused PID ownership;
-- discovery-first Start All is idempotent and avoids duplicate healthy services;
-- targeted Manager Restart refuses unmanaged component scope;
-- desktop launcher/autostart contracts are reversible and do not embed credentials.
+Python 3.11+ is required.
 
-## Development
 ```powershell
 python -m venv .venv
-.\.venv\Scripts\python -m pip install -e .[dev]
-webgpt-codex manager --open
-webgpt-codex doctor
-pytest
+.\.venv\Scripts\python -m pip install .
+.\.venv\Scripts\webgpt-codex.exe --version
 ```
 
-No private recovery archive, OAuth database, token, password, private key, cookie, or machine identity belongs in this repository.
+The wheel includes the public component manifests and Manager static UI required by installed runtime commands. Machine-local state is created outside the installed package.
 
-See `docs/ARCHITECTURE.md`, `docs/CURRENT-PROJECT-STATE.md`, and `skills/webgpt-as-codex/SKILL.md`.
+For development:
+
+```powershell
+.\.venv\Scripts\python -m pip install -e .[dev]
+.\.venv\Scripts\python -m pytest -q
+.\.venv\Scripts\python -m ruff check .
+.\.venv\Scripts\python scripts\secret_scan.py
+```
+
+## CLI
+
+`webgpt-codex --help` exposes the supported command surfaces:
+
+- `paths`: show the machine-local state root.
+- `status`, `start`, `stop`, `restart`: bounded runtime-supervisor surfaces.
+- `doctor`: prerequisite-aware deep health checks.
+- `repair`: fixed allowlisted repair operations with confirmation/backups.
+- `bootstrap`: discovery-first state/bootstrap planning.
+- `manager`: loopback-only Manager UI/API.
+- `launcher`, `desktop-launcher`, `autostart`: Windows launcher integration.
+- `add-mcp`: discovery-first generic MCP onboarding; dry-run by default, explicit machine-local apply.
+- `loop`: durable Loop Engineering execution/closure evidence.
+
+Manager actions are fixed contracts only. Start/Restart are restricted by repository runtime ownership. Stage 11's Update action is repository-approved and offline-by-default: it can only consume an already-staged artifact whose component/version/source/digest/destination authority is declared by the repository.
+
+## Verified behavior
+
+Stages 0-11 established and regression-tested:
+- one Gateway endpoint over the four core MCP backends;
+- real public HTTPS OAuth metadata, DCR + PKCE, refresh and authenticated MCP calls;
+- unauthorized public MCP access rejected with HTTP 401;
+- loopback Manager with shallow polling, sanitized output and Host/Origin/action-schema hardening;
+- discovery-first Bootstrap, deep Doctor and allowlisted Repair;
+- PID birth/image ownership checks, idempotent Start All and bounded Restart;
+- reversible credential-free desktop launcher/autostart;
+- generic Add MCP with capability-evidence states and portable Operating Guides;
+- durable Loop Engineering state and exactly-once Playwright handoff semantics;
+- atomic machine-local state writes, untrusted custom-manifest validation and bounded rollback;
+- repository-approved Manager Update authority.
+
+## Public-safe release boundary
+
+Git and release artifacts must not contain OAuth databases, tokens, passwords, private keys, cookies, browser profiles, pairing data, private machine URLs, local state receipts, generated handoff receipts, PID/process state or machine-specific private paths.
+
+The wheel intentionally carries only runtime Python code plus public component manifests and the Manager static UI. Project documentation, stage evidence and Skill sources remain repository artifacts; machine-local runtime evidence remains outside both.
+
+See `docs/ARCHITECTURE.md`, `docs/CURRENT-PROJECT-STATE.md`, `docs/DECISIONS-AND-RISKS.md` and `skills/webgpt-as-codex/SKILL.md`.

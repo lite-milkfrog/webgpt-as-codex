@@ -1,6 +1,6 @@
 {
   "name": "webgpt-as-codex",
-  "version": "0.5.0",
+  "version": "0.6.0",
   "roles": ["local-sot", "mcp-routing", "mcp-operating-guides", "loop-engineering", "doctor-repair", "handoff"],
   "invariants": [
     "local_sot_before_chat_memory",

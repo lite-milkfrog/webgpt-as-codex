@@ -7,7 +7,7 @@ from pathlib import Path
 from typing import Any
 from urllib.parse import urlsplit
 
-from .paths import ensure_state_dirs, repo_root
+from .paths import ensure_state_dirs, resource_root
 from .stateio import atomic_write_json
 
 _SECRET_KEY_RE = re.compile(
@@ -90,7 +90,7 @@ def _component_from_dict(data: dict[str, Any], *, custom: bool = False) -> Compo
 
 def load_components() -> dict[str, Component]:
     components: dict[str, Component] = {}
-    builtin_root = repo_root() / "components"
+    builtin_root = resource_root() / "components"
     for path in sorted(builtin_root.glob("*.json")):
         data = json.loads(path.read_text(encoding="utf-8"))
         component = _component_from_dict(data)
@@ -142,7 +142,7 @@ def write_custom_component(data: dict[str, Any]) -> Path:
             "credential literals are forbidden; use environment/credential references: "
             + ", ".join(secrets)
         )
-    if (repo_root() / "components" / f"{component.id}.json").exists():
+    if (resource_root() / "components" / f"{component.id}.json").exists():
         raise ValueError("custom component cannot shadow a public registry component")
     root = ensure_state_dirs() / "config" / "components"
     root.mkdir(parents=True, exist_ok=True)

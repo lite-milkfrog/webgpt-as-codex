@@ -183,3 +183,14 @@ Loopback binding alone does not prove a browser request originated from the loca
 
 ### Risk: connector/tool exposure can drift independently of target health
 During Stage 11 the web Coding Tools functions disappeared after earlier successful repository binding. The repository HEAD and working tree remained reachable and all gates were completed through Desktop Commander. Treat tool exposure/session drift as harness evidence until target post-state contradicts it.
+
+## Stage 12 — README / release / final-acceptance preparation
+
+### Decision: release verification must exercise an installed artifact
+A source checkout can hide packaging defects because repository-root resources are still present. Stage 12 therefore treats wheel build + isolated install + representative CLI/resource probes as a required release-facing gate in addition to unit tests.
+
+### Decision: installed runtime resources are explicit and minimal
+The release wheel includes only public component manifests and the Manager static UI as non-Python runtime data. Installed code resolves those resources from a dedicated `share/webgpt-as-codex` tree when a source checkout is absent. Stage documentation, prompt plans, Skill source, machine-local state and handoff receipts are not wheel runtime data.
+
+### Risk resolved: source-layout assumptions can create a false-green release
+The Stage 12 baseline wheel installed successfully and exposed the console entry point, but `load_components()` returned zero built-ins and the Manager static page path did not exist because `repo_root()` pointed into the installed environment. The minimum release boundary was reopened, resource packaging/path resolution was corrected, and an isolated rebuilt wheel then loaded all eight built-in component manifests and the Manager UI.

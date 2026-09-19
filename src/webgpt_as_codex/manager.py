@@ -13,7 +13,7 @@ from typing import Any
 from urllib.parse import urlsplit
 
 from .health import ManagerStatusService, sanitize_for_output
-from .paths import repo_root
+from .paths import resource_root
 
 
 @dataclass(frozen=True)
@@ -216,7 +216,7 @@ class ManagerRequestHandler(BaseHTTPRequestHandler):
             self._json({"ok": False, "error": "loopback-origin-required"}, HTTPStatus.FORBIDDEN)
             return
         if self.path in {"/", "/index.html"}:
-            self._html(repo_root() / "manager" / "static" / "index.html")
+            self._html(resource_root() / "manager" / "static" / "index.html")
             return
         if self.path == "/healthz":
             self._json({"ok": True})

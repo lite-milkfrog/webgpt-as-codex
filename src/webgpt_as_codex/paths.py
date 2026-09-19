@@ -2,11 +2,28 @@ from __future__ import annotations
 
 import getpass
 import os
+import sys
 from pathlib import Path
 
 
 def repo_root() -> Path:
     return Path(__file__).resolve().parents[2]
+
+
+def resource_root() -> Path:
+    source_root = repo_root()
+    if (
+        (source_root / "components").is_dir()
+        and (source_root / "manager" / "static" / "index.html").is_file()
+    ):
+        return source_root
+    installed_root = Path(sys.prefix) / "share" / "webgpt-as-codex"
+    if (
+        (installed_root / "components").is_dir()
+        and (installed_root / "manager" / "static" / "index.html").is_file()
+    ):
+        return installed_root
+    return source_root
 
 
 def _windows_local_appdata() -> Path | None:

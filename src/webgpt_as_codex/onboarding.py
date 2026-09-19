@@ -11,7 +11,7 @@ from urllib.parse import urlsplit
 
 from .health import redact_text
 from .mcp import initialize, rpc, session_id
-from .paths import ensure_state_dirs, repo_root
+from .paths import ensure_state_dirs, resource_root
 from .registry import Component
 from .stateio import atomic_write_text_bundle, json_text
 
@@ -267,7 +267,7 @@ def apply_onboarding_plan(plan: dict[str, Any]) -> dict[str, Any]:
         raise ValueError("capability evidence status is invalid")
     if not isinstance(routing, dict) or routing.get("component_id") != data["id"]:
         raise ValueError("routing recommendation does not match manifest")
-    builtin_path = repo_root() / "components" / f"{data['id']}.json"
+    builtin_path = resource_root() / "components" / f"{data['id']}.json"
     custom_path = ensure_state_dirs() / "config" / "components" / f"{data['id']}.json"
     if builtin_path.exists():
         raise ValueError("component id already exists in public registry; update that component instead")

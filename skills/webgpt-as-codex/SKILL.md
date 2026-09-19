@@ -121,3 +121,5 @@ Manager Update is repository-approved authority, never a generic downloader/shel
 A stage is complete only when owned behavior is implemented, validation is green, post-state is verified, affected docs/ledger are updated, closure is written, the stage is committed, the next prompt is generated from that committed HEAD, validated/hashed, Playwright-submitted, the sent user message is verified and the next assistant run is verified.
 
 Use an approximately 20-minute soft stage budget including closure/handoff; it is a heuristic, not a hard timeout. Split a stage when continuing implementation would endanger true closure. Short fully closed stages are preferable to repeated almost-complete windows.
+
+For release-facing stages, source-tree tests are not package proof. Build and install the artifact in an isolated environment, exercise representative entry points, and verify required non-code runtime resources from the installed layout before calling the release usable.

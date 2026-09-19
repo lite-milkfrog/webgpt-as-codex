@@ -360,3 +360,15 @@ Protected lesson:
 - treat connector/function disappearance as session or tool-exposure evidence first;
 - verify the target repository independently before declaring the preferred MCP unavailable or the project broken;
 - continue through the approved host fallback when the target post-state is independently verifiable, and record the tool switch as stage-cost evidence.
+
+## 2026-09-19 — Source checkout success is not release-package proof
+
+Origin:
+- Stage 12 built and installed the baseline wheel in an isolated environment.
+- The console entry point worked, but installed resource discovery returned zero built-in components and the Manager static page was absent because runtime code assumed repository-root sibling files.
+
+Protected lesson:
+- release gates must exercise the built/installed artifact, not only the source tree;
+- explicitly declare non-Python runtime resources and test their installed lookup path;
+- prefer a narrow source-or-installed resource resolver over copying machine-local state into the package;
+- a successful wheel build, import or `--help` is not sufficient evidence that runtime resources were packaged.

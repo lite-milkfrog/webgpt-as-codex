@@ -21,6 +21,10 @@ webgpt-codex = "webgpt_as_codex.cli:main"
 [tool.setuptools.packages.find]
 where = ["src"]
 
+[tool.setuptools.data-files]
+"share/webgpt-as-codex/components" = ["components/*.json"]
+"share/webgpt-as-codex/manager/static" = ["manager/static/index.html"]
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 

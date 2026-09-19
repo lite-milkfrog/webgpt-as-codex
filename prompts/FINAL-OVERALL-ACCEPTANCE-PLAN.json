@@ -1,0 +1,25 @@
+{
+  "current_stage": "FINAL-OVERALL-ACCEPTANCE",
+  "next_stage": "PROJECT-COMPLETE",
+  "after_next_stage": "TERMINAL",
+  "stage_objective": "Perform the final evidence-based acceptance of WebGPT-as-Codex against the repository SoT and original project goals without adding features: reconcile Stage 0-12 closures, verify the release artifact and representative safe runtime surfaces, confirm there are no unresolved release/security/ownership contradictions, run the final full gates, write the final acceptance closure, commit it, and hand off a fresh PROJECT-COMPLETE prompt from the verified final HEAD.",
+  "required_outputs": [
+    "reconcile the original project goals and Stage 0-12 closure evidence, listing any contradiction or unresolved acceptance blocker rather than assuming prior closure is sufficient",
+    "verify the built release artifact from an isolated install, including metadata, console entry point, public runtime resources and representative safe CLI/Manager surfaces",
+    "run the final full repository tests, Ruff, secret scan, git diff/status and public-safe tracked-file checks",
+    "confirm lifecycle, OAuth/edge, generic Add MCP, Loop Engineering, exactly-once handoff and Stage 11 hardening ownership boundaries still match the final documentation",
+    "update only final acceptance/current-state/decision/experience records required by actual evidence and write the Final Overall Acceptance closure",
+    "commit Final Overall Acceptance, generate PROJECT-COMPLETE from the new verified HEAD, validate/hash it, Playwright-submit exactly once and verify sent-message + /c/ + new assistant run"
+  ],
+  "do_not_redo": [
+    "Stages 0-12 implementation unless contradictory final evidence identifies a minimum release-blocking boundary",
+    "new features, architecture redesigns or speculative cleanup during acceptance",
+    "machine-local OAuth/Tailscale credentials, browser profiles, private endpoints or unrelated repositories",
+    "treating process/listener/import success as a substitute for the deeper acceptance evidence required by the relevant boundary"
+  ],
+  "known_risks": [
+    "Final acceptance can expose contradictions between source-tree tests and installed-artifact behavior; reopen only the minimum affected release boundary if that happens.",
+    "Machine/session health for external MCPs may drift independently of repository correctness; distinguish transient harness evidence from product defects.",
+    "The final recursive handoff remains an exactly-once external side effect and is complete only after sent-message, /c/ URL and new-assistant-run verification."
+  ]
+}

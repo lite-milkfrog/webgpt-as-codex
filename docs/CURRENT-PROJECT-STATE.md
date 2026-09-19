@@ -1,9 +1,9 @@
 # Current Project State
 
 PROJECT = WebGPT-as-Codex
-CURRENT_STAGE = STAGE-12-README-RELEASE-FINAL-ACCEPTANCE
-NEXT_STAGE = FINAL-OVERALL-ACCEPTANCE
-AFTER_NEXT_STAGE = PROJECT-COMPLETE
+CURRENT_STAGE = FINAL-OVERALL-ACCEPTANCE
+NEXT_STAGE = PROJECT-COMPLETE
+AFTER_NEXT_STAGE = TERMINAL
 
 Stage 1: CLOSED_LOCAL_VERIFIED
 Stage 2: CLOSED_LOCAL_VERIFIED
@@ -16,8 +16,9 @@ Stage 8: CLOSED_LOCAL_VERIFIED
 Stage 9: CLOSED_LOCAL_VERIFIED
 Stage 10: CLOSED_LOCAL_VERIFIED
 Stage 11: CLOSED_LOCAL_VERIFIED
+Stage 12: CLOSED_LOCAL_VERIFIED
 
-Repository: D:\AgentData\10_Workspaces\coding-tools-mcp-demo\webgpt-as-codex
+Repository: local checkout; use the active project/workspace binding rather than committing a machine-specific absolute path.
 Stage 4 proof: unified Gateway, 4 core MCP backends, 87 tools, safe calls PASS.
 Stage 5 proof: real Tailscale HTTPS edge, DCR + PKCE + token + 401 gate + restart + refresh + authenticated MCP call PASS.
 Stage 6 proof: repository-owned loopback Manager, registry-backed component status, six-level health schema, Gateway/OAuth/Tailscale/Public-MCP/Doctor surfaces, fixed action contracts, secret/private-URL redaction, 30 tests PASS and Ruff/secret scan PASS.
@@ -32,6 +33,8 @@ Stage 10 dogfood evidence: Coding Tools was still bound away from this repositor
 Stage 10 first post-commit handoff failed before typing/submission because the extension remained current while one already-created blank ChatGPT tab existed. The minimum handoff boundary was reopened to recover only a unique blank tab after new-tab diff + one refresh fail; the stale 74a1dab prompt was invalidated and never sent.
 Stage 11 proof: fixed repository-owned Manager Update executor with repository-approved component/version/source/digest contracts; Host/Origin and action-payload fail-closed Manager boundaries; hardened custom MCP trust and schema persistence; atomic machine-local state writes with bounded multi-file rollback; runtime identity checks before binary update; 104 full repository tests PASS, Ruff PASS, secret scan PASS and git diff check PASS.
 Stage 11 execution evidence: the web Coding Tools functions disappeared mid-window after earlier successful binding, so the failure was classified as tool-session exposure drift and the same repository was validated through Desktop Commander fallback. No target failure was inferred from the connector disappearance.
+Stage 12 proof: README/release-facing documentation was reconciled to the verified Stage 0-11 behavior; the stale statement that Update remained deferred was removed; Skill metadata was aligned at 0.6.0; a real baseline wheel install exposed a release-only resource defect where built-in manifests and Manager static UI were absent; the minimum packaging boundary was corrected by explicit public runtime data files plus source-or-installed resource resolution; a rebuilt isolated wheel loaded all 8 built-in manifests and Manager UI; 107 repository tests PASS, Ruff PASS, secret scan PASS and git diff check PASS.
+Stage 12 release boundary: the wheel contains Python runtime code, public component manifests and Manager static UI only. Stage docs/prompts/Skill source remain repository artifacts, while machine-local state, staged update files, handoff receipts, credentials, PIDs/process evidence and browser/account state remain outside release artifacts.
 Final canonical-launcher dogfood later observed Serena's external listener down. Start All reported it as required/unmanaged missing and did not restart it; this is current external-service health drift, not repository lifecycle ownership. The same dogfood exposed a service-context shell-folder expansion defect, which was corrected and re-probed to resolve the real user Desktop/Startup paths even when `USERPROFILE`/`APPDATA` are absent.
 Final Windows post-state: the managed desktop launcher is installed on the real user Desktop. Autostart passed a real install -> status -> uninstall -> absent -> reinstall -> present round trip and is left installed/managed in the real user Startup folder. The erroneous literal `%USERPROFILE%` tree created by the first probe was removed and confirmed absent.
 First Stage 9 handoff attempt failed before typing/submission because ChatGPT's hidden autofocus fallback textarea also appeared active in the accessibility snapshot. No user message was sent. The minimum handoff helper boundary was reopened to focus a DOM-visible editable composer before consuming a fresh active snapshot ref.
@@ -46,11 +49,11 @@ Cross-stage supplemental contract is active immediately:
 - future verified stages/runs continue collecting stage-cost evidence (implementation/closure effort, retries, tool switches, tests/docs, handoff first-pass success and almost-done incidents) so the heuristic can self-correct without inventing a platform timeout.
 
 Remaining planned roadmap:
-- Stage 12: STAGE-12-README-RELEASE-FINAL-ACCEPTANCE
 - Final Overall Acceptance
+- Project Complete terminal handoff
 
 Automatic continuation remains authorized.
-The Stage 12 handoff must be generated from the committed Stage 11 HEAD and verified through Playwright MCP with exactly-once submission semantics.
+The Final Overall Acceptance handoff must be generated from the committed Stage 12 HEAD and verified through Playwright MCP with exactly-once submission semantics.
 
 Supplemental ownership:
 - Stage 9 productizes MCP Guide template/onboarding, capability discovery, inventory/routing attachment and guide validation/feedback.

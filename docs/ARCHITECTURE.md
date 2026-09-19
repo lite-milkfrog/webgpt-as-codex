@@ -107,3 +107,13 @@ The initial soft budget is 20 minutes with explicit closure reserve. After suffi
 Handoff causality is split in two. A committed plan defines the next stage but excludes SOURCE_HEAD. After the current closure commit, the prompt generator injects the actual HEAD, validates CURRENT/NEXT/AFTER_NEXT/SOURCE_HEAD and hashes exact bytes. Playwright preparation may recover hidden hydration, stale refs and tab ambiguity before submission. The external send side effect is attempted once; ambiguous transport responses trigger post-state polling, never a second send.
 
 Final handoff receipts are post-commit machine-local evidence so receipt persistence cannot mutate the HEAD already sent to the next window.
+
+## Release packaging boundary
+
+Stage 12 treats an installed wheel as a distinct runtime environment from a source checkout. Runtime code must not assume that repository-root sibling directories survive installation.
+
+The wheel carries only the public runtime resources required by installed commands:
+- component manifests under `share/webgpt-as-codex/components`;
+- the Manager static UI under `share/webgpt-as-codex/manager/static`.
+
+`resource_root()` prefers the source checkout when those resources are present and otherwise resolves the installed `sys.prefix/share/webgpt-as-codex` tree. Repository-only artifacts such as stage closures, prompt plans, Skill source and public engineering evidence are not runtime wheel data. Machine-local state, secrets, staged updates, handoff receipts, PID/process evidence and browser/account state remain outside both Git and release artifacts.
