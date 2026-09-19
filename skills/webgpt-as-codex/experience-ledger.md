@@ -472,3 +472,17 @@ Protected lesson:
 - do not weaken or skip installed-artifact verification after a harness failure;
 - final acceptance should verify the installed resource root, public manifests, static UI and representative control surfaces from outside the source checkout;
 - when an acceptance probe itself fails from a parsing assumption, verify the returned product data before classifying it as a target defect.
+
+## 2026-09-20 — Process mutation timeout needs a bounded observation window
+
+Origin:
+- Stage 16 launched an isolated fixed-project Serena server on a non-shared loopback port and verified MCP initialize plus `tools/list`.
+- the existing Windows bounded-stop helper reported a shutdown timeout while the isolated Serena process disappeared shortly afterwards;
+- repeating an immediate stop/kill would have created an unnecessary second side effect.
+
+Protected lesson:
+- timeout/non-zero after stop/restart/kill is an ambiguous mutation result, not proof that the mutation failed;
+- query listener and PID birth/image identity repeatedly for a bounded observation window before considering another destructive action;
+- if the original process is already gone or the target is healthy, close from post-state and do not retry;
+- only a still-live matching identity plus current lifecycle authority can justify the next mutation attempt;
+- preserve shared services while probing isolated workers: Stage 16 never switched or restarted the user's shared Serena 9121 instance.

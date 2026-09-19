@@ -247,6 +247,24 @@ Tailscale is now an explicit environment gate. Installation may be automated fro
 
 WebGPT-owned MCPJungle/mcp-auth-proxy bootstrap uses repository-approved official release origins and SHA-256 verification. Existing binaries are preserved by default. Stage 15 may add latest-stable resolution, but source-origin and compatibility validation remain mandatory.
 
+## Stage 16 — concurrency / session isolation / complementary recovery
+
+### Decision: concurrency authority is explicit per shared state
+
+Request-level concurrency is not treated as project/session isolation. Serena fixed-project slots are separate processes/ports with machine-local project/owner/process identity receipts; the user's shared 9121 instance is excluded. Coding Tools readers do not need a writer lease, while writers are serialized per worktree and a requested path outside the configured workspace is rejected. Native GUI side effects across Remote Desktop Commander and Windows-MCP use one machine GUI lease.
+
+### Decision: one recovery attempt has one mutation owner
+
+Gateway and Remote Desktop Commander remain complementary control paths, but a recovery request carries an attempt id, visited paths and bounded hop budget. Only one path may claim mutation authority for a component in that attempt. Lack of lifecycle authority is diagnose-only. This keeps route ownership, install ownership and runtime mutation authority distinct.
+
+### Risk: process shutdown acknowledgement can lag the real exit
+
+Real isolated Serena probes showed that a Windows process stop confirmation can time out while the process exits shortly afterwards. A timeout/non-zero response is therefore an ambiguous mutation result, not proof that a second kill/restart is required. Stage 16 uses a bounded post-state observation window over listener and PID birth/image identity; an already-exited/recovered post-state ends the attempt without a duplicate mutation. This reusable rule is also captured by Computer Agent 1.1.16 / R49.
+
+### Risk: local lease files become stale after a crashed owner
+
+Serena slot ownership, Coding Tools writer ownership and GUI ownership are machine-local leases/receipts rather than Git state. They carry expiry/identity evidence and allow bounded stale reclaim; active unexpired ownership is never stolen merely because another ChatGPT window wants the resource.
+
 ## Stage 15 — component install / upgrade / lifecycle
 
 ### Decision: latest stable is resolved at deployment time but is not blind mutation authority

@@ -44,15 +44,15 @@ If a Gateway backend or local WebGPT runtime fails while Remote Desktop Commande
 
 If Remote Desktop Commander fails while the Unified Gateway remains healthy, Agent routing may use Gateway-routed Windows-MCP/Coding Tools/WebGPT control capability to inspect/recover the Remote Desktop Commander runtime where lifecycle/security policy permits.
 
-The entire public WebGPT endpoint cannot use itself to rescue a transport outage; independent rescue selection therefore belongs partly to the Agent/Skill routing layer. Recovery never bypasses OAuth/security and no two recovery paths may mutate the same component concurrently.
+The entire public WebGPT endpoint cannot use itself to rescue a transport outage; independent rescue selection therefore belongs partly to the Agent/Skill routing layer. Stage 16 implements this as an attempt-scoped recovery coordinator: every recovery has a correlation/attempt id, visited-path set, bounded hop budget and one mutation owner per component/attempt. A path without lifecycle authority is diagnose-only. Ambiguous mutation timeout/non-zero is resolved from bounded post-state observation before any later mutation is considered.
 
 ## Concurrency model
 
 Concurrency is component-specific rather than a blanket MCP property.
 
-- Serena's standard single server process owns one process-wide active project. Project activation may shut down the previous project's language server, so two conversations must not share one mutable project slot when they work on different projects. WebGPT will provide fixed-project Serena instances/project slots or the read-only multi-project query path where suitable.
-- Coding Tools can overlap independent tool/process activity, but one instance has one configured workspace. Parallel writers require separate worktrees/workspaces or explicit write serialization.
-- Remote Desktop Commander can overlap independent terminal/filesystem/process sessions, but physical GUI focus/mouse/keyboard is a singleton resource and needs a machine-level GUI lease.
+- Serena's standard single server process owns one process-wide active project. Project activation may shut down the previous project's language server, so two conversations must not share one mutable project slot when they work on different projects. Stage 16 provides fixed-project Serena instances/project slots on isolated loopback ports with machine-local owner/process receipts; shared port 9121 is never managed by that pool.
+- Coding Tools can overlap independent read/process activity, but one instance has one configured workspace. Stage 16 makes the write boundary executable: workspace mismatch rejects, one worktree has one writer lease, and parallel writers require distinct worktree/workspace identity.
+- Remote Desktop Commander can overlap independent terminal/filesystem/process sessions, but physical GUI focus/mouse/keyboard is a singleton resource. Stage 16 provides a machine-local GUI lease with owner, heartbeat/expiry and stale recovery for native GUI side effects.
 - Windows-MCP follows the shared native-GUI rule.
 - Playwright can parallelize isolated pages/contexts; one page/profile/login-state still follows one-writer ownership.
 

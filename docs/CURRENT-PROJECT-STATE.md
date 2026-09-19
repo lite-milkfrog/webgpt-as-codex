@@ -1,9 +1,9 @@
 # Current Project State
 
 PROJECT = WebGPT-as-Codex
-CURRENT_STAGE = STAGE-16-CONCURRENCY-SESSION-ISOLATION-FALLBACK
-NEXT_STAGE = STAGE-17-MANAGER-UX-BILINGUAL-DESKTOP
-AFTER_NEXT_STAGE = STAGE-18-CHINESE-MIRROR-AND-THIRD-PARTY-NOTICES
+CURRENT_STAGE = STAGE-17-MANAGER-UX-BILINGUAL-DESKTOP
+NEXT_STAGE = STAGE-18-CHINESE-MIRROR-AND-THIRD-PARTY-NOTICES
+AFTER_NEXT_STAGE = STAGE-19-END-TO-END-DEPLOYMENT-ACCEPTANCE
 
 Stage 1: CLOSED_LOCAL_VERIFIED
 Stage 2: CLOSED_LOCAL_VERIFIED
@@ -24,7 +24,7 @@ Supplemental chain (user requirements added after the accepted TERMINAL state):
 - Stage 13: CLOSED_LOCAL_VERIFIED
 - Stage 14: CLOSED_LOCAL_VERIFIED
 - Stage 15: CLOSED_LOCAL_VERIFIED
-- Stage 16: IN_PROGRESS
+- Stage 16: CLOSED_LOCAL_VERIFIED
 - Stage 17: PLANNED
 - Stage 18: PLANNED
 - Stage 19: PLANNED
@@ -68,6 +68,20 @@ Stage 15 proof:
 - full repository gate: 146 PASS, Ruff PASS, secret scan PASS, `git diff --check` PASS.
 
 Stage 15 closure: `docs/STAGE-15-CLOSURE.md`.
+
+Stage 16 proof:
+- repository-owned `concurrency.py` provides machine-local fixed-project Serena slots on isolated loopback ports; shared port 9121 is explicitly excluded from pool ownership and mutation;
+- slot receipts bind project, owner, port, PID birth token, image name and launch fingerprint, with idempotent acquire/release, stable free-slot reuse, stale-receipt cleanup and occupied-port fail-closed behavior;
+- the current CLI-installed Serena used for isolated workers self-reported 1.28.1. Its installed source still has one process-wide `_active_project`, shuts down the prior active project on switch, and uses an active-project lock/context in the ProjectServer path. Separately, the user's already-running shared direct Serena still reports 1.7.0 with active project `Jarvis-dev`; Stage 16 never switched or restarted that shared instance;
+- real isolated Serena instances on non-9121 ports completed MCP initialize and `tools/list=29`; the probes were cleaned up without restarting or switching the shared 9121 instance;
+- Coding Tools concurrency is now an executable policy boundary: reads/bounded independent processes do not take a writer lease, one configured workspace rejects out-of-binding paths, one worktree has one machine-local writer lease, and a different worktree may have a distinct writer;
+- Remote Desktop Commander / Windows-MCP native GUI side effects share a machine-local lease with owner, heartbeat/expiry, idempotent release and stale reclaim;
+- complementary recovery now carries attempt identity, visited paths, hop budget and one mutation owner per component/attempt. No lifecycle authority is diagnose-only; ambiguous timeout/non-zero mutation checks bounded post-state before any new mutation;
+- Stage14-16 targeted regression: 52 PASS; full repository: 167 PASS; Ruff, repository secret scan and `git diff --check`: PASS;
+- current production listeners remained on their baseline PIDs after Stage 16 probing: Gateway 9330 = 77084, Windows-MCP 8001 = 50508, Playwright 8931 = 53880, shared Serena 9121 = 38924. Shared Serena also remained on active project `Jarvis-dev`; temporary Serena 9477/9478 listeners were absent at final post-state;
+- Computer Agent Skill advanced to `1.1.16-local-candidate`; validator reports `VALIDATION_OK`, 49 scenarios, including R48 concurrency isolation and R49 bounded process post-state observation.
+
+Stage 16 closure: `docs/STAGE-16-CLOSURE.md`.
 
 Repository: local checkout; use the active project/workspace binding rather than committing a machine-specific absolute path.
 Stage 4 proof: unified Gateway, 4 core MCP backends, 87 tools, safe calls PASS.

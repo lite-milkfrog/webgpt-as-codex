@@ -100,3 +100,52 @@ Likewise, Remote Desktop Commander cannot be assumed to rescue a machine that is
 - one external side effect is attempted once, then post-state is queried;
 - recovery actions require evidence and bounded ownership;
 - never let two recovery paths restart the same component simultaneously.
+
+## Stage 16 implementation
+
+### Serena fixed-project slots
+
+`src/webgpt_as_codex/concurrency.py` implements a machine-local `SerenaSlotPool`.
+
+- port 9121 is a hard exclusion and can never be placed in the managed pool;
+- each managed slot has a fixed project, isolated loopback port, owner id, PID, birth token, image name and launch fingerprint;
+- a live slot cannot be stolen from another owner;
+- a released compatible slot may be reused for the same project;
+- concurrent owners of the same project receive distinct live slots rather than sharing mutable active-project state;
+- stale process receipts are removed only after process-identity mismatch/death evidence;
+- an occupied candidate port is skipped/fails closed rather than being taken over;
+- release is idempotent and destroy only targets a process whose receipt still matches live process identity.
+
+The current CLI-installed Serena used by the real isolated Stage 16 probe self-reported version 1.28.1. Its installed source still stores one `SerenaAgent._active_project`, shuts down the prior active project when switching, and serializes ProjectServer active-project context with a lock. The already-running shared direct Serena is a separate 1.7.0 instance and remained on active project `Jarvis-dev`. The isolation requirement is therefore current across both the observed shared deployment and the newer CLI source.
+
+### Coding Tools writer boundary
+
+`CodingWorkspacePolicy` represents the configured workspace explicitly. Read/bounded independent process work does not take a writer lease. A writer must acquire a machine-local lease keyed by worktree identity; a second owner is rejected until release/expiry, while a distinct worktree can have an independent writer. Paths outside the configured workspace fail with a binding mismatch rather than mutating an unintended tree.
+
+### Machine GUI lease
+
+`MachineGuiLease` serializes native GUI side effects shared by Remote Desktop Commander and Windows-MCP. The lease records owner, action, acquisition/heartbeat time and expiry, supports idempotent release, rejects a second active owner and reclaims only an expired stale lease. Filesystem/process/terminal work does not need this GUI lease.
+
+### Complementary recovery coordinator
+
+`src/webgpt_as_codex/recovery.py` implements attempt-scoped routing and mutation ownership:
+
+- Gateway/public-Gateway/backend failure may select independent Remote Desktop Commander when available;
+- Remote Desktop Commander failure may select the healthy Gateway path;
+- visited-path tracking and hop budget block A -> B -> A loops;
+- one component/attempt has one mutation owner even if both paths observe the same failure;
+- no lifecycle authority returns diagnose-only;
+- mutation timeout/non-zero is followed by bounded post-state inspection and never authorizes a blind duplicate restart;
+- a second path that did not win mutation authority may observe that the first path already recovered the component and return recovered-by-other-path without mutating.
+
+## Stage 16 verification evidence
+
+- Stage 14-16 regression: 52 PASS.
+- Full repository: 167 PASS.
+- Ruff, repository secret scan and `git diff --check`: PASS.
+- Real isolated Serena MCP: initialize 200 and `tools/list=29` on non-9121 loopback slots; temporary probe listeners were absent at final post-state.
+- Shared/production listeners stayed on their baseline PIDs after the probe: Serena 9121 = 38924, Playwright 8931 = 53880, Windows-MCP 8001 = 50508, Gateway 9330 = 77084. Shared Serena's direct configuration also remained 1.7.0 / active project `Jarvis-dev`.
+- Remote Desktop Commander direct connector remained available and returned read-only host/config evidence; no GUI business mutation was required.
+- Computer Agent Skill 1.1.16-local-candidate: `VALIDATION_OK`, 49 scenarios.
+
+The real Serena cleanup probe also produced the Stage 16 shutdown-race lesson: the first bounded stop confirmation can time out even though the isolated process exits shortly afterwards. The final implementation therefore observes post-state for a bounded window before deciding that a new mutation could be necessary.
