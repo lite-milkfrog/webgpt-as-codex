@@ -16,7 +16,7 @@ Stage 8: CLOSED_LOCAL_VERIFIED
 Stage 9: CLOSED_LOCAL_VERIFIED
 Stage 10: CLOSED_LOCAL_VERIFIED
 
-Repository: D:\AgentData\10_Workspaces\webgpt-as-codex
+Repository: D:\AgentData\10_Workspaces\coding-tools-mcp-demo\webgpt-as-codex
 Stage 4 proof: unified Gateway, 4 core MCP backends, 87 tools, safe calls PASS.
 Stage 5 proof: real Tailscale HTTPS edge, DCR + PKCE + token + 401 gate + restart + refresh + authenticated MCP call PASS.
 Stage 6 proof: repository-owned loopback Manager, registry-backed component status, six-level health schema, Gateway/OAuth/Tailscale/Public-MCP/Doctor surfaces, fixed action contracts, secret/private-URL redaction, 30 tests PASS and Ruff/secret scan PASS.
