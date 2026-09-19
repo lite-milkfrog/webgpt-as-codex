@@ -157,8 +157,8 @@ This handoff rule is recursive and MUST be inherited by every subsequent window:
 Automatic continuation is authorized.
 After closure, use Playwright MCP with the logged-in ChatGPT browser state:
 1. keep one MCP session and reuse the already authenticated browser context; do not create a fresh isolated profile merely to get a new conversation;
-2. open a new ChatGPT tab/page;
-3. reacquire fresh DOM evidence and wait for the real active composer; an initial hidden hydration fallback textarea is not a valid target;
+2. open a new ChatGPT tab/page, enumerate the tabs and explicitly select that new ChatGPT tab in the same MCP session; do not assume the extension focused it;
+3. reacquire fresh DOM evidence from the selected tab and wait for the real active composer; an initial hidden hydration fallback textarea is not a valid target;
 4. enter the exact validated prompt file and submit once;
 5. verify the prompt appears as a sent user message containing SOURCE_HEAD;
 6. verify the URL is /c/... and a new assistant run/response begins;
