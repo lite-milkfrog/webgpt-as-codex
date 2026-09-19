@@ -42,6 +42,7 @@ Never place secrets in local SoT committed to Git.
 ## Handoff
 Generate a next-window prompt from current verified state, not by renaming an old prompt.
 If automatic continuation is authorized, verify submit + new run start before marking handoff successful.
+The handoff contract is recursive: every next window must close its own stage and Playwright-submit a newly generated prompt to the following window, preserving CURRENT/NEXT/AFTER_NEXT, until Final Overall Acceptance is closed.
 See `handoff.md`.
 
 ## Experience Ledger

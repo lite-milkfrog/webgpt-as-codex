@@ -14,13 +14,49 @@ class McpResponse:
 
 
 def _decode(raw: bytes) -> dict[str, Any]:
-    text = raw.decode("utf-8", errors="replace")
+    text = raw.decode("utf-8", errors="replace").strip()
+    if not text:
+        raise ValueError("empty MCP response")
+
     try:
-        return json.loads(text)
+        value = json.loads(text)
+        if isinstance(value, dict):
+            return value
+        raise TypeError("MCP JSON response was not an object")
     except json.JSONDecodeError:
-        for line in text.splitlines():
-            if line.startswith("data:"):
-                return json.loads(line[5:].strip())
+        pass
+
+    events: list[list[str]] = []
+    current: list[str] = []
+    in_data = False
+
+    for line in text.splitlines():
+        if line.startswith("data:"):
+            current.append(line[5:].lstrip())
+            in_data = True
+            continue
+        if in_data and not line.strip():
+            if current:
+                events.append(current)
+            current = []
+            in_data = False
+            continue
+        if in_data and not line.startswith(("event:", "id:", "retry:", ":")):
+            # Tolerate transport/proxy line wrapping inside one SSE data payload.
+            current.append(line)
+
+    if current:
+        events.append(current)
+
+    for parts in events:
+        for payload in ("".join(parts), "\n".join(parts)):
+            try:
+                value = json.loads(payload)
+            except json.JSONDecodeError:
+                continue
+            if isinstance(value, dict):
+                return value
+
     raise ValueError(f"unrecognized MCP response: {text[:500]}")
 
 

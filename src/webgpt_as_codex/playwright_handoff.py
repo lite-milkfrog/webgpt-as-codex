@@ -11,6 +11,7 @@ from typing import Any
 import requests
 
 from .handoff import validate_handoff_prompt
+from .mcp import _decode
 
 
 @dataclass(frozen=True)
@@ -55,16 +56,6 @@ class PlaywrightMcpClient:
         response.raise_for_status()
         return response
 
-    @staticmethod
-    def _decode(response: requests.Response) -> dict[str, Any]:
-        try:
-            return response.json()
-        except requests.JSONDecodeError:
-            for line in response.text.splitlines():
-                if line.startswith("data:"):
-                    return json.loads(line[5:].strip())
-        raise RuntimeError("unrecognized Playwright MCP response")
-
     def tool(self, name: str, arguments: dict[str, Any], *, request_id: int) -> dict[str, Any]:
         response = self._post(
             {
@@ -74,7 +65,7 @@ class PlaywrightMcpClient:
                 "params": {"name": name, "arguments": arguments},
             }
         )
-        body = self._decode(response)
+        body = _decode(response.content)
         result = body.get("result", {})
         if result.get("isError", False):
             raise RuntimeError(_tool_text(body) or f"{name} returned isError")

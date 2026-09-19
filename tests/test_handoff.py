@@ -18,6 +18,8 @@ def test_stable_handoff_contains_required_contract() -> None:
         expected_stage="STAGE-X",
         expected_head="abc123",
     ) == []
+    assert "## Recursive continuation invariant" in text
+    assert "recursive continuation ends only after the planned final stage and Final Overall Acceptance" in text
 
 
 def test_handoff_rejects_stale_head() -> None:

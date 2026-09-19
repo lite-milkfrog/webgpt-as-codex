@@ -19,6 +19,7 @@ REQUIRED_MARKERS = (
     "## MCP routing contract",
     "## Failure protocol",
     "## Closure contract",
+    "## Recursive continuation invariant",
     "## Automatic handoff contract",
 )
 
@@ -123,6 +124,16 @@ Before closing this stage:
 8. validate prompt required markers + SOURCE_HEAD;
 9. write prompt SHA-256 / handoff receipt locally.
 
+## Recursive continuation invariant
+This handoff rule is recursive and MUST be inherited by every subsequent window:
+- this window closes {spec.current_stage}, then hands off {spec.next_stage};
+- the {spec.next_stage} window must, after its own verified closure, generate and submit a fresh prompt for its NEXT_STAGE;
+- that following window must do the same for its own NEXT_STAGE, preserving CURRENT_STAGE / NEXT_STAGE / AFTER_NEXT_STAGE;
+- every prompt is regenerated from that stage's newly committed HEAD and validated before submission;
+- every handoff uses Playwright MCP and is successful only after sent-message + new-assistant-run verification;
+- do not stop at a stage boundary merely to report progress;
+- recursive continuation ends only after the planned final stage and Final Overall Acceptance are both CLOSED_LOCAL_VERIFIED.
+
 ## Automatic handoff contract
 Automatic continuation is authorized.
 After closure, use Playwright MCP with the logged-in ChatGPT browser state:
@@ -151,6 +162,8 @@ def validate_handoff_prompt(text: str, *, expected_stage: str, expected_head: st
         errors.append("continuous-execution rule missing")
     if "verify a new assistant run/response begins" not in text:
         errors.append("handoff verification rule missing")
+    if "recursive continuation ends only after the planned final stage and Final Overall Acceptance" not in text:
+        errors.append("recursive continuation invariant missing")
     return errors
 
 

@@ -8,6 +8,7 @@ This repository is the public-safe source of truth for WebGPT-as-Codex.
 - Local machine state and secrets never enter Git.
 - Validate before closure; update documents before handoff.
 - Preserve CURRENT_STAGE / NEXT_STAGE / AFTER_NEXT_STAGE.
+- Automatic handoff is recursive: each window must Playwright-submit the following window after its own verified closure; only Final Overall Acceptance may terminate the chain.
 - Diagnose a failed preferred tool before falling back.
 - One file has one writer at a time.
 - Use worktrees for parallel writers.

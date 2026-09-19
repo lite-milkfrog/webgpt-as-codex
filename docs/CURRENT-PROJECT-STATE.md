@@ -17,3 +17,6 @@ Stage 5 proof: real Tailscale HTTPS edge, DCR + PKCE + token + 401 gate + restar
 
 Automatic continuation remains authorized.
 Next handoff must be generated from the committed Stage 5 HEAD and verified through Playwright MCP.
+
+Recursive handoff invariant:
+Every stage window must, after its own verified closure and commit, regenerate a prompt from its new HEAD and use Playwright MCP to submit the following stage. The obligation propagates NEXT -> AFTER_NEXT -> subsequent stages until Final Overall Acceptance is CLOSED_LOCAL_VERIFIED.

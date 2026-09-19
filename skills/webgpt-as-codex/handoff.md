@@ -18,6 +18,7 @@ Every prompt must contain:
 - failure protocol
 - safety contract
 - closure contract
+- recursive continuation invariant
 - automatic Playwright handoff contract
 
 Use `webgpt_as_codex.handoff.validate_handoff_prompt` before submission.
@@ -32,6 +33,19 @@ Store the prompt SHA-256 in the local handoff receipt.
 6. generate the next prompt from that HEAD;
 7. validate required markers and SOURCE_HEAD;
 8. verify the prompt file exists locally.
+
+## Recursive continuation invariant
+When automatic continuation is authorized, every window inherits the same obligation:
+1. finish and commit its CURRENT_STAGE;
+2. compute the real new HEAD;
+3. instantiate a fresh prompt for NEXT_STAGE, carrying the next window's own NEXT_STAGE and AFTER_NEXT_STAGE;
+4. validate and hash that prompt;
+5. Playwright-submit it to a new ChatGPT conversation;
+6. verify sent user message + new assistant run;
+7. make that next window repeat the exact protocol.
+
+Do not terminate at an intermediate stage boundary.
+The recursion terminates only after the planned final stage and Final Overall Acceptance are CLOSED_LOCAL_VERIFIED.
 
 ## Automatic continuation
 When authorized:

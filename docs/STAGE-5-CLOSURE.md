@@ -11,7 +11,8 @@ Result: CLOSED_LOCAL_VERIFIED
 - generic OAuth compatibility adapter preserving forwarded HTTPS origin and consent continuity;
 - real public HTTPS Stage 5 E2E harness;
 - stable handoff prompt generator/validator and SHA-256 contract;
-- reusable Playwright MCP handoff executor that keeps one MCP session across new-chat, composer resolution, submission and DOM verification.
+- reusable Playwright MCP handoff executor that keeps one MCP session across new-chat, composer resolution, submission and DOM verification;
+- shared multi-line/fragmented SSE decoder hardened by the first real handoff dogfood attempt.
 
 ## Real E2E evidence
 A temporary public Funnel on port 10003 was created without touching the existing 443/8443/10000-10002 mappings.
@@ -46,3 +47,7 @@ A SHA-256 receipt is recorded locally.
 CURRENT_STAGE = STAGE-6-MANAGER-CONTROL-PLANE
 NEXT_STAGE = STAGE-7-BOOTSTRAP-DOCTOR-REPAIR
 AFTER_NEXT_STAGE = STAGE-8-DESKTOP-LAUNCHER-AND-AUTOSTART
+
+## Recursive handoff invariant
+Stage 5 closure now hardens automatic continuation as a recursive contract.
+Stage 6 must hand off Stage 7 after closure; Stage 7 must hand off Stage 8; every later stage must do the same until Final Overall Acceptance.

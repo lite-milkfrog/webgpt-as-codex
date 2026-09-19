@@ -57,3 +57,15 @@ Protected lesson:
 - verify handoff from ChatGPT DOM state, not from a click or URL assumption;
 - sent-message proof is the user-message DOM containing SOURCE_HEAD;
 - new-run proof is an assistant-message DOM node plus a /c/ conversation URL.
+
+## 2026-09-19 — MCP SSE responses may be fragmented across data lines
+
+Origin:
+- First live Stage 5 -> Stage 6 Playwright handoff attempt.
+- The executor reached browser_snapshot before any prompt submission, then failed because the decoder assumed one complete JSON object per SSE data line.
+
+Protected lesson:
+- parse an SSE event as a whole, not only its first data line;
+- tolerate data payload fragmentation/line wrapping before JSON decode;
+- share one MCP decoder across Doctor, Gateway tests and Playwright handoff;
+- a handoff that fails before composer typing has not submitted anything and is safe to repair/retry after a new prompt HEAD is generated.

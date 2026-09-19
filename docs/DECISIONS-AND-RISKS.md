@@ -21,3 +21,18 @@ Doctor must report OAuth metadata/DCR/PKCE/refresh separately so a future upstre
 ### Risk: hosted Tailscale availability
 Tailscale Funnel is an edge adapter, not a repository security boundary.
 The core local stack remains useful without public Funnel availability.
+
+## Cross-stage decision — recursive verified handoff
+
+Automatic continuation is a project invariant, not a one-time permission.
+Every stage closure must:
+- commit first;
+- generate the next prompt from that committed HEAD;
+- carry CURRENT_STAGE / NEXT_STAGE / AFTER_NEXT_STAGE;
+- include the recursive continuation invariant;
+- validate + hash the prompt;
+- Playwright-submit the exact prompt in one MCP session;
+- verify sent-message SOURCE_HEAD + assistant run + /c/ conversation URL;
+- require the receiving window to repeat the same protocol.
+
+The chain terminates only after the planned final stage and Final Overall Acceptance are both closed.
