@@ -195,6 +195,23 @@ The release wheel includes only public component manifests and the Manager stati
 ### Risk resolved: source-layout assumptions can create a false-green release
 The Stage 12 baseline wheel installed successfully and exposed the console entry point, but `load_components()` returned zero built-ins and the Manager static page path did not exist because `repo_root()` pointed into the installed environment. The minimum release boundary was reopened, resource packaging/path resolution was corrected, and an isolated rebuilt wheel then loaded all eight built-in component manifests and the Manager UI.
 
+## Stage 17 — bilingual Manager / desktop UX
+
+### Decision: language parity shares one functional implementation
+English and Chinese Manager pages are language shells over the same packaged JavaScript/CSS and the same loopback API contracts. This avoids duplicated action logic and makes parity testable from shared element/action surfaces. No framework/build-chain dependency was added for the static Manager.
+
+### Decision: explicit local secret control is separate from status
+The normal local-config/status surfaces expose only whether an OAuth password is configured. Reveal/set/regenerate remain explicit confirmed loopback mutations. Regenerate always creates a fresh value; reveal plaintext is returned only to the requesting local response and is excluded from activity records, docs and tracked evidence.
+
+### Decision: Manager migration visibility does not create authority
+Adding/removing a custom MCP candidate only mutates the validated machine-local registry. The response explicitly reports `route_applied=false` and `lifecycle_authority=false`. Built-in component deletion is blocked. Stage 14 route ownership and Stage 8/16 lifecycle/recovery ownership therefore remain authoritative.
+
+### Risk resolved: exact-content launcher ownership can strand a managed older version
+Adding the Chinese default line changed the expected managed launcher bytes, so the previously installed Stage8 launcher initially appeared unmanaged. Stage 17 recognizes only the complete known historical WebGPT launcher structure (marker + Python executable + fixed module/flags) as upgradeable. This permits a safe in-place managed upgrade across workspace-path changes while still refusing arbitrary marker-bearing or user-owned files.
+
+### Risk: local mutation timeout can tempt duplicate side effects
+Manager local mutations are serialized and the UI disables mutation controls while a request is pending. Process shutdown evidence continues to follow Stage16 R49: timeout/non-zero is ambiguous until listener plus PID identity are observed for a bounded window. Stage17 applied that rule to its disposable host probe rather than inventing a second stop.
+
 ## Final Overall Acceptance
 
 ### Decision: final acceptance requires both source-tree and installed-artifact evidence

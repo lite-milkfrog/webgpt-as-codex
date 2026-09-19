@@ -15,7 +15,10 @@ def test_release_metadata_declares_runtime_assets() -> None:
     data_files = data["tool"]["setuptools"]["data-files"]
     assert data_files["share/webgpt-as-codex/components"] == ["components/*.json"]
     assert data_files["share/webgpt-as-codex/manager/static"] == [
-        "manager/static/index.html"
+        "manager/static/index.html",
+        "manager/static/index.zh-CN.html",
+        "manager/static/manager.css",
+        "manager/static/manager.js",
     ]
 
 

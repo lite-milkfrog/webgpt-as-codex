@@ -1,7 +1,6 @@
+import http.client
 import json
 import threading
-import urllib.error
-import urllib.request
 from pathlib import Path
 
 import pytest
@@ -104,26 +103,32 @@ def test_http_action_requires_control_header() -> None:
     thread = threading.Thread(target=server.serve_forever, daemon=True)
     thread.start()
     try:
-        url = f"http://127.0.0.1:{server.server_address[1]}/api/actions/doctor"
-        request = urllib.request.Request(
-            url,
-            data=b"{}",
-            method="POST",
-            headers={"Content-Type": "application/json"},
+        port = server.server_address[1]
+        conn = http.client.HTTPConnection("127.0.0.1", port, timeout=3)
+        conn.request(
+            "POST",
+            "/api/actions/doctor",
+            body="{}",
+            headers={
+                "Host": f"127.0.0.1:{port}",
+                "Content-Type": "application/json",
+            },
         )
-        with pytest.raises(urllib.error.HTTPError) as exc:
-            urllib.request.urlopen(request, timeout=3)
-        assert exc.value.code == 403
+        response = conn.getresponse()
+        response.read()
+        assert response.status == 403
     finally:
         server.shutdown()
         server.server_close()
         thread.join(timeout=3)
 
 
-def test_manager_ui_has_bounded_polling_and_no_secret_copy_surface() -> None:
-    html = (Path(__file__).resolve().parents[1] / "manager" / "static" / "index.html").read_text(encoding="utf-8")
-    assert "poll_after_ms" in html
-    assert "setInterval(" not in html
-    assert "/api/password" not in html
-    assert "OAuth password" not in html
-    assert "payload.component" in html
+def test_manager_ui_has_bounded_polling_and_no_embedded_secret() -> None:
+    static = Path(__file__).resolve().parents[1] / "manager" / "static"
+    html = (static / "index.html").read_text(encoding="utf-8")
+    script = (static / "manager.js").read_text(encoding="utf-8")
+    assert "poll_after_ms" in script
+    assert "setInterval(" not in script
+    assert "/api/password" not in html + script
+    assert 'src="/manager.js"' in html
+    assert "payload.component" in script

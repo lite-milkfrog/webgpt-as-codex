@@ -156,6 +156,18 @@ def write_custom_component(data: dict[str, Any]) -> Path:
     return path
 
 
+def delete_custom_component(component_id: str) -> bool:
+    if not isinstance(component_id, str) or not _COMPONENT_ID_RE.fullmatch(component_id):
+        raise ValueError("component id must be lowercase kebab-case")
+    if (resource_root() / "components" / f"{component_id}.json").exists():
+        raise ValueError("builtin component cannot be deleted")
+    path = ensure_state_dirs() / "config" / "components" / f"{component_id}.json"
+    if not path.exists():
+        return False
+    path.unlink()
+    return True
+
+
 def cli_add_mcp(argv: list[str]) -> int:
     from .onboarding import cli_add_mcp as run
     return run(argv)

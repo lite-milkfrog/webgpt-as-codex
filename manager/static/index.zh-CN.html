@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="zh-CN" data-ui-contract="manager-v2">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>WebGPT-as-Codex 本机管理器</title>
+  <link rel="stylesheet" href="/manager.css">
+</head>
+<body>
+<main class="shell">
+  <header class="hero">
+    <div>
+      <div class="eyebrow" data-i18n="eyebrow">本机控制面</div>
+      <h1>WebGPT-as-Codex 本机管理器</h1>
+      <p class="muted" data-i18n="subtitle">仅限本机回环访问。关闭此页面不会停止 Agent 或 MCP 运行时。</p>
+    </div>
+    <nav class="language" aria-label="语言">
+      <a href="/en" lang="en">English</a>
+      <a href="/zh" lang="zh-CN">中文</a>
+    </nav>
+  </header>
+  <div id="notice" class="notice" role="status" aria-live="polite"></div>
+  <section aria-labelledby="overview-title"><div class="section-head"><h2 id="overview-title" data-i18n="overview">总览</h2></div><div id="overview" class="cards"></div></section>
+  <section aria-labelledby="urls-title"><div class="section-head"><h2 id="urls-title" data-i18n="connectionUrls">连接地址</h2></div><div id="urls" class="panel"></div></section>
+  <section aria-labelledby="actions-title"><div class="section-head"><h2 id="actions-title" data-i18n="runtimeActions">运行时操作</h2></div><div id="actions" class="actions panel"></div></section>
+  <section aria-labelledby="environment-title"><div class="section-head"><h2 id="environment-title" data-i18n="environment">环境</h2></div><div id="environment" class="panel"></div></section>
+  <section aria-labelledby="oauth-title">
+    <div class="section-head"><h2 id="oauth-title" data-i18n="oauthPassword">OAuth 密码</h2></div>
+    <div class="panel stack">
+      <div id="oauth-status" class="muted"></div>
+      <div class="field-row">
+        <label for="oauth-revealed" data-i18n="revealedPassword">已显示密码</label>
+        <input id="oauth-revealed" type="text" readonly autocomplete="off">
+        <button type="button" id="oauth-reveal" data-mutation data-i18n="reveal">显示</button>
+        <button type="button" id="oauth-generate" data-mutation data-i18n="regenerate">重新生成</button>
+      </div>
+      <form id="oauth-set-form" class="field-row">
+        <label for="oauth-new" data-i18n="newPassword">新密码</label>
+        <input id="oauth-new" type="password" minlength="12" maxlength="256" autocomplete="new-password" required>
+        <button type="submit" data-mutation data-i18n="setPassword">设置密码</button>
+      </form>
+      <p class="hint" data-i18n="oauthHint">密码只保存在本机；修改后需要重启 WebGPT 自有 Edge 运行时才能生效。</p>
+    </div>
+  </section>
+  <section aria-labelledby="components-title">
+    <div class="section-head"><h2 id="components-title" data-i18n="components">MCP 清单与迁移</h2></div>
+    <form id="component-form" class="panel form-grid">
+      <label><span data-i18n="componentId">组件 ID</span><input name="id" pattern="[a-z0-9][a-z0-9-]{0,63}" required></label>
+      <label><span data-i18n="displayName">显示名称</span><input name="display_name" maxlength="128" required></label>
+      <label><span data-i18n="role">角色</span><input name="role" maxlength="128" value="custom_mcp" required></label>
+      <label class="wide"><span data-i18n="endpoint">端点</span><input name="endpoint" type="url" placeholder="http://127.0.0.1:9000/mcp" required></label>
+      <div class="wide"><button type="submit" data-mutation data-i18n="addCandidate">添加迁移候选</button></div>
+      <p class="hint wide" data-i18n="candidateHint">添加候选只改变本机注册表可见性，不会自动获得路由权或生命周期控制权。</p>
+    </form>
+    <div id="components" class="components"></div>
+  </section>
+  <section aria-labelledby="activity-title"><div class="section-head"><h2 id="activity-title" data-i18n="activity">最近操作</h2></div><div id="activity" class="panel activity" aria-live="polite"></div></section>
+</main>
+<script src="/manager.js" defer></script>
+</body>
+</html>

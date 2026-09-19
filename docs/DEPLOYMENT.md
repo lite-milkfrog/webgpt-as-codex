@@ -137,10 +137,11 @@ A green lower layer does not imply a green higher layer.
 
 ## Phase 8 — desktop/control plane
 
-Install a transparent one-click `WebGPT-as-Codex.cmd` launcher.
-Open the loopback Web Manager.
+Install or refresh the transparent one-click `WebGPT-as-Codex.cmd` launcher. The repository-managed Desktop launcher defaults the Manager to Chinese with `WEBGPT_CODEX_UI_LANG=zh-CN`; `/en` remains an explicit English route and `/zh` an explicit Chinese route.
+Open the loopback Web Manager. The two language pages share one functional JavaScript/CSS contract rather than separate control logic.
 The Manager must show:
 - environment readiness;
+- product/deployment readiness;
 - MCP inventory/version state;
 - Gateway routes;
 - local/public MCP addresses;
@@ -148,7 +149,13 @@ The Manager must show:
 - Tailscale/HTTPS state;
 - backend health;
 - migration/lifecycle ownership;
-- logs/recovery actions.
+- recent action feedback/recovery actions.
+
+The Manager local-config/status surfaces expose configured/readiness state only, not plaintext OAuth secrets, executable/secret-file paths or private Tailscale DNS identity. Password reveal/set/regenerate are explicit loopback-only confirmed operations. Regenerate must change the stored value, and recent activity must not contain it.
+
+Custom migration-candidate add/remove changes registry visibility only. It does not apply a Gateway route, start/restart a runtime or grant lifecycle authority. Built-in component deletion is rejected.
+
+Managed launcher refresh may recognize the complete known previous WebGPT launcher structure so an older repository-managed file can be upgraded in place. A marker by itself is insufficient: unmanaged/user-owned files remain protected from overwrite or deletion.
 
 The browser UI never owns runtime lifetime.
 

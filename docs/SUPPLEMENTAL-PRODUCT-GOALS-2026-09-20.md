@@ -130,3 +130,5 @@ The project must ship:
 - a language switch in the Manager without functional divergence.
 
 Identifiers, commands, URLs, schema keys, hashes and protocol constants remain exact across languages.
+
+Stage 17 verified the Manager/desktop portion of this goal: English and Chinese Manager shells now share one functional JS/CSS contract, the real managed Desktop/Startup launchers default to Chinese, explicit `/en` and `/zh` remain available, and both languages passed DOM-level parity checks. Stage 18 still owns the repository-wide Chinese documentation/release mirror and third-party notices.

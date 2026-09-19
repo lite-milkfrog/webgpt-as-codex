@@ -1,9 +1,9 @@
 # Current Project State
 
 PROJECT = WebGPT-as-Codex
-CURRENT_STAGE = STAGE-17-MANAGER-UX-BILINGUAL-DESKTOP
-NEXT_STAGE = STAGE-18-CHINESE-MIRROR-AND-THIRD-PARTY-NOTICES
-AFTER_NEXT_STAGE = STAGE-19-END-TO-END-DEPLOYMENT-ACCEPTANCE
+CURRENT_STAGE = STAGE-18-CHINESE-MIRROR-AND-THIRD-PARTY-NOTICES
+NEXT_STAGE = STAGE-19-END-TO-END-DEPLOYMENT-ACCEPTANCE
+AFTER_NEXT_STAGE = SUPPLEMENTAL-FINAL-ACCEPTANCE
 
 Stage 1: CLOSED_LOCAL_VERIFIED
 Stage 2: CLOSED_LOCAL_VERIFIED
@@ -25,7 +25,7 @@ Supplemental chain (user requirements added after the accepted TERMINAL state):
 - Stage 14: CLOSED_LOCAL_VERIFIED
 - Stage 15: CLOSED_LOCAL_VERIFIED
 - Stage 16: CLOSED_LOCAL_VERIFIED
-- Stage 17: PLANNED
+- Stage 17: CLOSED_LOCAL_VERIFIED
 - Stage 18: PLANNED
 - Stage 19: PLANNED
 - Supplemental Final Acceptance: PLANNED
@@ -83,6 +83,23 @@ Stage 16 proof:
 
 Stage 16 closure: `docs/STAGE-16-CLOSURE.md`.
 
+Stage 17 proof:
+- the five preserved Stage17/18 WIP files were reconciled without reset/stash/overwrite; the previously missing `manager/static/index.zh-CN.html` is now a real tracked product resource;
+- English and Chinese Manager pages share one `manager.js` / `manager.css` functional contract, while `/`, `/zh` and `/en` retain explicit language routing. The desktop launcher defaults `WEBGPT_CODEX_UI_LANG=zh-CN`;
+- Manager local-config output now exposes product/deployment/environment/component/Gateway/OAuth/HTTPS/migration state through public-safe summaries. Executable paths, secret-file paths and Tailscale private DNS details are not emitted;
+- OAuth password set/reveal/regenerate is loopback/control-header/confirm gated. Regenerate now creates a new value rather than reusing the existing secret. Plaintext is returned only by the explicit local reveal response and never recorded in activity/log evidence;
+- local environment/component/OAuth mutations share one non-blocking Manager mutation lock; unknown payload fields/body overflow fail closed; built-in component deletion is blocked; custom create/delete stays idempotent and never grants route/lifecycle authority;
+- the Manager exposes secret-safe recent activity, mutation pending/disabled feedback, MCP URL copy/open controls, visible focus, labels/live regions and reduced-motion handling. Motion is limited to real pending state;
+- the previously installed Stage8 desktop/autostart launchers were recognized only through the exact historical WebGPT launcher structure, upgraded in place to the Chinese default and left `managed=true`; arbitrary marker-bearing files remain unmanaged/refused;
+- Playwright reconnected to the existing 8931 Extension MCP with one session and verified a disposable Manager on port 9217: both Chinese and English views rendered the same seven sections, 10 mutation controls, two live regions, six labels, two URL rows and eight component cards. No mutation control was clicked;
+- the temporary Manager stop first returned non-zero. R49 was followed: listener plus PID parent/image/command identity were re-observed before the verified temp-only process tree was force-stopped. Port 9217 and its temporary PIDs were absent afterward;
+- production listeners remained unchanged after Stage17 host/browser work: Gateway 9330 = 77084, Windows-MCP 8001 = 50508, Coding Tools 8766 = 54448, Playwright 8931 = 53880, shared Serena 9121 = 38924. Shared Serena was never switched or restarted;
+- Stage8/Manager/Stage11/12/14/15/16/17 regression gate reached 100 PASS before final full closure; the final full repository gate reached 176 PASS. Ruff, repository secret scan and `git diff --check` passed;
+- a normal isolated PEP517 wheel build succeeded after the development venv's optional `python -m build` harness was found unavailable. The wheel installed outside the source checkout and loaded English HTML, Chinese HTML, shared CSS and shared JS from the installed resource tree;
+- Stage17 = 100%. Supplemental chain progress = 5/8 closure nodes = 62.5%. Status: `LOCAL_IMPLEMENTATION + LOCAL_VERIFIED + REAL_HOST_VERIFIED`.
+
+Stage 17 closure: `docs/STAGE-17-CLOSURE.md`.
+
 Repository: local checkout; use the active project/workspace binding rather than committing a machine-specific absolute path.
 Stage 4 proof: unified Gateway, 4 core MCP backends, 87 tools, safe calls PASS.
 Stage 5 proof: real Tailscale HTTPS edge, DCR + PKCE + token + 401 gate + restart + refresh + authenticated MCP call PASS.
@@ -115,11 +132,6 @@ Cross-stage supplemental contract is active immediately:
 - future verified stages/runs continue collecting stage-cost evidence (implementation/closure effort, retries, tool switches, tests/docs, handoff first-pass success and almost-done incidents) so the heuristic can self-correct without inventing a platform timeout.
 
 Remaining planned roadmap:
-- `STAGE-13-SUPPLEMENTAL-SOT-DEPLOYMENT-FOUNDATION`
-- `STAGE-14-PRODUCTION-UNIFIED-GATEWAY-EDGE`
-- `STAGE-15-COMPONENT-INSTALL-UPGRADE-LIFECYCLE`
-- `STAGE-16-CONCURRENCY-SESSION-ISOLATION-FALLBACK`
-- `STAGE-17-MANAGER-UX-BILINGUAL-DESKTOP`
 - `STAGE-18-CHINESE-MIRROR-AND-THIRD-PARTY-NOTICES`
 - `STAGE-19-END-TO-END-DEPLOYMENT-ACCEPTANCE`
 - `SUPPLEMENTAL-FINAL-ACCEPTANCE`

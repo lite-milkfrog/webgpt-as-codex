@@ -23,7 +23,7 @@ where = ["src"]
 
 [tool.setuptools.data-files]
 "share/webgpt-as-codex/components" = ["components/*.json"]
-"share/webgpt-as-codex/manager/static" = ["manager/static/index.html"]
+"share/webgpt-as-codex/manager/static" = ["manager/static/index.html", "manager/static/index.zh-CN.html", "manager/static/manager.css", "manager/static/manager.js"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

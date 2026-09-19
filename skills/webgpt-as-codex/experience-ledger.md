@@ -486,3 +486,38 @@ Protected lesson:
 - if the original process is already gone or the target is healthy, close from post-state and do not retry;
 - only a still-live matching identity plus current lifecycle authority can justify the next mutation attempt;
 - preserve shared services while probing isolated workers: Stage 16 never switched or restarted the user's shared Serena 9121 instance.
+
+## 2026-09-20 — Bilingual Manager parity should share behavior, not duplicate it
+
+Origin:
+- Stage 17 inherited package/test WIP that referenced a Chinese Manager asset which did not yet exist;
+- duplicating the old self-contained English page would have created two independent JavaScript action implementations and a long-term parity risk.
+
+Protected lesson:
+- use language-specific HTML shells only for readable copy while sharing one JavaScript/API/action contract and one stylesheet when no build framework is required;
+- test parity at the functional surface (routes, controls, sections, mutation count, API endpoints and DOM accessibility), not only by asserting that both files exist;
+- package/install validation must exercise every shared static dependency from outside the source checkout.
+
+## 2026-09-20 — Managed launcher upgrades need stronger ownership than a marker and weaker identity than exact bytes
+
+Origin:
+- adding the Chinese default environment line caused the real previously managed Stage8 launcher to fail exact-content ownership checks;
+- the old launcher also pointed at an earlier workspace Python path, so comparing against a newly generated historical string was insufficient.
+
+Protected lesson:
+- exact current bytes are the strongest current ownership proof, but known previous managed versions may be recognized by a complete historical command structure;
+- require the WebGPT marker, a Python/pythonw executable shape, exact module entry point and fixed historical flags with no additional commands;
+- do not treat the marker alone as ownership and never overwrite arbitrary/user-owned launcher content;
+- verify the real Desktop/Startup post-state after upgrade without launching or closing unrelated user windows.
+
+## 2026-09-20 — Explicit local secret reveal must stay outside normal status and activity
+
+Origin:
+- Stage 17 needed local OAuth password set/reveal/regenerate controls while the Manager already had a public-safe status contract;
+- the inherited generate WIP called an ensure helper and therefore reused an existing value instead of actually regenerating it.
+
+Protected lesson:
+- status should expose configured/not-configured state, never the plaintext secret or secret path;
+- Reveal may return plaintext only in the explicit loopback/confirmed response and must not be copied into the activity log;
+- Set and Regenerate should return post-state booleans/restart requirements rather than echoing the value;
+- tests must prove Regenerate changes a disposable value and prove neither old nor new value appears in activity evidence.

@@ -24,7 +24,7 @@ python -m venv .venv
 .\.venv\Scripts\webgpt-codex.exe --version
 ```
 
-The wheel includes the public component manifests and Manager static UI required by installed runtime commands. Machine-local state is created outside the installed package.
+The wheel includes the public component manifests plus English/Chinese Manager HTML and their shared CSS/JavaScript required by installed runtime commands. Machine-local state is created outside the installed package.
 
 For development:
 
@@ -58,13 +58,16 @@ Stages 0-11 established and regression-tested:
 - real public HTTPS OAuth metadata, DCR + PKCE, refresh and authenticated MCP calls;
 - unauthorized public MCP access rejected with HTTP 401;
 - loopback Manager with shallow polling, sanitized output and Host/Origin/action-schema hardening;
+- English/Chinese Manager parity with one shared functional implementation, explicit `/en`/`/zh` routes, public-safe environment/deployment/version/Gateway/OAuth/HTTPS/inventory surfaces, URL copy/open controls, secret-safe recent activity and reduced-motion/accessibility handling;
 - discovery-first Bootstrap, deep Doctor and allowlisted Repair;
 - PID birth/image ownership checks, idempotent Start All and bounded Restart;
-- reversible credential-free desktop launcher/autostart;
+- reversible credential-free desktop launcher/autostart, with a current-deployment Chinese default and safe structural upgrade of the previously managed launcher;
 - generic Add MCP with capability-evidence states and portable Operating Guides;
 - durable Loop Engineering state and exactly-once Playwright handoff semantics;
 - atomic machine-local state writes, untrusted custom-manifest validation and bounded rollback;
 - repository-approved Manager Update authority.
+
+Manager local credential controls are loopback/confirmation gated. Normal status never returns an OAuth password. Explicit Reveal returns it only to that local response; Set and Regenerate do not echo it, Regenerate creates a new value, and the activity feed never records plaintext credentials. Adding a custom MCP candidate changes local registry visibility only and does not grant Gateway routing or runtime lifecycle authority.
 
 ## Public-safe release boundary
 

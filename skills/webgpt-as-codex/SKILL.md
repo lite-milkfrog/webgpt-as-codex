@@ -89,6 +89,8 @@ The Manager is a loopback-only local control surface backed by the component reg
 Its browser UI never owns agent runtimes, polling stays bounded/shallow, and health levels remain distinct.
 Manager actions are a fixed allowlist whose real executors are supplied only by the stage that owns their safety contract. Browser requests must satisfy the fixed action payload schema, loopback Host/port and same-origin Origin when present; executor failures are surfaced as sanitized failure classes, not raw exception text.
 Manager Update is repository-approved authority, never a generic downloader/shell: only fixed updateable component ids plus repository-declared version/source/digest/destination metadata may mutate an already-staged machine-local artifact. Refuse running/owned targets, verify before and after replace, preserve a backup and treat an already-current digest as idempotent success.
+English and Chinese Manager pages must share one functional control implementation. Local-config/status output may expose readiness/configured/version/migration facts but not secret values, secret-file paths, executable paths or private network identity. OAuth Reveal is an explicit confirmed local operation and must never be copied into status/activity evidence; Regenerate must create a fresh value.
+Environment/custom-component/OAuth mutations are serialized so a browser double-click cannot create concurrent duplicate side effects. Custom MCP create/delete remains registry-only visibility: never infer route or lifecycle authority, and never allow the browser surface to delete built-in manifests.
 
 ## Bootstrap / Doctor / Repair discipline
 - bootstrap must discover first and preserve a healthy service; installed-but-stopped does not authorize an automatic restart;
@@ -108,6 +110,7 @@ Manager Update is repository-approved authority, never a generic downloader/shel
 - Manager runtime actions keep a fixed component allowlist and never accept arbitrary commands, argv, paths or PIDs from the browser;
 - browser/Manager UI/desktop launcher lifetime never owns agent-runtime lifetime;
 - Windows desktop/autostart launchers must be transparent, reversible, credential-free and refuse to overwrite/delete unmanaged files;
+- when the repository-managed launcher format evolves, upgrading a known previous managed version requires a complete historical structure match; a marker alone is never sufficient ownership evidence;
 - do not reuse integration-test OAuth credentials as a production/autostart launch contract merely because the files exist.
 
 ## Durable local-state discipline

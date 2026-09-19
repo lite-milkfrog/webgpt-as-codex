@@ -54,6 +54,12 @@ def ensure_oauth_password() -> str:
     return value
 
 
+def regenerate_oauth_password() -> str:
+    value = secrets.token_urlsafe(32)
+    set_oauth_password(value)
+    return value
+
+
 def read_oauth_password() -> str:
     value = oauth_password_path().read_text(encoding="utf-8").strip()
     if not value:

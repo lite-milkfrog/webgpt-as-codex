@@ -6,6 +6,7 @@ import os
 import re
 import sys
 import webbrowser
+from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
@@ -94,67 +95,149 @@ def _launcher_content(*, open_browser: bool) -> str:
         "@echo off\r\n"
         f"{_MARKER}\r\n"
         "setlocal\r\n"
+        'set "WEBGPT_CODEX_UI_LANG=zh-CN"\r\n'
         f'start "" /b "{python}" -m webgpt_as_codex launcher {flag} --start-all\r\n'
         "endlocal\r\n"
     )
 
 
-def _managed_file_status(path: Path, expected: str) -> dict[str, Any]:
+def _legacy_launcher_content(*, open_browser: bool) -> str:
+    flag = "--open" if open_browser else "--no-open"
+    python = str(_pythonw())
+    return (
+        "@echo off\r\n"
+        f"{_MARKER}\r\n"
+        "setlocal\r\n"
+        f'start "" /b "{python}" -m webgpt_as_codex launcher {flag} --start-all\r\n'
+        "endlocal\r\n"
+    )
+
+
+def _legacy_launcher_matches(content: str, *, open_browser: bool) -> bool:
+    normalized = content.replace("\r\n", "\n").strip()
+    flag = "--open" if open_browser else "--no-open"
+    pattern = (
+        r"@echo off\n"
+        + re.escape(_MARKER)
+        + r"\nsetlocal\n"
+        + r'start "" /b "([^"\n]+\\(?:pythonw|python)\.exe)" '
+        + re.escape(f"-m webgpt_as_codex launcher {flag} --start-all")
+        + r"\nendlocal"
+    )
+    return re.fullmatch(pattern, normalized, flags=re.IGNORECASE) is not None
+
+
+def _managed_file_status(
+    path: Path,
+    expected: str,
+    *,
+    legacy_matcher: Callable[[str], bool] | None = None,
+) -> dict[str, Any]:
     if not path.exists():
-        return {"installed": False, "managed": False, "path": str(path)}
+        return {
+            "installed": False,
+            "managed": False,
+            "upgradeable": False,
+            "path": str(path),
+        }
     try:
         content = path.read_text(encoding="utf-8")
     except OSError:
-        return {"installed": True, "managed": False, "path": str(path)}
+        return {
+            "installed": True,
+            "managed": False,
+            "upgradeable": False,
+            "path": str(path),
+        }
     normalized = content.replace("\r\n", "\n")
     normalized_expected = expected.replace("\r\n", "\n")
     return {
         "installed": True,
         "managed": normalized == normalized_expected and _MARKER in content,
+        "upgradeable": bool(
+            legacy_matcher
+            and _MARKER in content
+            and legacy_matcher(content)
+        ),
         "path": str(path),
     }
 
 
-def _install(path: Path, content: str) -> dict[str, Any]:
+def _install(
+    path: Path,
+    content: str,
+    *,
+    legacy_matcher: Callable[[str], bool] | None = None,
+) -> dict[str, Any]:
     path.parent.mkdir(parents=True, exist_ok=True)
-    status = _managed_file_status(path, content)
-    if status["installed"] and not status["managed"]:
+    status = _managed_file_status(path, content, legacy_matcher=legacy_matcher)
+    if status["installed"] and not status["managed"] and not status["upgradeable"]:
         return {"ok": False, "status": "existing-unmanaged-file", **status}
+    operation = "updated" if status["upgradeable"] else "installed"
     path.write_text(content, encoding="utf-8", newline="")
-    return {"ok": True, "status": "installed", **_managed_file_status(path, content)}
+    return {
+        "ok": True,
+        "status": operation,
+        **_managed_file_status(path, content, legacy_matcher=legacy_matcher),
+    }
 
 
-def _uninstall(path: Path, expected: str) -> dict[str, Any]:
-    status = _managed_file_status(path, expected)
+def _uninstall(
+    path: Path,
+    expected: str,
+    *,
+    legacy_matcher: Callable[[str], bool] | None = None,
+) -> dict[str, Any]:
+    status = _managed_file_status(path, expected, legacy_matcher=legacy_matcher)
     if not status["installed"]:
         return {"ok": True, "status": "already-absent", **status}
-    if not status["managed"]:
+    if not status["managed"] and not status["upgradeable"]:
         return {"ok": False, "status": "refuse-unmanaged-file", **status}
     path.unlink()
-    return {"ok": True, "status": "uninstalled", **_managed_file_status(path, expected)}
+    return {
+        "ok": True,
+        "status": "uninstalled",
+        **_managed_file_status(path, expected, legacy_matcher=legacy_matcher),
+    }
 
 
 def desktop_launcher(action: str) -> dict[str, Any]:
     path = desktop_dir() / _DESKTOP_NAME
     expected = _launcher_content(open_browser=True)
+    legacy_matcher = lambda content: _legacy_launcher_matches(
+        content,
+        open_browser=True,
+    )
     if action == "status":
-        return {"ok": True, "status": "present" if path.exists() else "absent", **_managed_file_status(path, expected)}
+        return {
+            "ok": True,
+            "status": "present" if path.exists() else "absent",
+            **_managed_file_status(path, expected, legacy_matcher=legacy_matcher),
+        }
     if action == "install":
-        return _install(path, expected)
+        return _install(path, expected, legacy_matcher=legacy_matcher)
     if action == "uninstall":
-        return _uninstall(path, expected)
+        return _uninstall(path, expected, legacy_matcher=legacy_matcher)
     raise ValueError(action)
 
 
 def autostart(action: str) -> dict[str, Any]:
     path = startup_dir() / _AUTOSTART_NAME
     expected = _launcher_content(open_browser=False)
+    legacy_matcher = lambda content: _legacy_launcher_matches(
+        content,
+        open_browser=False,
+    )
     if action == "status":
-        return {"ok": True, "status": "present" if path.exists() else "absent", **_managed_file_status(path, expected)}
+        return {
+            "ok": True,
+            "status": "present" if path.exists() else "absent",
+            **_managed_file_status(path, expected, legacy_matcher=legacy_matcher),
+        }
     if action == "install":
-        return _install(path, expected)
+        return _install(path, expected, legacy_matcher=legacy_matcher)
     if action == "uninstall":
-        return _uninstall(path, expected)
+        return _uninstall(path, expected, legacy_matcher=legacy_matcher)
     raise ValueError(action)
 
 
