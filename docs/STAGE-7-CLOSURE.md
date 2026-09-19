@@ -14,7 +14,7 @@ Result: CLOSED_LOCAL_VERIFIED
 
 ## Validation
 Narrow Stage 7/Manager tests: PASS.
-Full repository tests: 39 PASS.
+Full repository tests: 41 PASS.
 Ruff: PASS.
 Secret scan: PASS.
 
@@ -28,7 +28,7 @@ Doctor persisted only sanitized machine-local evidence. No public MCP URL was co
 - Coding Tools was still bound to `coding-tools-mcp-demo`; Stage 7 therefore used an isolated Git worktree under that authorized workspace.
 - the shared virtual environment editable install pointed at the canonical tree, so worktree tests used an explicit source path rather than modifying the shared environment.
 - a first version parser accepted address-like banner text; the parser was tightened and regression-tested.
-- the first Stage 8 Playwright handoff exposed a hidden ChatGPT fallback textarea before the active composer hydrated. No message was sent. This contradictory evidence reopened only the handoff helper boundary: it now waits for the active composer in the same authenticated MCP session and regression coverage protects against selecting the first hidden textbox.
+- the first Stage 8 Playwright handoff exposed a hidden ChatGPT fallback textarea before the active composer hydrated; the next live probe also proved that a fresh MCP session can remain on the Extension Welcome tab while blank authenticated ChatGPT tabs exist. No message was sent. This contradictory evidence reopened only the handoff helper boundary: it now opens, resolves and explicitly selects the blank ChatGPT tab in the same authenticated MCP session, then waits for the active composer; regression coverage protects both tab targeting and hidden-textbox selection.
 
 ## Supplemental self-evolving contract incorporated
 The cross-stage Self-Evolving Skill / MCP Operating Guide / Loop Engineering requirement is now canonical rather than chat-only:

@@ -98,6 +98,52 @@ def _textbox_ref(snapshot_text: str, *, require_active: bool = False) -> str:
     return match.group(1)
 
 
+def _target_blank_chatgpt_tab_index(tabs_text: str) -> int:
+    rows: list[tuple[int, bool, str]] = []
+    for line in tabs_text.splitlines():
+        match = re.match(
+            r"- (\d+): (?:(\(current\)) )?\[[^\]]*\]\(([^)]+)\)",
+            line.strip(),
+        )
+        if match:
+            rows.append((int(match.group(1)), bool(match.group(2)), match.group(3)))
+    blank = [row for row in rows if row[2] == "https://chatgpt.com/"]
+    if not blank:
+        raise RuntimeError("new blank ChatGPT tab not found in Playwright tab list")
+    current = [row for row in blank if row[1]]
+    return current[0][0] if current else max(row[0] for row in blank)
+
+
+def _open_and_select_chatgpt_tab(
+    client: PlaywrightMcpClient,
+    *,
+    first_request_id: int = 2,
+) -> int:
+    request_id = first_request_id
+    created = _tool_text(
+        client.tool(
+            "browser_tabs",
+            {"action": "new", "url": "https://chatgpt.com/"},
+            request_id=request_id,
+        )
+    )
+    request_id += 1
+    try:
+        target_index = _target_blank_chatgpt_tab_index(created)
+    except RuntimeError:
+        listed = _tool_text(
+            client.tool("browser_tabs", {"action": "list"}, request_id=request_id)
+        )
+        request_id += 1
+        target_index = _target_blank_chatgpt_tab_index(listed)
+    client.tool(
+        "browser_tabs",
+        {"action": "select", "index": target_index},
+        request_id=request_id,
+    )
+    return request_id + 1
+
+
 def _wait_for_active_composer(
     client: PlaywrightMcpClient,
     *,
@@ -164,14 +210,11 @@ def handoff_via_playwright(
         raise RuntimeError("handoff prompt validation failed: " + "; ".join(errors))
 
     client = PlaywrightMcpClient(endpoint)
-    client.tool(
-        "browser_tabs",
-        {"action": "new", "url": "https://chatgpt.com/"},
-        request_id=2,
-    )
+    request_id = _open_and_select_chatgpt_tab(client)
     target, request_id = _wait_for_active_composer(
         client,
         timeout_seconds=min(15.0, timeout_seconds),
+        first_request_id=request_id,
     )
 
     client.tool(

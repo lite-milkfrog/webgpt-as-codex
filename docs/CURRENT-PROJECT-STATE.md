@@ -17,7 +17,7 @@ Repository: D:\AgentData\10_Workspaces\webgpt-as-codex
 Stage 4 proof: unified Gateway, 4 core MCP backends, 87 tools, safe calls PASS.
 Stage 5 proof: real Tailscale HTTPS edge, DCR + PKCE + token + 401 gate + restart + refresh + authenticated MCP call PASS.
 Stage 6 proof: repository-owned loopback Manager, registry-backed component status, six-level health schema, Gateway/OAuth/Tailscale/Public-MCP/Doctor surfaces, fixed action contracts, secret/private-URL redaction, 30 tests PASS and Ruff/secret scan PASS.
-Stage 7 proof: idempotent discovery-first bootstrap, deep prerequisite-aware Doctor with sanitized machine-local persistence, bounded/confirmable Repair with backups and no arbitrary-command surface, Manager Doctor/Repair executors only, handoff active-composer hydration hardening, 39 tests PASS, Ruff PASS and secret scan PASS.
+Stage 7 proof: idempotent discovery-first bootstrap, deep prerequisite-aware Doctor with sanitized machine-local persistence, bounded/confirmable Repair with backups and no arbitrary-command surface, Manager Doctor/Repair executors only, handoff explicit-tab selection + active-composer hydration hardening, 41 tests PASS, Ruff PASS and secret scan PASS.
 Stage 7 live evidence: healthy Serena/Coding Tools/Playwright/Windows-MCP listeners passed MCP initialize + tools/list + declared safe call. Current MCPJungle and default OAuth listeners were truthfully reported down and were not started because runtime lifecycle belongs to Stage 8.
 
 Cross-stage supplemental contract is active immediately:

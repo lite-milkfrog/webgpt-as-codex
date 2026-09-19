@@ -143,6 +143,7 @@ Origin:
 
 Protected lesson:
 - preserve the already authenticated browser context and the same Playwright MCP session;
+- after browser_tabs new, enumerate/resolve and explicitly select the new blank ChatGPT tab in that same session; do not assume the extension automatically focused it;
 - after opening the new page, poll fresh snapshots for the real active composer instead of selecting the first textbox;
 - never reuse stale refs or compensate with blind coordinates;
 - verify sent SOURCE_HEAD + assistant run + /c/ URL before declaring handoff success.

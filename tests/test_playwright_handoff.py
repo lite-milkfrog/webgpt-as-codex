@@ -1,5 +1,6 @@
 from webgpt_as_codex.playwright_handoff import (
     _evaluation_json,
+    _target_blank_chatgpt_tab_index,
     _textbox_ref,
     prompt_sha256,
 )
@@ -26,6 +27,25 @@ def test_active_composer_is_required_when_requested() -> None:
         assert "active ChatGPT composer" in str(exc)
     else:
         raise AssertionError("hidden hydration fallback must not satisfy active composer gate")
+
+
+def test_targets_current_blank_chatgpt_tab_when_new_action_marks_it_current() -> None:
+    tabs = (
+        "- 0: [Welcome](chrome-extension://example)\n"
+        "- 2: (current) [ChatGPT](https://chatgpt.com/)\n"
+        "- 3: [ChatGPT](https://chatgpt.com/)"
+    )
+    assert _target_blank_chatgpt_tab_index(tabs) == 2
+
+
+def test_targets_latest_blank_chatgpt_tab_when_extension_remains_current() -> None:
+    tabs = (
+        "- 0: (current) [Welcome](chrome-extension://example)\n"
+        "- 1: [Existing](https://chatgpt.com/c/abc)\n"
+        "- 2: [ChatGPT](https://chatgpt.com/)\n"
+        "- 3: [ChatGPT](https://chatgpt.com/)"
+    )
+    assert _target_blank_chatgpt_tab_index(tabs) == 3
 
 
 def test_evaluation_json_parses_result() -> None:

@@ -51,8 +51,8 @@ The recursion terminates only after the planned final stage and Final Overall Ac
 When authorized:
 1. use Playwright MCP with the already authenticated ChatGPT browser context; prefer a new tab/page in that context, not a fresh isolated browser profile;
 2. keep one MCP session for the entire handoff; extension tab indexes/refs are not stable across MCP sessions;
-3. open a new ChatGPT conversation;
-4. snapshot the new page and wait for the real active composer from that same session; initial hydration may expose a hidden fallback textarea, so the first textbox ref is not automatically valid;
+3. open a new ChatGPT conversation, then enumerate/select that new ChatGPT tab in the same MCP session instead of assuming the extension made it current/focused;
+4. snapshot the selected page and wait for the real active composer from that same session; initial hydration may expose a hidden fallback textarea, so the first textbox ref is not automatically valid;
 5. enter the exact validated prompt file and submit once;
 6. verify the sent user-message DOM contains SOURCE_HEAD;
 7. verify an assistant-message DOM node exists and the conversation URL has moved to /c/...;
