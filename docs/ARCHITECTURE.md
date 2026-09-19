@@ -95,3 +95,13 @@ The machine-local apply path stores custom manifests, machine-readable Guides an
 Portable Guide documents live with the Skill and may be attached to public-safe component manifests by stable component id. Serena and Coding Tools are the first representative Guide attachments validated from real Stage 9 initialize/tools/list evidence.
 
 Onboarding never creates lifecycle ownership. Stage 8 runtime adapters, PID identity rules and the fixed Manager restart allowlist remain unchanged. Discovery is knowledge/visibility evidence, not permission to start, kill or restart an external MCP.
+
+## Stage 10 Loop execution plane
+
+Stage 10 turns the self-evolving loop into executable project workflow. `loop.py` owns a public-safe stage-cost model, bounded sizing decisions and machine-local closure state. Closure state is monotonic and survives chat/context loss; it records stage pointers, source HEAD, public-safe scope, loop events, closure phase, handoff recovery classes and stage-cost evidence.
+
+The initial soft budget is 20 minutes with explicit closure reserve. After sufficient verified first-pass history, sizing uses bounded medians from observed total effort and closure share. The model is deliberately not a platform-timeout detector.
+
+Handoff causality is split in two. A committed plan defines the next stage but excludes SOURCE_HEAD. After the current closure commit, the prompt generator injects the actual HEAD, validates CURRENT/NEXT/AFTER_NEXT/SOURCE_HEAD and hashes exact bytes. Playwright preparation may recover hidden hydration, stale refs and tab ambiguity before submission. The external send side effect is attempted once; ambiguous transport responses trigger post-state polling, never a second send.
+
+Final handoff receipts are post-commit machine-local evidence so receipt persistence cannot mutate the HEAD already sent to the next window.

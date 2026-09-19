@@ -146,3 +146,23 @@ A schema may legitimately describe fields named token/password without containin
 ### Live evidence
 
 Stage 9 real discovery observed current local Coding Tools initialize/tools/list success with 18 tools and local Serena success with 29 tools. This is stage evidence, not portable availability truth. The earlier Stage 8 Serena-down observation is therefore health drift rather than a contradiction of Stage 8 ownership behavior.
+
+## Stage 10 — Loop Engineering dogfood
+
+### Decision: closure budget is explicit and evidence-driven
+The approximately 20-minute stage target remains a heuristic. Stage 10 makes closure reserve explicit and recalibrates only after at least three verified, non-split, first-pass-handoff records. Total effort is bounded to a 15-25 minute planning range and closure share to 25-55% so a small sample cannot create extreme sizing rules.
+
+### Decision: chat context is not execution state
+A stage keeps machine-local durable closure state outside Git. Phase is monotonic, stage pointers and committed source HEAD are explicit, and loop events/cost evidence survive window loss. Repository SoT remains authoritative for stage definition and closure.
+
+### Decision: prompt plans are durable, SOURCE_HEAD is late-bound
+The next-stage plan may be committed before closure, but SOURCE_HEAD is injected only after the current stage commit. Prompt validation checks CURRENT/NEXT/AFTER_NEXT/SOURCE_HEAD before hashing and browser submission.
+
+### Decision: handoff preparation is retryable; submission is exactly-once
+Hidden hydration, stale refs and tab-selection ambiguity are pre-submit failures and may be recovered with fresh evidence. Once the external send action is attempted, no second send is allowed. Lost/ambiguous tool responses are resolved by querying sent-message, /c/ URL and assistant-run post-state; unresolved ambiguity fails closed.
+
+### Risk: stage-cost evidence can become fake precision
+Do not infer a platform timeout from a few stages or invent duration data. Use measured/observed effort when available, preserve unknowns, and recalibrate only from verified baseline records. Detailed machine/session facts stay outside portable evidence.
+
+### Live dogfood evidence
+Stage 10 again found Coding Tools bound to a different workspace. Serena web and local MCP configuration both reported the target project and a ready language-server state, while the actual semantic `get_symbols_overview` call returned no active language servers. This proves configuration summaries are not semantic-capability proof and justified repository/host fallback without changing the portable routing role.

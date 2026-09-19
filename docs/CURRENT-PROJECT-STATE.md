@@ -1,9 +1,9 @@
 # Current Project State
 
 PROJECT = WebGPT-as-Codex
-CURRENT_STAGE = STAGE-10-LOOP-ENGINEERING-DOGFOOD
-NEXT_STAGE = STAGE-11-SECURITY-RELIABILITY-HARDENING
-AFTER_NEXT_STAGE = STAGE-12-README-RELEASE-FINAL-ACCEPTANCE
+CURRENT_STAGE = STAGE-11-SECURITY-RELIABILITY-HARDENING
+NEXT_STAGE = STAGE-12-README-RELEASE-FINAL-ACCEPTANCE
+AFTER_NEXT_STAGE = FINAL-OVERALL-ACCEPTANCE
 
 Stage 1: CLOSED_LOCAL_VERIFIED
 Stage 2: CLOSED_LOCAL_VERIFIED
@@ -14,6 +14,7 @@ Stage 6: CLOSED_LOCAL_VERIFIED
 Stage 7: CLOSED_LOCAL_VERIFIED
 Stage 8: CLOSED_LOCAL_VERIFIED
 Stage 9: CLOSED_LOCAL_VERIFIED
+Stage 10: CLOSED_LOCAL_VERIFIED
 
 Repository: D:\AgentData\10_Workspaces\webgpt-as-codex
 Stage 4 proof: unified Gateway, 4 core MCP backends, 87 tools, safe calls PASS.
@@ -25,6 +26,8 @@ Stage 8 proof: repository-owned runtime supervisor with PID birth/image ownershi
 Stage 8 live evidence: first Start All started only MCPJungle while preserving healthy Serena/Coding Tools/Playwright/Windows-MCP; the second run preserved the same owned MCPJungle without duplication. Process-only evidence preserved Tailscale and Remote Desktop Commander. Targeted MCPJungle restart changed PID after bounded shutdown; Manager rejected restart scope for Serena. Launcher exited while the Manager remained reachable. `mcp-auth-proxy` remains explicitly unmanaged/not started because the machine has Stage 5 E2E credential state but no separate production/autostart credential contract.
 Stage 9 proof: discovery-first generic Add MCP with manifest/secret validation, real initialize + tools/list capability evidence, four-state success/unavailable/failed/unattempted semantics, machine-readable Operating Guide schema, routing recommendation, dry-run/default + explicit machine-local apply, idempotence/conflict protection, registry/Manager/Doctor visibility without lifecycle authority, public-safe Serena/Coding Tools Guide attachments, bounded real-HTTP fake MCP coverage, 70 repository tests PASS, Ruff PASS and secret scan PASS.
 Stage 9 live evidence: local Coding Tools initialize/tools/list succeeded with 18 exposed tools and local Serena succeeded with 29 tools. This supersedes only transient availability evidence from the end of Stage 8; it does not change Stage 8 ownership boundaries. Coding Tools remained unbound from this repository in the web connector and web Serena exposed no active language server for symbol overview, so the stage correctly diagnosed binding/session capability before using host/local fallback.
+Stage 10 proof: executable durable Loop Engineering closure state, public-safe stage-cost evidence, evidence-driven closure reserve and bounded split decisions, durable late-bound handoff plans, stronger four-pointer prompt validation, exactly-once Playwright submission semantics, 28 Stage 10/handoff tests PASS, 87 full repository tests PASS, Ruff PASS, secret scan PASS and git diff check PASS.
+Stage 10 dogfood evidence: Coding Tools was still bound away from this repository. Both web and direct local Serena reported the target project, but real semantic symbol overview reproduced an Active language servers: [] backend failure despite the local config summary saying ready. Stage 10 therefore classified the failure correctly and used approved repository/host fallback. The run reached the soft budget and froze scope during closure rather than adding more implementation.
 Final canonical-launcher dogfood later observed Serena's external listener down. Start All reported it as required/unmanaged missing and did not restart it; this is current external-service health drift, not repository lifecycle ownership. The same dogfood exposed a service-context shell-folder expansion defect, which was corrected and re-probed to resolve the real user Desktop/Startup paths even when `USERPROFILE`/`APPDATA` are absent.
 Final Windows post-state: the managed desktop launcher is installed on the real user Desktop. Autostart passed a real install -> status -> uninstall -> absent -> reinstall -> present round trip and is left installed/managed in the real user Startup folder. The erroneous literal `%USERPROFILE%` tree created by the first probe was removed and confirmed absent.
 First Stage 9 handoff attempt failed before typing/submission because ChatGPT's hidden autofocus fallback textarea also appeared active in the accessibility snapshot. No user message was sent. The minimum handoff helper boundary was reopened to focus a DOM-visible editable composer before consuming a fresh active snapshot ref.
@@ -36,16 +39,15 @@ Cross-stage supplemental contract is active immediately:
 - one preferred-tool failure is not proof that the tool is unavailable; diagnose misuse, binding, session, auth, schema and harness state before justified fallback;
 - user guidance that reveals a reusable operating principle is experience input and is classified into Skill, MCP Guide, machine-local inventory/config or one-off evidence;
 - Stage sizing currently uses an approximately 20-minute soft execution budget including closure/handoff, not a claimed platform timeout. Shorter fully closed stages are preferred over unfinished closure, and bounded sub-stages are allowed when closure is at risk;
-- the next 5-10 stages collect stage-cost baseline evidence (implementation/closure effort, retries, tool switches, tests/docs, handoff first-pass success and almost-done incidents) so the heuristic can self-correct.
+- future verified stages/runs continue collecting stage-cost evidence (implementation/closure effort, retries, tool switches, tests/docs, handoff first-pass success and almost-done incidents) so the heuristic can self-correct without inventing a platform timeout.
 
 Remaining planned roadmap:
-- Stage 10: STAGE-10-LOOP-ENGINEERING-DOGFOOD
 - Stage 11: STAGE-11-SECURITY-RELIABILITY-HARDENING
 - Stage 12: STAGE-12-README-RELEASE-FINAL-ACCEPTANCE
 - Final Overall Acceptance
 
 Automatic continuation remains authorized.
-The Stage 10 handoff must be generated from the committed Stage 9 HEAD and verified through Playwright MCP.
+The Stage 11 handoff must be generated from the committed Stage 10 HEAD and verified through Playwright MCP with exactly-once submission semantics.
 
 Supplemental ownership:
 - Stage 9 productizes MCP Guide template/onboarding, capability discovery, inventory/routing attachment and guide validation/feedback.

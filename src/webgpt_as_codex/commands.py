@@ -38,4 +38,7 @@ def dispatch(command: str, argv: list[str]) -> int:
     if command == "add-mcp":
         from .registry import cli_add_mcp
         return cli_add_mcp(argv)
+    if command == "loop":
+        from .loop import cli_loop
+        return cli_loop(argv)
     raise ValueError(command)

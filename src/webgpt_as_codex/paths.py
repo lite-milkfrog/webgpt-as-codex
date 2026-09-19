@@ -68,6 +68,7 @@ def ensure_state_dirs() -> Path:
         "bootstrap",
         "repair",
         "handoffs",
+        "loop",
         "runtime",
     ):
         (root / name).mkdir(parents=True, exist_ok=True)

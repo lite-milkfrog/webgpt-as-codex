@@ -39,4 +39,5 @@ Rules:
 - a process/listener check is not an MCP protocol health check;
 - use Tool Groups to reduce irrelevant tool exposure where possible;
 - diagnose workspace/session/auth/schema/harness state before declaring a preferred MCP unavailable;
+- a configuration summary that says `ready` is not semantic-capability proof; exercise the intended semantic call before relying on Serena;
 - local availability, bindings and endpoints belong in machine-local inventory/state, not portable routing rules.

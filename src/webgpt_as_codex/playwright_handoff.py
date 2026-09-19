@@ -20,6 +20,12 @@ class PlaywrightHandoffResult:
     prompt_sha256: str
     sent_user_message_verified: bool
     assistant_run_verified: bool
+    handoff_first_pass: bool
+    recoveries: tuple[str, ...] = ()
+
+
+class AmbiguousSubmissionError(RuntimeError):
+    """Submission was attempted once, so retrying could duplicate the user message."""
 
 
 class PlaywrightMcpClient:
@@ -98,7 +104,7 @@ def _textbox_ref(snapshot_text: str, *, require_active: bool = False) -> str:
     return match.group(1)
 
 
-def _target_blank_chatgpt_tab_index(tabs_text: str) -> int:
+def _tab_rows(tabs_text: str) -> list[tuple[int, bool, str]]:
     rows: list[tuple[int, bool, str]] = []
     for line in tabs_text.splitlines():
         match = re.match(
@@ -107,35 +113,60 @@ def _target_blank_chatgpt_tab_index(tabs_text: str) -> int:
         )
         if match:
             rows.append((int(match.group(1)), bool(match.group(2)), match.group(3)))
-    blank = [row for row in rows if row[2] == "https://chatgpt.com/"]
+    return rows
+
+
+def _target_blank_chatgpt_tab_index(tabs_text: str) -> int:
+    blank = [row for row in _tab_rows(tabs_text) if row[2] == "https://chatgpt.com/"]
     if not blank:
         raise RuntimeError("new blank ChatGPT tab not found in Playwright tab list")
     current = [row for row in blank if row[1]]
     return current[0][0] if current else max(row[0] for row in blank)
 
 
+def _target_new_chatgpt_tab_index(before_text: str, after_text: str) -> int:
+    before = {row[0] for row in _tab_rows(before_text)}
+    blank_after = [row for row in _tab_rows(after_text) if row[2] == "https://chatgpt.com/"]
+    created = [row for row in blank_after if row[0] not in before]
+    if len(created) == 1:
+        return created[0][0]
+    current = [row for row in blank_after if row[1]]
+    if len(current) == 1 and (not created or current[0] in created):
+        return current[0][0]
+    raise RuntimeError("new ChatGPT tab selection is ambiguous after tab refresh")
+
+
 def _open_and_select_chatgpt_tab(
     client: PlaywrightMcpClient,
     *,
     first_request_id: int = 2,
+    recoveries: list[str] | None = None,
 ) -> int:
     request_id = first_request_id
-    created = _tool_text(
-        client.tool(
-            "browser_tabs",
-            {"action": "new", "url": "https://chatgpt.com/"},
-            request_id=request_id,
-        )
+    before = _tool_text(
+        client.tool("browser_tabs", {"action": "list"}, request_id=request_id)
+    )
+    request_id += 1
+    client.tool(
+        "browser_tabs",
+        {"action": "new", "url": "https://chatgpt.com/"},
+        request_id=request_id,
+    )
+    request_id += 1
+    after = _tool_text(
+        client.tool("browser_tabs", {"action": "list"}, request_id=request_id)
     )
     request_id += 1
     try:
-        target_index = _target_blank_chatgpt_tab_index(created)
+        target_index = _target_new_chatgpt_tab_index(before, after)
     except RuntimeError:
-        listed = _tool_text(
+        if recoveries is not None:
+            recoveries.append("tab-selection-refresh")
+        after = _tool_text(
             client.tool("browser_tabs", {"action": "list"}, request_id=request_id)
         )
         request_id += 1
-        target_index = _target_blank_chatgpt_tab_index(listed)
+        target_index = _target_new_chatgpt_tab_index(before, after)
     client.tool(
         "browser_tabs",
         {"action": "select", "index": target_index},
@@ -149,6 +180,7 @@ def _wait_for_active_composer(
     *,
     timeout_seconds: float,
     first_request_id: int = 3,
+    recoveries: list[str] | None = None,
 ) -> tuple[str, int]:
     deadline = time.monotonic() + timeout_seconds
     request_id = first_request_id
@@ -195,6 +227,8 @@ def _wait_for_active_composer(
                 focus_value = parsed
         last_focus_state = focus_value
         if not bool(focus_value.get("focused")):
+            if recoveries is not None and "hidden-hydration-composer" not in recoveries:
+                recoveries.append("hidden-hydration-composer")
             time.sleep(0.25)
             continue
         last_snapshot = _tool_text(
@@ -204,6 +238,8 @@ def _wait_for_active_composer(
         try:
             return _textbox_ref(last_snapshot, require_active=True), request_id
         except RuntimeError:
+            if recoveries is not None and "active-ref-refresh" not in recoveries:
+                recoveries.append("active-ref-refresh")
             time.sleep(0.25)
     raise RuntimeError(
         "active ChatGPT composer did not hydrate before timeout; "
@@ -240,6 +276,109 @@ def prompt_sha256(prompt: str) -> str:
     return hashlib.sha256(prompt.encode("utf-8")).hexdigest()
 
 
+def _prepare_prompt_draft(
+    client: PlaywrightMcpClient,
+    prompt: str,
+    *,
+    timeout_seconds: float,
+    first_request_id: int,
+    recoveries: list[str],
+    max_attempts: int = 3,
+) -> int:
+    request_id = first_request_id
+    for attempt in range(max_attempts):
+        target, request_id = _wait_for_active_composer(
+            client,
+            timeout_seconds=timeout_seconds,
+            first_request_id=request_id,
+            recoveries=recoveries,
+        )
+        try:
+            client.tool(
+                "browser_type",
+                {"target": target, "text": prompt, "submit": False, "slowly": False},
+                request_id=request_id,
+            )
+            return request_id + 1
+        except RuntimeError:
+            if attempt + 1 >= max_attempts:
+                raise
+            if "stale-composer-ref" not in recoveries:
+                recoveries.append("stale-composer-ref")
+            request_id += 1
+    raise RuntimeError("prompt draft preparation exhausted")
+
+
+def _chat_state(
+    client: PlaywrightMcpClient,
+    *,
+    request_id: int,
+) -> tuple[dict[str, Any], int]:
+    body = client.tool(
+        "browser_evaluate",
+        {
+            "function": (
+                "() => JSON.stringify({"
+                "url: location.href,"
+                "users: Array.from(document.querySelectorAll('[data-message-author-role=\\\"user\\\"]')).map(x => x.innerText),"
+                "assistantCount: document.querySelectorAll('[data-message-author-role=\\\"assistant\\\"]').length"
+                "})"
+            )
+        },
+        request_id=request_id,
+    )
+    outer = _evaluation_json(_tool_text(body))
+    value: Any = outer
+    if set(outer) == {"value"} and isinstance(outer["value"], str):
+        value = json.loads(outer["value"])
+    if not isinstance(value, dict):
+        raise TypeError("ChatGPT state probe did not return an object")
+    return value, request_id + 1
+
+
+def _submit_once_and_verify(
+    client: PlaywrightMcpClient,
+    *,
+    expected_head: str,
+    timeout_seconds: float,
+    first_request_id: int,
+    recoveries: list[str],
+) -> tuple[str, int]:
+    request_id = first_request_id
+    submit_error: Exception | None = None
+    try:
+        client.tool(
+            "browser_press_key",
+            {"key": "Enter"},
+            request_id=request_id,
+        )
+    except (requests.RequestException, RuntimeError, ValueError, TypeError) as exc:
+        submit_error = exc
+        if "submit-response-ambiguous" not in recoveries:
+            recoveries.append("submit-response-ambiguous")
+    request_id += 1
+
+    deadline = time.monotonic() + timeout_seconds
+    last_state: dict[str, Any] = {}
+    while time.monotonic() < deadline:
+        last_state, request_id = _chat_state(client, request_id=request_id)
+        users = last_state.get("users", [])
+        url = str(last_state.get("url", ""))
+        assistant_count = int(last_state.get("assistantCount", 0))
+        sent = any(expected_head in str(message) for message in users)
+        if sent and assistant_count >= 1 and "/c/" in url:
+            return url, request_id
+        time.sleep(0.75)
+
+    detail = f"last_state={last_state!r}"
+    if submit_error is not None:
+        raise AmbiguousSubmissionError(
+            "submission was attempted once but could not be verified; refusing duplicate submit; "
+            + detail
+        ) from submit_error
+    raise RuntimeError("handoff verification timed out after one submission; " + detail)
+
+
 def handoff_via_playwright(
     endpoint: str,
     prompt_path: Path,
@@ -261,64 +400,31 @@ def handoff_via_playwright(
     if errors:
         raise RuntimeError("handoff prompt validation failed: " + "; ".join(errors))
 
+    recoveries: list[str] = []
     client = PlaywrightMcpClient(endpoint)
-    request_id = _open_and_select_chatgpt_tab(client)
-    target, request_id = _wait_for_active_composer(
+    request_id = _open_and_select_chatgpt_tab(client, recoveries=recoveries)
+    request_id = _prepare_prompt_draft(
         client,
+        prompt,
         timeout_seconds=min(15.0, timeout_seconds),
         first_request_id=request_id,
+        recoveries=recoveries,
     )
-
-    client.tool(
-        "browser_type",
-        {
-            "target": target,
-            "text": prompt,
-            "submit": True,
-            "slowly": False,
-        },
-        request_id=request_id,
+    conversation_url, _ = _submit_once_and_verify(
+        client,
+        expected_head=expected_head,
+        timeout_seconds=timeout_seconds,
+        first_request_id=request_id,
+        recoveries=recoveries,
     )
-
-    deadline = time.monotonic() + timeout_seconds
-    request_id += 1
-    last_state: dict[str, Any] = {}
-    while time.monotonic() < deadline:
-        state_body = client.tool(
-            "browser_evaluate",
-            {
-                "function": (
-                    "() => JSON.stringify({"
-                    "url: location.href,"
-                    "users: Array.from(document.querySelectorAll('[data-message-author-role=\"user\"]')).map(x => x.innerText),"
-                    "assistantCount: document.querySelectorAll('[data-message-author-role=\"assistant\"]').length"
-                    "})"
-                )
-            },
-            request_id=request_id,
-        )
-        request_id += 1
-        raw = _tool_text(state_body)
-        outer = _evaluation_json(raw)
-        value = outer
-        if set(outer) == {"value"} and isinstance(outer["value"], str):
-            value = json.loads(outer["value"])
-        last_state = value
-        users = value.get("users", []) if isinstance(value, dict) else []
-        url = str(value.get("url", "")) if isinstance(value, dict) else ""
-        assistant_count = int(value.get("assistantCount", 0)) if isinstance(value, dict) else 0
-        sent = any(expected_head in str(message) for message in users)
-        started = assistant_count >= 1
-        if sent and started and "/c/" in url:
-            return PlaywrightHandoffResult(
-                conversation_url=url,
-                prompt_sha256=actual_sha,
-                sent_user_message_verified=True,
-                assistant_run_verified=True,
-            )
-        time.sleep(0.75)
-
-    raise RuntimeError(f"handoff verification timed out; last_state={last_state!r}")
+    return PlaywrightHandoffResult(
+        conversation_url=conversation_url,
+        prompt_sha256=actual_sha,
+        sent_user_message_verified=True,
+        assistant_run_verified=True,
+        handoff_first_pass=not recoveries,
+        recoveries=tuple(recoveries),
+    )
 
 def cli(argv: list[str] | None = None) -> int:
     import argparse
@@ -344,6 +450,8 @@ def cli(argv: list[str] | None = None) -> int:
         "prompt_sha256": result.prompt_sha256,
         "sent_user_message_verified": result.sent_user_message_verified,
         "assistant_run_verified": result.assistant_run_verified,
+        "handoff_first_pass": result.handoff_first_pass,
+        "recoveries": list(result.recoveries),
         "source_head": args.head,
         "stage": args.stage,
         "prompt_path": str(args.prompt),

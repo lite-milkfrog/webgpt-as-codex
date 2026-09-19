@@ -2,7 +2,7 @@
 name: webgpt-as-codex
 description: Local-first MCP computer/coding agent workflow with durable SoT, Loop Engineering, verified handoff, Doctor/Repair, gateway routing and multi-window continuation.
 metadata:
-  version: 0.5.0
+  version: 0.6.0
   portability: public-safe-local-first
   secrets-policy: no-secrets-in-skill
 ---
@@ -48,14 +48,21 @@ Classify lessons narrowly:
 - one-off incident -> stage evidence only.
 User guidance that reveals a reusable principle is valid experience input and should be classified the same way.
 
+## Durable Loop evidence and sizing
+Stage execution state is not kept only in chat. Use the repository stage definition plus machine-local durable closure state and the public-safe stage-cost schema from `loop-evidence.md`.
+
+The default approximately 20-minute target reserves closure capacity. It is not a platform timeout. Once enough verified first-pass history exists, use observed median total effort and closure share within bounded ranges instead of treating 20 minutes as permanent truth.
+
+When projected implementation would consume the closure reserve, split the bounded owner concern before implementation expands further. Split depth is bounded; if already too deep, freeze scope and close rather than recursively fragmenting forever.
+
 ## Local memory
 For long tasks, durable facts go to local SoT files during the run.
 Chat context is a transport cache, not the authoritative project state.
 Never place secrets in local SoT committed to Git.
 
 ## Handoff
-Generate a next-window prompt from current verified state, not by renaming an old prompt.
-If automatic continuation is authorized, verify submit + new run start before marking handoff successful.
+Generate a next-window prompt from current verified state, not by renaming an old prompt. Persist the next-stage plan without SOURCE_HEAD, then inject the real committed HEAD after closure commit.
+If automatic continuation is authorized, verify submit + new run start before marking handoff successful. Pre-submit recovery may retry tab/composer/ref acquisition, but once the send action is attempted, never send again; query post-state until verified or surface an ambiguous-submission failure.
 The handoff contract is recursive: every next window must close its own stage and Playwright-submit a newly generated prompt to the following window, preserving CURRENT/NEXT/AFTER_NEXT, until Final Overall Acceptance is closed.
 See `handoff.md`.
 

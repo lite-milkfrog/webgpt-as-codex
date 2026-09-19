@@ -47,8 +47,8 @@ The schema distinguishes symbol-level operations from text/file operations. Symb
 ## Failure diagnosis
 
 1. Confirm the MCP is reachable and tools/list still exposes the expected semantic tools.
-2. Check active-project/config state.
-3. Distinguish “no language server for this project” from server unavailability.
+2. Check active-project/config state, but do not stop there: a configuration summary that says the language server is `ready` is not proof that a semantic tool can actually acquire an active backend.
+3. Exercise one intended semantic operation such as symbol overview and distinguish “no active language server” from server unavailability.
 4. Check whether the requested operation is symbol-capable for the file/language.
 5. If the web-connected Serena session is unusable but the local Serena service is healthy, use the local Serena path rather than abandoning semantic navigation.
 

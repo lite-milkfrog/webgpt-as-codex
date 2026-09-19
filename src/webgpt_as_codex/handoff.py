@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 import hashlib
+import json
 import subprocess
 from dataclasses import dataclass
 from pathlib import Path
@@ -37,6 +38,29 @@ class HandoffSpec:
     known_risks: tuple[str, ...] = ()
 
 
+@dataclass(frozen=True)
+class HandoffPlan:
+    current_stage: str
+    next_stage: str
+    after_next_stage: str
+    stage_objective: str
+    required_outputs: tuple[str, ...]
+    do_not_redo: tuple[str, ...]
+    known_risks: tuple[str, ...] = ()
+
+    def instantiate(self, source_head: str) -> HandoffSpec:
+        return HandoffSpec(
+            current_stage=self.current_stage,
+            next_stage=self.next_stage,
+            after_next_stage=self.after_next_stage,
+            source_head=source_head,
+            stage_objective=self.stage_objective,
+            required_outputs=self.required_outputs,
+            do_not_redo=self.do_not_redo,
+            known_risks=self.known_risks,
+        )
+
+
 def current_head() -> str:
     result = subprocess.run(
         ["git", "-C", str(repo_root()), "rev-parse", "HEAD"],
@@ -50,6 +74,28 @@ def current_head() -> str:
     if result.returncode:
         raise RuntimeError(result.stderr or result.stdout)
     return result.stdout.strip()
+
+
+def load_handoff_plan(path: Path) -> HandoffPlan:
+    data = json.loads(path.read_text(encoding="utf-8"))
+    if not isinstance(data, dict):
+        raise TypeError("handoff plan must be a JSON object")
+    required = {
+        "current_stage", "next_stage", "after_next_stage", "stage_objective",
+        "required_outputs", "do_not_redo",
+    }
+    missing = sorted(required - data.keys())
+    if missing:
+        raise ValueError("handoff plan missing fields: " + ", ".join(missing))
+    return HandoffPlan(
+        current_stage=str(data["current_stage"]),
+        next_stage=str(data["next_stage"]),
+        after_next_stage=str(data["after_next_stage"]),
+        stage_objective=str(data["stage_objective"]),
+        required_outputs=tuple(str(item) for item in data["required_outputs"]),
+        do_not_redo=tuple(str(item) for item in data["do_not_redo"]),
+        known_risks=tuple(str(item) for item in data.get("known_risks", [])),
+    )
 
 
 def build_handoff_prompt(spec: HandoffSpec) -> str:
@@ -169,7 +215,14 @@ Continue Loop Engineering recursively until the full project and final overall a
 """
 
 
-def validate_handoff_prompt(text: str, *, expected_stage: str, expected_head: str) -> list[str]:
+def validate_handoff_prompt(
+    text: str,
+    *,
+    expected_stage: str,
+    expected_head: str,
+    expected_next_stage: str | None = None,
+    expected_after_next_stage: str | None = None,
+) -> list[str]:
     errors: list[str] = []
     for marker in REQUIRED_MARKERS:
         if marker not in text:
@@ -178,6 +231,13 @@ def validate_handoff_prompt(text: str, *, expected_stage: str, expected_head: st
         errors.append("CURRENT_STAGE mismatch")
     if f"SOURCE_HEAD = {expected_head}" not in text:
         errors.append("SOURCE_HEAD mismatch")
+    if expected_next_stage is not None and f"NEXT_STAGE = {expected_next_stage}" not in text:
+        errors.append("NEXT_STAGE mismatch")
+    if (
+        expected_after_next_stage is not None
+        and f"AFTER_NEXT_STAGE = {expected_after_next_stage}" not in text
+    ):
+        errors.append("AFTER_NEXT_STAGE mismatch")
     if "Do not stop after reporting progress" not in text:
         errors.append("continuous-execution rule missing")
     if "new assistant run/response begins" not in text:
@@ -199,6 +259,8 @@ def write_validated_prompt(path: Path, spec: HandoffSpec) -> str:
         text,
         expected_stage=spec.current_stage,
         expected_head=spec.source_head,
+        expected_next_stage=spec.next_stage,
+        expected_after_next_stage=spec.after_next_stage,
     )
     if errors:
         raise ValueError("; ".join(errors))
@@ -207,23 +269,50 @@ def write_validated_prompt(path: Path, spec: HandoffSpec) -> str:
     return hashlib.sha256(text.encode("utf-8")).hexdigest()
 
 
+def write_validated_prompt_from_plan(
+    path: Path,
+    plan_path: Path,
+    *,
+    source_head: str | None = None,
+) -> str:
+    plan = load_handoff_plan(plan_path)
+    spec = plan.instantiate(source_head or current_head())
+    return write_validated_prompt(path, spec)
+
+
 def cli(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("path", type=Path)
-    parser.add_argument("--stage", required=True)
-    parser.add_argument("--next", required=True)
-    parser.add_argument("--after-next", required=True)
-    parser.add_argument("--objective", required=True)
+    parser.add_argument("--plan", type=Path)
+    parser.add_argument("--stage")
+    parser.add_argument("--next")
+    parser.add_argument("--after-next")
+    parser.add_argument("--objective")
     args = parser.parse_args(argv)
-    spec = HandoffSpec(
-        current_stage=args.stage,
-        next_stage=args.next,
-        after_next_stage=args.after_next,
-        source_head=current_head(),
-        stage_objective=args.objective,
-        required_outputs=("stage implementation", "tests", "updated docs", "stage closure"),
-        do_not_redo=("closed prior stages",),
-    )
-    digest = write_validated_prompt(args.path, spec)
+    if args.plan is not None:
+        digest = write_validated_prompt_from_plan(args.path, args.plan)
+    else:
+        missing = [
+            name
+            for name, value in (
+                ("--stage", args.stage),
+                ("--next", args.next),
+                ("--after-next", args.after_next),
+                ("--objective", args.objective),
+            )
+            if not value
+        ]
+        if missing:
+            parser.error("missing arguments without --plan: " + ", ".join(missing))
+        spec = HandoffSpec(
+            current_stage=args.stage,
+            next_stage=args.next,
+            after_next_stage=args.after_next,
+            source_head=current_head(),
+            stage_objective=args.objective,
+            required_outputs=("stage implementation", "tests", "updated docs", "stage closure"),
+            do_not_redo=("closed prior stages",),
+        )
+        digest = write_validated_prompt(args.path, spec)
     print(digest)
     return 0

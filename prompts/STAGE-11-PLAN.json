@@ -1,0 +1,28 @@
+{
+  "current_stage": "STAGE-11-SECURITY-RELIABILITY-HARDENING",
+  "next_stage": "STAGE-12-README-RELEASE-FINAL-ACCEPTANCE",
+  "after_next_stage": "FINAL-OVERALL-ACCEPTANCE",
+  "stage_objective": "Harden WebGPT-as-Codex security and reliability boundaries without reopening closed functionality: finish the fixed Manager Update ownership contract, harden public-safe persistence/input validation and partial-failure behavior across control/runtime/onboarding/Loop surfaces, verify concurrency/idempotence/fail-closed semantics where mutation or external side effects exist, and preserve the established lifecycle, OAuth, MCP Guide and Loop Engineering boundaries.",
+  "required_outputs": [
+    "implement the smallest bounded Stage 11 security/reliability hardening required by current SoT, including the previously deferred fixed Manager Update executor ownership",
+    "audit only mutation and trust boundaries touched by current code for secret/private-state leakage, unsafe input, stale identity/state, partial failure, concurrency, idempotence and rollback/fail-closed behavior",
+    "add narrow tests for each hardened boundary and regression tests proving closed Stage 5-10 contracts remain intact",
+    "run full repository tests, Ruff and secret scan, then verify the real Git diff/post-state",
+    "update architecture/current-state/decisions/experience/Skill documentation and write Stage 11 closure",
+    "commit Stage 11, regenerate Stage 12 from the new verified HEAD using the durable handoff plan, validate/hash it, Playwright-submit exactly once and verify sent-message + /c/ + new assistant run"
+  ],
+  "do_not_redo": [
+    "Stages 0-10 unless new contradictory evidence proves a minimum affected boundary must reopen",
+    "Stage 5 OAuth/Tailscale architecture or production credential design beyond security regression checks",
+    "Stage 8 runtime supervisor/launcher/autostart functionality except narrow hardening of existing mutation boundaries",
+    "Stage 9 Generic Add MCP/Operating Guide architecture except validation/security regression checks",
+    "Stage 10 Loop Engineering stage-cost/sizing/handoff architecture except security/reliability regression checks",
+    "Stage 12 README/release/final-acceptance packaging"
+  ],
+  "known_risks": [
+    "Stage 6 intentionally deferred the Manager Update executor to Stage 11; keep it a fixed repository-owned contract rather than an arbitrary shell/update surface.",
+    "Machine-local state may contain endpoints, paths, process identity or credentials; public outputs and Git must remain recursively sanitized.",
+    "External side effects and handoff submission must preserve exactly-once/post-state semantics under ambiguous transport responses.",
+    "Coding Tools binding and Serena semantic-backend availability are transient machine/session evidence, not portable capability truth."
+  ]
+}

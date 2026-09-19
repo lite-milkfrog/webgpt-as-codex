@@ -3,6 +3,8 @@
 A handoff prompt is generated from verified local state after the current stage commit.
 It is never a copy of the previous prompt with only a renamed stage.
 
+The repository may commit a durable next-stage handoff plan containing CURRENT/NEXT/AFTER_NEXT, objective, outputs, boundaries and risks, but the plan must not freeze SOURCE_HEAD. After commit, prompt generation injects the real HEAD, validates all four pointers and hashes the exact bytes.
+
 ## Stability gate
 Every prompt must contain:
 - CURRENT_STAGE
@@ -53,10 +55,11 @@ When authorized:
 2. keep one MCP session for the entire handoff; extension tab indexes/refs are not stable across MCP sessions;
 3. open a new ChatGPT conversation, then enumerate/select that new ChatGPT tab in the same MCP session instead of assuming the extension made it current/focused;
 4. use live DOM geometry/style to focus a visible editable composer on the selected page, then reacquire a fresh snapshot and use that focused active ref; initial hydration may expose a hidden autofocus fallback textarea that can also appear `[active]`, so snapshot-active alone is not proof of visibility;
-5. enter the exact validated prompt file and submit once;
-6. verify the sent user-message DOM contains SOURCE_HEAD;
-7. verify an assistant-message DOM node exists and the conversation URL has moved to /c/...;
-8. write a handoff receipt with prompt path, SHA-256, source HEAD, conversation URL and verification evidence.
+5. type the exact validated prompt as a draft with submission disabled; hidden hydration, stale refs and tab-selection ambiguity may be recovered only before submission and only with fresh DOM/tab evidence;
+6. attempt the real submit exactly once;
+7. after submit is attempted, never press Enter/click Send again even if the MCP response is lost; query post-state for the sent user message containing SOURCE_HEAD, /c/ URL and assistant-run evidence;
+8. if post-state cannot disambiguate the result, fail as ambiguous submission rather than risking a duplicate message;
+9. write a machine-local handoff receipt with prompt path, SHA-256, source HEAD, conversation URL, first-pass result, recovery classes and verification evidence.
 
 A filled textbox, click, navigation, prompt file, or URL change alone is not proof of successful handoff.
 A prompt typed into a hidden hydration fallback is also not progress; reacquire live DOM visibility evidence, focus the visible editable composer and then select its fresh active ref rather than using stale refs or coordinate clicks.

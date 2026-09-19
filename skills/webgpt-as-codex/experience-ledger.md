@@ -280,3 +280,38 @@ Protected lesson:
 - adapt commands to the actual shell instead of blaming the repository;
 - prefer direct structured file-edit/write tools over complex nested quoting when repository-bound structured editing is unavailable;
 - a failed write command is not a partial code mutation unless post-state proves otherwise.
+
+## 2026-09-19 — Semantic readiness requires an actual semantic call
+
+Origin:
+- Stage 10 web Serena and direct local Serena MCP both reported `webgpt-as-codex` active and language-server status `ready`, but real `get_symbols_overview` returned `Active language servers: []`.
+
+Protected lesson:
+- config/session summaries are diagnostic evidence, not proof the intended capability works;
+- verify the actual semantic operation before relying on Serena;
+- distinguish reachable/configured, session-ready and semantic-call-capable states;
+- after both web and approved local semantic paths reproduce the same backend failure, use the authorized repository/host fallback instead of looping on identical calls.
+
+## 2026-09-19 — Exactly-once handoff requires a pre-submit boundary
+
+Origin:
+- earlier stages encountered hidden hydration composers, stale UI refs and tab ambiguity; a future transport error could also occur after ChatGPT receives the submit but before the MCP client receives success.
+
+Protected lesson:
+- tab/composer/ref recovery is allowed only while the prompt is still an unsent draft;
+- type with submission disabled first;
+- attempt the real send once;
+- after that attempt, recover only by querying sent-message, conversation URL and assistant-run post-state;
+- unresolved state is an ambiguous submission failure, never permission to press Enter again.
+
+## 2026-09-19 — Closure reserve must be owned before implementation expands
+
+Origin:
+- Stage 8/9 repeatedly showed that implementation can finish while tests/docs/commit/handoff remain expensive tail work; Stage 10 itself reached the original ~20-minute soft target around implementation completion.
+
+Protected lesson:
+- stage duration is implementation plus closure, not implementation alone;
+- reserve closure budget at planning time;
+- projected implementation that consumes the reserve triggers a bounded split before tail work is endangered;
+- when expansion has already happened, freeze scope and close rather than add more work;
+- recalibrate from verified stage-cost evidence instead of claiming a fixed platform cutoff.

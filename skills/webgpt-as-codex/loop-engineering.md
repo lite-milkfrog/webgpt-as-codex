@@ -28,17 +28,24 @@ Each stage document states:
 
 Handoff is Stage work, not optional tail work.
 
-## Soft stage budget and dynamic split
-Target roughly 20 minutes per stage including closure and handoff. This is a soft planning budget, not a platform timeout or complexity unit.
+## Soft stage budget, closure reserve and dynamic split
+Target roughly 20 minutes per stage including closure and handoff. This is a soft planning default, not a platform timeout or complexity unit.
 
-If continued implementation threatens tests, docs, commit or verified handoff, stop expanding the owner concern and split into bounded sub-stages. Preserve one concern/one owner, SoT continuity and CURRENT/NEXT/AFTER_NEXT.
+Treat closure capacity as owned budget, not leftover time. The Stage 10 helper defaults to a 35% closure reserve. After at least three verified, non-split stages with first-pass handoffs, recalibrate the soft budget from median observed total effort (bounded to 15-25 minutes) and closure reserve from median closure share (bounded to 25-55%).
 
-Collect a baseline across the next 5-10 stages: implementation/closure effort, changed files/tests, major tool switches/calls, retries, harness failures, docs effort, first-pass handoff success, almost-done incidents and emergency splits. Adjust the sizing heuristic from evidence.
+If projected implementation consumes the reserved closure budget, stop expanding the owner concern and split before tests/docs/commit/handoff become tail debt. Preserve one concern/one owner, SoT continuity and CURRENT/NEXT/AFTER_NEXT. Automatic split depth is bounded; when exhausted, freeze scope and close rather than recursively fragmenting.
+
+Record implementation/closure effort, test/docs effort, retries, tool switches, harness failures, first-pass handoff success, almost-done incidents and split decisions in the public-safe stage-cost model. See `loop-evidence.md`.
 
 ## Self-evolution loop
 Observe the whole execution chain, not only target code. Repeated friction is a candidate workflow defect:
 Execute -> Observe -> Diagnose -> Explore -> Compare -> Select -> Verify -> Record -> Reuse.
 Ask the user only after reasonable independent exploration cannot resolve the issue or the missing information is genuinely user-exclusive.
+
+## Durable closure state
+`webgpt-codex loop start/step/phase/show` persists machine-local stage state outside Git. Closure phase is monotonic and survives chat/window loss. Repository SoT remains authoritative; durable state is execution evidence and recovery support, not a replacement for committed closure.
+
+The machine-local state may contain only sanitized/public-safe stage descriptions. Endpoints, secrets, raw process details and private absolute paths belong in the existing machine-local inventory/log layers.
 
 ## Reopening a closed stage
 Allowed only when later evidence contradicts the closure.
