@@ -1,0 +1,35 @@
+{
+  "current_stage": "STAGE-15-COMPONENT-INSTALL-UPGRADE-LIFECYCLE",
+  "next_stage": "STAGE-16-CONCURRENCY-SESSION-ISOLATION-FALLBACK",
+  "after_next_stage": "STAGE-17-MANAGER-UX-BILINGUAL-DESKTOP",
+  "product_head": "6e4ee6385c2650ec011063cbd0767f1b91440de0",
+  "stage_objective": "把 WebGPT-as-Codex 做成真正的一仓库、一站式、discovery-first 的 MCP/依赖安装升级系统：检测已有部署与实际版本，健康且兼容则保留，缺失则按官方来源安装，旧版本受控升级，已更新版本不得降级；默认追踪最新 stable 但必须经过来源和兼容性 Gate；不依赖 Coding Tools 自带的 Cloudflare 公网链路；不重复部署已有 MCP。",
+  "required_outputs": [
+    "component installation/version metadata schema and source adapters",
+    "latest-stable upstream discovery with compatibility gate",
+    "preserve/install/upgrade/diagnose/incompatible decision engine",
+    "fresh-machine system dependency detection including Node/npm/uv/Git where selected components require them",
+    "install/upgrade adapters for Serena, Coding Tools, Playwright MCP, Windows-MCP, Tailscale and WebGPT-owned runtime dependencies, while Remote Desktop Commander stays the explicit ChatGPT-side manual integration boundary",
+    "duplicate deployment prevention based on live listener/protocol/install evidence rather than PATH absence",
+    "lifecycle authority only for instances installed/owned by WebGPT",
+    "tests plus live non-destructive existing-machine evidence",
+    "updated SoT/risks/experience/closure and a verified recursive Playwright handoff to Stage 16"
+  ],
+  "do_not_redo": [
+    "Stages 1-14 unless contradictory evidence requires reopening the minimum affected boundary",
+    "do not redesign the production Gateway/OAuth/Tailscale Edge that Stage 14 already verified",
+    "do not switch or activate the shared Serena instance during this stage because the user is using Serena for another task; use Coding Tools for code navigation/search in this stage",
+    "do not modify or replace existing healthy MCP public endpoints merely to make them WebGPT-managed",
+    "do not touch the Stage 17/18 WIP files listed in the prompt unless a Stage 15 correctness dependency is proven",
+    "do not vendor entire third-party source repositories into WebGPT-as-Codex",
+    "do not push/force-push/reset/clean"
+  ],
+  "known_risks": [
+    "PATH/package absence is not proof an MCP is absent; the machine can already have a healthy service deployed by another mechanism.",
+    "Blind latest installs can break compatibility; latest stable is a candidate that must pass source/provenance and compatibility checks.",
+    "Coding Tools has an optional Cloudflare remote path, but WebGPT's supported unified design needs only its localhost MCP backend.",
+    "Existing healthy services and current public tunnels are active user infrastructure and must be preserved.",
+    "The current working tree intentionally contains later-stage WIP that must not be mixed into the Stage 15 commit.",
+    "Serena's shared process-wide active project can conflict across conversations, so Stage 15 must not use project switching; Stage 16 owns isolation."
+  ]
+}
