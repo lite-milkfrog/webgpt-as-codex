@@ -146,6 +146,7 @@ Protected lesson:
 - after browser_tabs new, enumerate/resolve and explicitly select the new blank ChatGPT tab in that same session; do not assume the extension automatically focused it;
 - after opening the new page, do not trust snapshot `[active]` alone: ChatGPT's hidden fallback textarea can carry autofocus and still be invisible to Playwright;
 - first find a visible editable composer from live DOM geometry/style, focus it, then reacquire a fresh snapshot and use the focused active ref;
+- browser_evaluate results may encode a JSON.stringify payload as a JSON string inside the MCP result; unwrap only bounded JSON string layers and still require the final value to be an object rather than weakening verification;
 - never reuse stale refs or compensate with blind coordinates;
 - verify sent SOURCE_HEAD + assistant run + /c/ URL before declaring handoff success.
 

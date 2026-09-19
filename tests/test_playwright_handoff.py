@@ -76,6 +76,12 @@ def test_evaluation_json_parses_result() -> None:
     assert _evaluation_json(text)["assistantCount"] == 1
 
 
+def test_evaluation_json_unwraps_json_string_result() -> None:
+    text = '### Result\n"{\\\"focused\\\":true,\\\"tag\\\":\\\"DIV\\\"}"'
+    result = _evaluation_json(text)
+    assert result == {"focused": True, "tag": "DIV"}
+
+
 def test_prompt_sha_is_stable() -> None:
     assert prompt_sha256("abc") == (
         "ba7816bf8f01cfea414140de5dae2223"

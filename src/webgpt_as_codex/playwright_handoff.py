@@ -219,9 +219,18 @@ def _evaluation_json(tool_text: str) -> dict[str, Any]:
     if "\n### " in tail:
         tail = tail.split("\n### ", 1)[0].strip()
     try:
-        value = json.loads(tail)
+        value: Any = json.loads(tail)
     except json.JSONDecodeError as exc:
         raise RuntimeError(f"browser_evaluate result was not JSON: {tail[:400]}") from exc
+    for _ in range(2):
+        if not isinstance(value, str):
+            break
+        try:
+            value = json.loads(value)
+        except json.JSONDecodeError as exc:
+            raise RuntimeError(
+                f"browser_evaluate string result was not JSON: {value[:400]}"
+            ) from exc
     if not isinstance(value, dict):
         raise TypeError("browser_evaluate did not return an object")
     return value
