@@ -36,7 +36,9 @@ Isolated final install:
 
 Focused Stage 12/Registry/Manager/Stage 9 boundary suite: 29 PASS.
 
-Full repository: 107 PASS.
+Full repository: 108 PASS.
+
+Post-commit handoff/Stage 10 boundary regression after the minimum reopen: 33 PASS.
 
 Static and safety gates:
 - Ruff PASS;
@@ -52,6 +54,7 @@ Final wheel build/install/resource smoke: PASS.
 - the first wheel command accidentally passed `webgpt-as-codex` as a requirement name rather than `.\webgpt-as-codex`; the corrected path built successfully. This was command-argument harness evidence.
 - the baseline installed-resource failure was target/release evidence and therefore was fixed rather than bypassed.
 - the first full gate found one Ruff-only import ordering issue in the new Stage 12 test; it was corrected and the complete gate reran green.
+- the first post-commit Playwright handoff attempt failed before composer typing/submission because `browser_tabs` repeated the same indexed inventory under both `### Result` and `### Open tabs`; the helper counted the physical blank tab twice. The minimum handoff boundary was reopened to deduplicate exact tab rows, with a regression test, before regenerating the prompt from a new commit.
 
 ## Ownership boundary
 

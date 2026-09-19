@@ -372,3 +372,15 @@ Protected lesson:
 - explicitly declare non-Python runtime resources and test their installed lookup path;
 - prefer a narrow source-or-installed resource resolver over copying machine-local state into the package;
 - a successful wheel build, import or `--help` is not sufficient evidence that runtime resources were packaged.
+
+## 2026-09-19 — Browser tab lists can repeat the same tab inventory
+
+Origin:
+- the first Stage 12 post-commit handoff failed before typing or submission even though one blank ChatGPT tab had been created;
+- current Playwright `browser_tabs` output repeated the same indexed rows under both `### Result` and `### Open tabs`, so the handoff parser counted one physical tab twice and falsely reported ambiguity.
+
+Protected lesson:
+- tab identity is the indexed browser tab, not the number of textual row occurrences in a tool response;
+- normalize exact duplicate tab rows before set-difference/unique-blank reasoning;
+- keep true conflicting duplicate indexes ambiguous rather than guessing;
+- a pre-submit false ambiguity is recoverable after fixing the evidence parser because no external send side effect occurred.

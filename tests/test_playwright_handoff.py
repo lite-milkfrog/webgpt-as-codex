@@ -1,6 +1,7 @@
 from webgpt_as_codex.playwright_handoff import (
     _evaluation_json,
     _target_blank_chatgpt_tab_index,
+    _target_new_chatgpt_tab_index,
     _textbox_ref,
     _wait_for_active_composer,
     prompt_sha256,
@@ -69,6 +70,24 @@ def test_targets_latest_blank_chatgpt_tab_when_extension_remains_current() -> No
         "- 3: [ChatGPT](https://chatgpt.com/)"
     )
     assert _target_blank_chatgpt_tab_index(tabs) == 3
+
+
+def test_new_tab_selection_ignores_duplicate_browser_tabs_sections() -> None:
+    before = (
+        "### Result\n"
+        "- 0: (current) [Welcome](chrome-extension://example)\n"
+        "### Open tabs\n"
+        "- 0: (current) [Welcome](chrome-extension://example)"
+    )
+    after = (
+        "### Result\n"
+        "- 0: (current) [Welcome](chrome-extension://example)\n"
+        "- 2: [ChatGPT](https://chatgpt.com/)\n"
+        "### Open tabs\n"
+        "- 0: (current) [Welcome](chrome-extension://example)\n"
+        "- 2: [ChatGPT](https://chatgpt.com/)"
+    )
+    assert _target_new_chatgpt_tab_index(before, after) == 2
 
 
 def test_evaluation_json_parses_result() -> None:

@@ -107,13 +107,17 @@ def _textbox_ref(snapshot_text: str, *, require_active: bool = False) -> str:
 
 def _tab_rows(tabs_text: str) -> list[tuple[int, bool, str]]:
     rows: list[tuple[int, bool, str]] = []
+    seen: set[tuple[int, bool, str]] = set()
     for line in tabs_text.splitlines():
         match = re.match(
             r"- (\d+): (?:(\(current\)) )?\[[^\]]*\]\(([^)]+)\)",
             line.strip(),
         )
         if match:
-            rows.append((int(match.group(1)), bool(match.group(2)), match.group(3)))
+            row = (int(match.group(1)), bool(match.group(2)), match.group(3))
+            if row not in seen:
+                seen.add(row)
+                rows.append(row)
     return rows
 
 
