@@ -227,3 +227,56 @@ Protected lesson:
 - honor Coding Tools workspace policy with an isolated worktree rather than bypassing it;
 - validate that worktree with the known venv plus explicit worktree `PYTHONPATH` when the default interpreter lacks test dependencies;
 - closure evidence includes live Windows PID probing, two-pass idempotent Start All, targeted restart, Manager HTTP boundaries, full tests/lint/secret scan, docs/commit and verified handoff—not only implementation.
+
+
+## 2026-09-19 — Capability names are hints; tools/list is evidence
+
+Origin:
+- Stage 9 generic Add MCP productization and live Coding Tools/Serena discovery.
+
+Protected lesson:
+- do not infer MCP capability from server name, manifest role or a remembered tool set;
+- validate initialize and inspect actual tools/list schema;
+- preserve success/unavailable/failed/unattempted separately;
+- derive routing recommendations from evidence, not labels.
+
+## 2026-09-19 — Portable operating knowledge and machine state must split
+
+Origin:
+- Stage 9 needed reusable Guides without leaking local endpoints, bindings or health.
+
+Protected lesson:
+- portable Guide: mental model, exposed schema, usage patterns, verification, failures, performance and alternatives;
+- machine-local inventory: endpoints, workspace/path bindings, listener/process state and transient availability;
+- stable component ids attach the two layers without copying machine state into Git.
+
+## 2026-09-19 — Onboarding must not become lifecycle ownership
+
+Origin:
+- newly applied components automatically become visible through the shared registry used by Manager/Doctor.
+
+Protected lesson:
+- visibility/discovery is not start/kill/restart authority;
+- a new component enters Stage 8 lifecycle control only through an explicit fixed runtime adapter and ownership contract;
+- Manager restart scope remains a fixed allowlist.
+
+## 2026-09-19 — Binding and harness failures must stay classified
+
+Origin:
+- the Stage 9 Coding Tools connector was still bound away from the target repository, while the web Serena project activated but exposed no language server for semantic overview. Host/local MCP evidence remained usable.
+
+Protected lesson:
+- “not a Git repository” from a workspace-bound tool is binding evidence, not target-repository evidence;
+- “no active language server” is not the same as Serena service unavailability;
+- diagnose preferred-tool binding/session/schema first, then use the approved local/host fallback and record why;
+- the user's rule to use local Serena when the web-connected Serena is unusable is a reusable fallback principle, not a one-off click recipe.
+
+## 2026-09-19 — Shell syntax/quoting friction is harness evidence
+
+Origin:
+- Desktop Commander ran Windows PowerShell where `&&` was not accepted and a base64 Python write attempt failed from nested quoting.
+
+Protected lesson:
+- adapt commands to the actual shell instead of blaming the repository;
+- prefer direct structured file-edit/write tools over complex nested quoting when repository-bound structured editing is unavailable;
+- a failed write command is not a partial code mutation unless post-state proves otherwise.

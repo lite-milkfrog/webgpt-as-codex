@@ -79,3 +79,19 @@ MCPJungle is started with a machine-local database and machine-local log/PID/sta
 Start All distinguishes action success from full-stack readiness. A repository-managed start can succeed while an enabled required but unmanaged component remains unavailable. This is reported as `complete-with-unmanaged-required` with the missing IDs instead of being silently promoted to a healthy full stack. On the current machine, `mcp-auth-proxy` has only Stage 5 E2E credential state, so Stage 8 deliberately does not reuse that test secret as a production launch contract.
 
 The Windows launcher is a control surface, not a process parent contract. It starts/ensures the Manager and repository-managed runtimes, optionally opens the loopback Manager URL, then may exit while those runtimes continue. Desktop and autostart integration use transparent `.cmd` files in the user Desktop/Startup shell folders. Shell-folder resolution prefers Windows' already-expanded `Shell Folders` values and safely expands/falls back from `User Shell Folders` when service contexts omit `USERPROFILE`/`APPDATA`. Installation is reversible and ownership-checked: an existing unmanaged file is neither overwritten nor deleted, and no password/token/cookie/private URL is embedded.
+
+
+## Generic MCP onboarding / Operating Guide plane
+
+Stage 9 makes Add MCP discovery-first and separates portable operating knowledge from machine state.
+
+The bounded onboarding chain is:
+manifest validation -> credential-literal rejection -> initialize -> tools/list -> capability classification -> Operating Guide validation -> routing recommendation -> dry-run -> explicit machine-local apply.
+
+Capability evidence has four states: success, unavailable, failed and unattempted. Names never establish capability. A reached-but-malformed server is different from an unreachable server, and a skipped prerequisite is different from both.
+
+The machine-local apply path stores custom manifests, machine-readable Guides and onboarding/routing receipts under the external state directory. This makes newly onboarded components visible through the existing registry, Manager and Doctor without committing local endpoint/binding/health information.
+
+Portable Guide documents live with the Skill and may be attached to public-safe component manifests by stable component id. Serena and Coding Tools are the first representative Guide attachments validated from real Stage 9 initialize/tools/list evidence.
+
+Onboarding never creates lifecycle ownership. Stage 8 runtime adapters, PID identity rules and the fixed Manager restart allowlist remain unchanged. Discovery is knowledge/visibility evidence, not permission to start, kill or restart an external MCP.

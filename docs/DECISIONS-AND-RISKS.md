@@ -115,3 +115,34 @@ The supervisor first attempts a bounded graceful signal and then applies a bound
 
 ### Risk: process evidence is not protocol evidence
 Process-only preservation is used only to decide “do not start/kill this unmanaged system service.” It does not promote Tailscale or any MCP to protocol/OAuth/remote health; Doctor continues to own those deeper evidence levels.
+
+
+## Stage 9 — Generic Add MCP / Operating Guides
+
+### Decision: capability discovery precedes routing
+
+Generic onboarding must use real MCP initialize + tools/list evidence. Server names, manifest roles and tool names are hints only. A routing recommendation may be created only from actual schema evidence and remains reviewable rather than silently rewriting Skill routing.
+
+### Decision: unavailable, failed and unattempted remain distinct
+
+An unreachable listener/session is `unavailable`; malformed reached protocol/schema evidence is `failed`; an intentionally skipped/non-applicable probe is `unattempted`. These states are preserved in the Operating Guide and local onboarding receipt instead of being collapsed into a single false value.
+
+### Decision: dry-run is the default; mutation is explicit and machine-local
+
+`add-mcp` performs discovery and Guide/routing planning without persistence by default. `--apply` is required to create a custom component. Applied custom manifests, machine-readable Guides and routing/inventory receipts stay in the external state directory. Repeated application of the same manifest is idempotent; the same id with different content fails closed; custom components cannot shadow repository component ids.
+
+### Decision: Operating Guides are portable knowledge, not inventory
+
+A Guide contains reusable mental model, actual exposed tool/schema facts, usage patterns, mistakes, diagnostics, verification, performance/cost notes, accumulated lessons and alternatives. Endpoints, local paths, workspace bindings, PID/process state, transient health and secrets stay machine-local. Public component manifests may attach a portable Guide by stable component id.
+
+### Decision: onboarding visibility does not grant lifecycle authority
+
+The existing registry makes applied components visible to Manager and Doctor. Stage 9 does not add runtime adapters, arbitrary command surfaces or Manager restart entries. Stage 8 ownership remains authoritative.
+
+### Risk: exposed tool schemas can themselves mention credentials
+
+A schema may legitimately describe fields named token/password without containing a secret. Secret scanning therefore rejects credential-bearing literal values while allowing schema structure that merely describes such fields. Persisted Guides are validated again before write.
+
+### Live evidence
+
+Stage 9 real discovery observed current local Coding Tools initialize/tools/list success with 18 tools and local Serena success with 29 tools. This is stage evidence, not portable availability truth. The earlier Stage 8 Serena-down observation is therefore health drift rather than a contradiction of Stage 8 ownership behavior.

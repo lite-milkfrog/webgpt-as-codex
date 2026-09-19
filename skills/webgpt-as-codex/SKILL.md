@@ -2,7 +2,7 @@
 name: webgpt-as-codex
 description: Local-first MCP computer/coding agent workflow with durable SoT, Loop Engineering, verified handoff, Doctor/Repair, gateway routing and multi-window continuation.
 metadata:
-  version: 0.4.0
+  version: 0.5.0
   portability: public-safe-local-first
   secrets-policy: no-secrets-in-skill
 ---
@@ -69,8 +69,13 @@ Routing decides WHICH tool. Operating knowledge decides HOW to use it. Real evid
 Do not invent capability from an MCP name; inspect actual tool/schema evidence. Formal per-MCP Operating Guide onboarding is Stage 9 ownership, with the Guide template covering mental model, best/poor use cases, exposed capability, goal-oriented patterns, mistakes, failure diagnosis, verification, performance/cost, lessons and better alternatives.
 
 ## Generic MCP extension
-New MCPs are added through manifests + discovery + health checks + gateway registration + optional Tool Group + Skill routing.
-See `add-mcp.md`.
+New MCPs use discovery-first onboarding, not name-based capability inference. The default `add-mcp` path is dry-run: validate a public-safe manifest candidate, reject credential literals, perform real initialize + tools/list discovery, build/validate an Operating Guide, and derive a routing recommendation. Mutation requires explicit apply and remains machine-local unless a component is separately promoted through repository review.
+
+Capability evidence distinguishes `success`, `unavailable`, `failed` and `unattempted`. A newly onboarded component becomes visible to registry/Doctor/Manager without gaining Stage 8 start/kill/restart authority.
+
+Portable MCP Guides contain reusable mental model, actual exposed tools/schema, best/poor use cases, goal patterns, mistakes, failure diagnosis, verification, performance/cost, lessons and alternatives. Machine-local endpoints, bindings, paths and transient health stay outside Git.
+
+See `add-mcp.md` and `mcp-operating-guide.md`.
 
 ## Manager boundary
 The Manager is a loopback-only local control surface backed by the component registry and durable Doctor evidence.

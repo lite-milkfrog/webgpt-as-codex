@@ -1,9 +1,9 @@
 # Current Project State
 
 PROJECT = WebGPT-as-Codex
-CURRENT_STAGE = STAGE-9-GENERIC-ADD-MCP
-NEXT_STAGE = STAGE-10-LOOP-ENGINEERING-DOGFOOD
-AFTER_NEXT_STAGE = STAGE-11-SECURITY-RELIABILITY-HARDENING
+CURRENT_STAGE = STAGE-10-LOOP-ENGINEERING-DOGFOOD
+NEXT_STAGE = STAGE-11-SECURITY-RELIABILITY-HARDENING
+AFTER_NEXT_STAGE = STAGE-12-README-RELEASE-FINAL-ACCEPTANCE
 
 Stage 1: CLOSED_LOCAL_VERIFIED
 Stage 2: CLOSED_LOCAL_VERIFIED
@@ -13,6 +13,7 @@ Stage 5: CLOSED_LOCAL_VERIFIED
 Stage 6: CLOSED_LOCAL_VERIFIED
 Stage 7: CLOSED_LOCAL_VERIFIED
 Stage 8: CLOSED_LOCAL_VERIFIED
+Stage 9: CLOSED_LOCAL_VERIFIED
 
 Repository: D:\AgentData\10_Workspaces\webgpt-as-codex
 Stage 4 proof: unified Gateway, 4 core MCP backends, 87 tools, safe calls PASS.
@@ -22,6 +23,8 @@ Stage 7 proof: idempotent discovery-first bootstrap, deep prerequisite-aware Doc
 Stage 7 live evidence: healthy Serena/Coding Tools/Playwright/Windows-MCP listeners passed MCP initialize + tools/list + declared safe call. Current MCPJungle and default OAuth listeners were truthfully reported down and were not started because runtime lifecycle belongs to Stage 8.
 Stage 8 proof: repository-owned runtime supervisor with PID birth/image ownership checks, stale/reused-PID rejection, discovery-first idempotent Start All, targeted Manager Restart, independent Manager/browser lifetime, reversible credential-free desktop launcher/autostart, 57 tests PASS, Ruff PASS and secret scan PASS.
 Stage 8 live evidence: first Start All started only MCPJungle while preserving healthy Serena/Coding Tools/Playwright/Windows-MCP; the second run preserved the same owned MCPJungle without duplication. Process-only evidence preserved Tailscale and Remote Desktop Commander. Targeted MCPJungle restart changed PID after bounded shutdown; Manager rejected restart scope for Serena. Launcher exited while the Manager remained reachable. `mcp-auth-proxy` remains explicitly unmanaged/not started because the machine has Stage 5 E2E credential state but no separate production/autostart credential contract.
+Stage 9 proof: discovery-first generic Add MCP with manifest/secret validation, real initialize + tools/list capability evidence, four-state success/unavailable/failed/unattempted semantics, machine-readable Operating Guide schema, routing recommendation, dry-run/default + explicit machine-local apply, idempotence/conflict protection, registry/Manager/Doctor visibility without lifecycle authority, public-safe Serena/Coding Tools Guide attachments, bounded real-HTTP fake MCP coverage, 70 repository tests PASS, Ruff PASS and secret scan PASS.
+Stage 9 live evidence: local Coding Tools initialize/tools/list succeeded with 18 exposed tools and local Serena succeeded with 29 tools. This supersedes only transient availability evidence from the end of Stage 8; it does not change Stage 8 ownership boundaries. Coding Tools remained unbound from this repository in the web connector and web Serena exposed no active language server for symbol overview, so the stage correctly diagnosed binding/session capability before using host/local fallback.
 Final canonical-launcher dogfood later observed Serena's external listener down. Start All reported it as required/unmanaged missing and did not restart it; this is current external-service health drift, not repository lifecycle ownership. The same dogfood exposed a service-context shell-folder expansion defect, which was corrected and re-probed to resolve the real user Desktop/Startup paths even when `USERPROFILE`/`APPDATA` are absent.
 Final Windows post-state: the managed desktop launcher is installed on the real user Desktop. Autostart passed a real install -> status -> uninstall -> absent -> reinstall -> present round trip and is left installed/managed in the real user Startup folder. The erroneous literal `%USERPROFILE%` tree created by the first probe was removed and confirmed absent.
 First Stage 9 handoff attempt failed before typing/submission because ChatGPT's hidden autofocus fallback textarea also appeared active in the accessibility snapshot. No user message was sent. The minimum handoff helper boundary was reopened to focus a DOM-visible editable composer before consuming a fresh active snapshot ref.
@@ -36,14 +39,13 @@ Cross-stage supplemental contract is active immediately:
 - the next 5-10 stages collect stage-cost baseline evidence (implementation/closure effort, retries, tool switches, tests/docs, handoff first-pass success and almost-done incidents) so the heuristic can self-correct.
 
 Remaining planned roadmap:
-- Stage 9: STAGE-9-GENERIC-ADD-MCP
 - Stage 10: STAGE-10-LOOP-ENGINEERING-DOGFOOD
 - Stage 11: STAGE-11-SECURITY-RELIABILITY-HARDENING
 - Stage 12: STAGE-12-README-RELEASE-FINAL-ACCEPTANCE
 - Final Overall Acceptance
 
 Automatic continuation remains authorized.
-The Stage 9 handoff must be generated from the committed Stage 8 HEAD and verified through Playwright MCP.
+The Stage 10 handoff must be generated from the committed Stage 9 HEAD and verified through Playwright MCP.
 
 Supplemental ownership:
 - Stage 9 productizes MCP Guide template/onboarding, capability discovery, inventory/routing attachment and guide validation/feedback.

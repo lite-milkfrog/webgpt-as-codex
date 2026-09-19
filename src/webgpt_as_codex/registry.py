@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import argparse
 import json
 from dataclasses import dataclass
 from pathlib import Path
@@ -63,22 +62,5 @@ def write_custom_component(data: dict[str, Any]) -> Path:
 
 
 def cli_add_mcp(argv: list[str]) -> int:
-    parser = argparse.ArgumentParser(prog="webgpt-codex add-mcp")
-    parser.add_argument("name")
-    parser.add_argument("url")
-    parser.add_argument("--role", default="optional")
-    args = parser.parse_args(argv)
-    data = {
-        "id": args.name,
-        "display_name": args.name,
-        "role": args.role,
-        "required": False,
-        "enabled_by_default": True,
-        "transport": "streamable_http",
-        "default_endpoint": args.url,
-        "safe_tool": None,
-        "upstream": None,
-    }
-    path = write_custom_component(data)
-    print(path)
-    return 0
+    from .onboarding import cli_add_mcp as run
+    return run(argv)
