@@ -14,6 +14,7 @@ def _windows_local_appdata() -> Path | None:
         return None
     try:
         import winreg
+
         key_path = r"Software\Microsoft\Windows\CurrentVersion\Explorer\Shell Folders"
         with winreg.OpenKey(winreg.HKEY_CURRENT_USER, key_path) as key:
             value, _ = winreg.QueryValueEx(key, "Local AppData")
@@ -25,6 +26,17 @@ def _windows_local_appdata() -> Path | None:
     username = getpass.getuser()
     candidate = Path(drive) / "Users" / username / "AppData" / "Local"
     return candidate if candidate.parent.parent.exists() else None
+
+
+def user_home() -> Path:
+    explicit = os.getenv("USERPROFILE") or os.getenv("HOME")
+    if explicit:
+        return Path(explicit)
+    win_local = _windows_local_appdata()
+    if win_local and len(win_local.parents) >= 2:
+        return win_local.parents[1]
+    drive = os.getenv("SystemDrive", "C:")
+    return Path(drive) / "Users" / getpass.getuser()
 
 
 def state_root() -> Path:
@@ -45,6 +57,6 @@ def state_root() -> Path:
 
 def ensure_state_dirs() -> Path:
     root = state_root()
-    for name in ("logs", "pids", "downloads", "config", "secrets"):
+    for name in ("logs", "pids", "downloads", "config", "secrets", "bin"):
         (root / name).mkdir(parents=True, exist_ok=True)
     return root
