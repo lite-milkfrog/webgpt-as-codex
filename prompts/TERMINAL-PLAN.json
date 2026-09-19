@@ -1,0 +1,25 @@
+{
+  "current_stage": "TERMINAL",
+  "next_stage": "TERMINAL",
+  "after_next_stage": "TERMINAL",
+  "stage_objective": "Confirm the committed terminal sentinel after PROJECT-COMPLETE without adding features: verify the PROJECT-COMPLETE closure and committed main post-state, confirm Final Overall Acceptance and Project Complete remain CLOSED_LOCAL_VERIFIED, confirm the repository remains clean/public-safe, classify any external MCP/browser drift as harness evidence unless repository contradiction appears, and stop the recursive chain once the terminal condition is verified.",
+  "required_outputs": [
+    "read PROJECT-COMPLETE-CLOSURE and verify its committed SOURCE_HEAD/post-state rather than reopening implementation",
+    "confirm Final Overall Acceptance and Project Complete are CLOSED_LOCAL_VERIFIED and main remains clean/public-safe",
+    "verify the machine-local PROJECT-COMPLETE -> TERMINAL handoff receipt/hash when available without copying private browser or endpoint state into Git",
+    "make no implementation, architecture, packaging, release or lifecycle changes unless contradictory repository-owned evidence appears",
+    "record only minimum terminal confirmation bookkeeping if evidence requires it",
+    "after terminal verification, stop the recursive chain because TERMINAL is the sentinel and there is no further implementation stage"
+  ],
+  "do_not_redo": [
+    "Stages 0-12, Final Overall Acceptance or Project Complete implementation/tests without contradictory repository-owned evidence",
+    "new features, redesigns, repackaging, publication/push or speculative cleanup",
+    "machine-local credentials, endpoints, browser profiles, cookies, tokens, PIDs, conversation URLs or unrelated repositories",
+    "creating another implementation stage after the terminal condition is satisfied"
+  ],
+  "known_risks": [
+    "A terminal sentinel can accidentally loop into itself if generic recursive handoff wording is applied mechanically; the termination condition outranks self-reentry once Final Overall Acceptance and Project Complete are both closed.",
+    "External MCP/session/browser selector health may drift independently of the accepted repository.",
+    "Remote origin/main may lag the canonical local main; publication remains a separate user-owned external side effect unless explicitly authorized."
+  ]
+}

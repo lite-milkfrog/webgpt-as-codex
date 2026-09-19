@@ -1,7 +1,7 @@
 # Current Project State
 
 PROJECT = WebGPT-as-Codex
-CURRENT_STAGE = PROJECT-COMPLETE
+CURRENT_STAGE = TERMINAL
 NEXT_STAGE = TERMINAL
 AFTER_NEXT_STAGE = TERMINAL
 
@@ -18,6 +18,7 @@ Stage 10: CLOSED_LOCAL_VERIFIED
 Stage 11: CLOSED_LOCAL_VERIFIED
 Stage 12: CLOSED_LOCAL_VERIFIED
 Final Overall Acceptance: CLOSED_LOCAL_VERIFIED
+Project Complete: CLOSED_LOCAL_VERIFIED
 
 Repository: local checkout; use the active project/workspace binding rather than committing a machine-specific absolute path.
 Stage 4 proof: unified Gateway, 4 core MCP backends, 87 tools, safe calls PASS.
@@ -51,15 +52,14 @@ Cross-stage supplemental contract is active immediately:
 - future verified stages/runs continue collecting stage-cost evidence (implementation/closure effort, retries, tool switches, tests/docs, handoff first-pass success and almost-done incidents) so the heuristic can self-correct without inventing a platform timeout.
 
 Remaining planned roadmap:
-- Project Complete terminalization
-- Terminal handoff
+- Terminal confirmation only
 
-Automatic continuation remains authorized.
-The Project Complete handoff must start from the committed Final Overall Acceptance HEAD and preserve exactly-once Playwright submission semantics.
+Automatic continuation remains authorized only for the final PROJECT-COMPLETE -> TERMINAL handoff.
+The TERMINAL sentinel closes the chain after verifying the committed Project Complete post-state; it does not reopen implementation.
 
 Supplemental ownership:
 - Stage 9 productizes MCP Guide template/onboarding, capability discovery, inventory/routing attachment and guide validation/feedback.
 - Stage 10 productizes self-evolving Loop Engineering, stage sizing/closure budget, context/execution-window resilience, recursive Playwright continuation and handoff failure recovery. Bounded follow-up stages are allowed if evidence justifies them.
 
 Recursive handoff invariant:
-Final Overall Acceptance is CLOSED_LOCAL_VERIFIED. PROJECT-COMPLETE inherits the recursive obligation to close only terminal bookkeeping, regenerate a TERMINAL prompt from its committed HEAD, and verify the exactly-once Playwright handoff before the chain stops.
+Final Overall Acceptance and Project Complete are CLOSED_LOCAL_VERIFIED. The final PROJECT-COMPLETE -> TERMINAL handoff remains exactly-once; after the TERMINAL sentinel verifies that committed post-state, the recursion termination condition is satisfied and the chain stops.
