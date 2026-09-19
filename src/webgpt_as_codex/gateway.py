@@ -4,9 +4,9 @@ import os
 import subprocess
 import time
 import urllib.request
+from collections.abc import Iterator
 from contextlib import contextmanager
 from pathlib import Path
-from typing import Iterator
 
 from .paths import ensure_state_dirs
 
@@ -26,7 +26,7 @@ def wait_http(url: str, timeout: float = 20.0) -> None:
             with urllib.request.urlopen(url, timeout=1.0) as response:
                 if response.status < 500:
                     return
-        except Exception as exc:
+        except (OSError, TimeoutError, ValueError) as exc:
             last = exc
         time.sleep(0.25)
     raise RuntimeError(f"service did not become ready: {url}: {last}")

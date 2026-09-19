@@ -20,3 +20,27 @@ Protected examples:
 - Windows console encoding causing the harness, not the target, to fail.
 
 Never delete a lesson only because current code looks simpler.
+
+## 2026-09-19 — Real HTTPS is authoritative for OAuth acceptance
+
+Origin:
+- Stage 5 OAuth + Tailscale edge integration.
+- A localized HTTP probe of an HTTPS external OAuth flow produced invalid authorization-session failures because Secure-cookie/origin behavior differed from the real client path.
+
+Protected lesson:
+- do not treat localhost HTTP localization as authoritative for an OAuth flow whose advertised external URL is HTTPS;
+- preserve X-Forwarded-Proto and X-Forwarded-Host at the compatibility boundary;
+- validate DCR, PKCE, consent, token, refresh and MCP access through the real HTTPS edge;
+- an OAuth compatibility adapter may preserve session/consent continuity, but must not bypass authentication;
+- test passwords and OAuth databases remain machine-local.
+
+## 2026-09-19 — Temporary integration instances must not mutate shared agent state
+
+Origin:
+- Stage 4 temporary Serena initially used activate_project through a shared Serena configuration and changed the main Serena active project.
+
+Protected lesson:
+- start temporary Serena with --project / --project-from-cwd;
+- do not use a temporary integration test to mutate a shared Serena active project;
+- verify active project before repo-relative writes;
+- after any suspicious project switch, verify both target and unrelated repository git status before continuing.

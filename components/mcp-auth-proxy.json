@@ -1,1 +1,16 @@
-{"id":"mcp-auth-proxy","display_name":"mcp-auth-proxy","role":"oauth_edge","required":true,"enabled_by_default":true,"upstream":"https://github.com/sigbit/mcp-auth-proxy","license":"MIT","transport":"http","default_endpoint":"http://127.0.0.1:9340","version_command":[],"install_hint":"download upstream release asset","safe_tool":null}
+{
+  "id": "mcp-auth-proxy",
+  "display_name": "mcp-auth-proxy",
+  "role": "oauth_edge",
+  "required": true,
+  "enabled_by_default": true,
+  "upstream": "https://github.com/sigbit/mcp-auth-proxy",
+  "license": "MIT",
+  "transport": "http",
+  "default_endpoint": "http://127.0.0.1:9340",
+  "verified_local_binary": "2.10.2-era mcp-warp binary",
+  "compat_adapter": "webgpt_as_codex.oauth_compat",
+  "version_command": [],
+  "install_hint": "resolve an official compatible release; verify binary/source provenance before use",
+  "safe_tool": null
+}

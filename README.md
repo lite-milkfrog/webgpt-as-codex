@@ -13,9 +13,16 @@ The project deliberately separates:
 ## Current implementation baseline
 Core backends: Serena, Coding Tools MCP, Playwright MCP, Windows-MCP.
 Default gateway: MCPJungle.
-OAuth edge: mcp-auth-proxy.
+OAuth edge: WebGPT-as-Codex compatibility adapter + mcp-auth-proxy.
 Remote ingress: Tailscale Funnel.
 Remote Desktop Commander remains an optional direct vendor relay.
+
+Validated so far:
+- four core MCP backends through one Gateway endpoint;
+- real public HTTPS OAuth metadata, dynamic registration and PKCE;
+- authenticated MCP calls through Tailscale Funnel;
+- refresh-token reuse after OAuth proxy restart;
+- unauthorized public MCP access rejected with HTTP 401.
 
 ## Development
 ```powershell

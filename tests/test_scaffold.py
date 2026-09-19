@@ -1,4 +1,3 @@
-from pathlib import Path
 
 from webgpt_as_codex.paths import repo_root, state_root
 

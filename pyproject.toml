@@ -10,7 +10,7 @@ readme = "README.md"
 requires-python = ">=3.11"
 license = {text = "Apache-2.0"}
 authors = [{name = "WebGPT-as-Codex Contributors"}]
-dependencies = []
+dependencies = ["requests>=2.32,<3"]
 
 [project.optional-dependencies]
 dev = ["pytest>=8.0", "ruff>=0.15"]

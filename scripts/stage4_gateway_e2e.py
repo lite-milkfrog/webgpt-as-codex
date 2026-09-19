@@ -81,7 +81,7 @@ def _wait_mcp(url: str, process: subprocess.Popen[bytes], label: str, timeout: f
         try:
             initialize(url)
             return
-        except Exception:
+        except (OSError, TimeoutError, ValueError):
             if process.poll() is not None:
                 raise RuntimeError(f"{label} exited with {process.returncode}")
             time.sleep(0.4)
