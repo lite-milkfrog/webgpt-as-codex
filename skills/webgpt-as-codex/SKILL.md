@@ -2,7 +2,7 @@
 name: webgpt-as-codex
 description: Local-first MCP computer/coding agent workflow with durable SoT, Loop Engineering, verified handoff, Doctor/Repair, gateway routing and multi-window continuation.
 metadata:
-  version: 0.3.0
+  version: 0.4.0
   portability: public-safe-local-first
   secrets-policy: no-secrets-in-skill
 ---
@@ -86,6 +86,16 @@ Manager actions are a fixed allowlist whose real executors are supplied only by 
 - local OAuth metadata is useful diagnosis, while real HTTPS remains authoritative for final OAuth acceptance;
 - Repair is a fixed action allowlist with dry-run/confirmation/backups; never turn Repair into a generic shell;
 - runtime start/restart belongs to the runtime-owner stage, not to Bootstrap or Doctor.
+
+## Runtime supervisor / launcher discipline
+- discovery is permission to preserve, not permission to kill: stop/restart requires repository-owned PID identity evidence;
+- stale PID files and PID reuse are rejected using process birth identity plus executable-image checks;
+- Start All preserves healthy unmanaged listeners and process-only system services, then starts only fixed repository-managed missing runtimes;
+- report required-but-unmanaged missing services separately from managed action success; never turn partial startup into a full-health claim;
+- Manager runtime actions keep a fixed component allowlist and never accept arbitrary commands, argv, paths or PIDs from the browser;
+- browser/Manager UI/desktop launcher lifetime never owns agent-runtime lifetime;
+- Windows desktop/autostart launchers must be transparent, reversible, credential-free and refuse to overwrite/delete unmanaged files;
+- do not reuse integration-test OAuth credentials as a production/autostart launch contract merely because the files exist.
 
 ## Completion
 A stage is complete only when owned behavior is implemented, validation is green, post-state is verified, affected docs/ledger are updated, closure is written, the stage is committed, the next prompt is generated from that committed HEAD, validated/hashed, Playwright-submitted, the sent user message is verified and the next assistant run is verified.

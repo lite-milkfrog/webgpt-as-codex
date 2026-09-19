@@ -39,7 +39,13 @@ function renderStatus(s){
 }
 async function action(name,confirmRequired){
   if(confirmRequired&&!window.confirm('Run '+name+'?'))return;
-  try{const r=await getJson('/api/actions/'+name,{method:'POST',headers:{'Content-Type':'application/json','X-WebGPT-Control':'1'},body:JSON.stringify({confirm:confirmRequired})});document.querySelector('#notice').textContent=r.status||'completed'}
+  const payload={confirm:confirmRequired};
+  if(name==='restart'){
+    const component=window.prompt('Repository-managed component to restart (for Stage 8: mcpjungle):','mcpjungle');
+    if(!component)return;
+    payload.component=component.trim();
+  }
+  try{const r=await getJson('/api/actions/'+name,{method:'POST',headers:{'Content-Type':'application/json','X-WebGPT-Control':'1'},body:JSON.stringify(payload)});document.querySelector('#notice').textContent=r.status||'completed'}
   catch(e){document.querySelector('#notice').textContent=e.payload?.status||e.payload?.error||e.message}
   refresh();
 }

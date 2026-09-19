@@ -11,6 +11,10 @@ Minimum full-system gates:
 - OAuth metadata, dynamic registration, PKCE code exchange and refresh path pass when enabled;
 - remote edge reaches OAuth-protected gateway when enabled;
 - Manager survives UI close without stopping runtimes;
+- runtime stop/restart refuses unmanaged processes and stale/reused PID receipts;
+- Start All is idempotent, preserves healthy unmanaged services and avoids duplicate listeners/processes;
+- process-only system components are preserved without being promoted to protocol health;
+- desktop launcher and Windows autostart install/status/uninstall are reversible and credential-free;
 - restart/recovery does not require chat memory;
 - bootstrap dry-run is idempotent;
 - no user-specific secret or private URL is tracked;

@@ -71,7 +71,7 @@ class ActionConfirmationError(PermissionError):
     pass
 
 
-ActionExecutor = Callable[[ActionContract], dict[str, Any]]
+ActionExecutor = Callable[[ActionContract, dict[str, Any]], dict[str, Any]]
 
 
 class ActionRunner:
@@ -85,7 +85,13 @@ class ActionRunner:
             for contract in ACTION_CONTRACTS.values()
         ]
 
-    def run(self, name: str, *, confirm: bool = False) -> dict[str, Any]:
+    def run(
+        self,
+        name: str,
+        *,
+        confirm: bool = False,
+        payload: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
         contract = ACTION_CONTRACTS.get(name)
         if contract is None:
             raise KeyError(name)
@@ -102,7 +108,7 @@ class ActionRunner:
         if not self._lock.acquire(blocking=False):
             raise ActionBusyError("another manager action is already running")
         try:
-            result = executor(contract)
+            result = executor(contract, dict(payload or {}))
         finally:
             self._lock.release()
         if not isinstance(result, dict):
@@ -200,7 +206,11 @@ class ManagerRequestHandler(BaseHTTPRequestHandler):
             self._json({"ok": False, "error": "object-body-required"}, HTTPStatus.BAD_REQUEST)
             return
         try:
-            result = self.server.action_runner.run(name, confirm=payload.get("confirm") is True)
+            result = self.server.action_runner.run(
+                name,
+                confirm=payload.get("confirm") is True,
+                payload=payload,
+            )
         except KeyError:
             self._json({"ok": False, "error": "unknown-action"}, HTTPStatus.NOT_FOUND)
             return
@@ -227,9 +237,12 @@ def build_server(
     if action_runner is None:
         from .doctor import manager_doctor_executor
         from .repair import manager_repair_executor
+        from .runtime import manager_restart_executor, manager_start_all_executor
 
         action_runner = ActionRunner(
             {
+                "start_all": manager_start_all_executor,
+                "restart": manager_restart_executor,
                 "doctor": manager_doctor_executor,
                 "repair": manager_repair_executor,
             }

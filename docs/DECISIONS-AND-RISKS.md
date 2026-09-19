@@ -92,3 +92,26 @@ A machine may intentionally have Gateway/OAuth runtime listeners stopped. Stage 
 
 ### Risk: test environment can import the wrong editable worktree
 The shared virtual environment points at the canonical repository. Stage 7 tests in the Coding Tools worktree therefore used an explicit worktree `PYTHONPATH`. A missing pytest/module import in the harness is not target-code evidence.
+
+## Stage 8 — Runtime supervisor / launcher / autostart
+
+### Decision: lifecycle ownership requires repository evidence, not process discovery
+Finding a matching listener/process is sufficient to preserve a healthy service but not sufficient to stop or restart it. Stage 8 requires a fixed runtime adapter plus a machine-local PID receipt validated against the live process birth token and executable image. PID reuse/stale receipts therefore fail closed.
+
+### Decision: Start All is discovery-first and may be partially ready
+Start All preserves healthy listeners and process-only system services before considering starts. It starts only repository-owned missing adapters and reports required-but-unmanaged missing components separately from action success. This prevents a successful MCPJungle start from being mislabeled as proof that the whole OAuth/edge stack is ready.
+
+### Decision: do not promote Stage 5 E2E credentials into autostart authority
+The machine contains an mcp-auth-proxy binary and Stage 5 E2E OAuth data, but no separate credential-safe production runtime contract. Stage 8 therefore leaves the stopped proxy unmanaged rather than embedding/reusing a test password, OAuth DB or private key. A later owner may add an explicit credential-reference/config contract with its own security evidence.
+
+### Decision: Manager Restart is narrower than component discovery
+The Manager accepts only a named component from a repository-fixed restart allowlist; Stage 8 currently allows MCPJungle. It does not accept arbitrary shell, PID, executable, URL or argv input. Healthy unmanaged components such as Serena cannot be restarted through this action.
+
+### Decision: Windows Startup folder is the bounded autostart mechanism
+The project uses a transparent user Startup-folder `.cmd` launcher rather than hidden registry persistence, scheduled tasks or credential-bearing scripts. Install/status/uninstall verify exact managed content (newline-insensitive for Windows text normalization) and refuse to overwrite/delete user-owned files.
+
+### Risk: graceful shutdown is component-dependent
+The supervisor first attempts a bounded graceful signal and then applies a bounded forced fallback. Live MCPJungle evidence on Windows required the forced fallback after the graceful window. This is recorded as runtime behavior, not hidden by reporting restart as intrinsically graceful.
+
+### Risk: process evidence is not protocol evidence
+Process-only preservation is used only to decide “do not start/kill this unmanaged system service.” It does not promote Tailscale or any MCP to protocol/OAuth/remote health; Doctor continues to own those deeper evidence levels.

@@ -44,7 +44,9 @@ def test_recursive_redaction_hides_secrets_and_private_urls() -> None:
 
 def test_action_contracts_are_fixed_and_confirm_mutating_actions() -> None:
     assert set(ACTION_CONTRACTS) == {"start_all", "restart", "doctor", "repair", "update"}
-    runner = ActionRunner({"repair": lambda _: {"ok": True, "token": "must-not-leak"}})
+    runner = ActionRunner(
+        {"repair": lambda _contract, _payload: {"ok": True, "token": "must-not-leak"}}
+    )
     with pytest.raises(ActionConfirmationError):
         runner.run("repair")
     result = runner.run("repair", confirm=True)
@@ -124,3 +126,4 @@ def test_manager_ui_has_bounded_polling_and_no_secret_copy_surface() -> None:
     assert "setInterval(" not in html
     assert "/api/password" not in html
     assert "OAuth password" not in html
+    assert "payload.component" in html

@@ -14,6 +14,18 @@ def dispatch(command: str, argv: list[str]) -> int:
     if command == "stop":
         from .runtime import cli_stop
         return cli_stop(argv)
+    if command == "restart":
+        from .runtime import cli_restart
+        return cli_restart(argv)
+    if command == "launcher":
+        from .launcher import cli_launcher
+        return cli_launcher(argv)
+    if command == "desktop-launcher":
+        from .launcher import cli_desktop_launcher
+        return cli_desktop_launcher(argv)
+    if command == "autostart":
+        from .launcher import cli_autostart
+        return cli_autostart(argv)
     if command == "repair":
         from .repair import cli_repair
         return cli_repair(argv)

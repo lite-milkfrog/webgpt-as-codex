@@ -170,3 +170,56 @@ Protected lesson:
 - distinguish misuse or harness state from capability absence;
 - prefer independent exploration before asking the user;
 - when user guidance reveals the correct mental model, classify and preserve the reusable principle rather than only the historical click sequence.
+
+## 2026-09-19 — Runtime discovery is not lifecycle ownership
+
+Origin:
+- Stage 8 live Start All saw healthy Serena, Coding Tools, Playwright and Windows-MCP listeners that were not launched by the repository.
+- Tailscale and Remote Desktop Commander also required process evidence because they do not fit the same listener contract.
+
+Protected lesson:
+- use listener/process evidence to preserve a healthy external service, never as authority to kill it;
+- stop/restart requires repository-owned PID receipt plus live birth-token/image identity;
+- a stale/dead/reused PID receipt is removed without signaling that PID;
+- a no-listener system transport needs process evidence for startup preservation but remains distinct from protocol/OAuth health.
+
+## 2026-09-19 — Windows process identity needs a real host probe
+
+Origin:
+- Stage 8 unit tests passed while the first real PID-identity probe failed because `ctypes.wintypes` was not imported explicitly on the host Python.
+
+Protected lesson:
+- lifecycle safety primitives need at least one real host probe in addition to mocked unit tests;
+- explicitly import Windows ctypes types before using FILETIME/process APIs;
+- do not start a managed process until the ownership primitive itself has been exercised on the target OS.
+
+## 2026-09-19 — Managed launcher ownership must tolerate newline normalization
+
+Origin:
+- the first reversible launcher test wrote CRLF but Python text reading normalized it to LF, causing an exact-content ownership check to misclassify the project-created file as unmanaged.
+
+Protected lesson:
+- ownership checks for Windows text launchers may normalize line endings while still requiring the entire expected content and a project marker;
+- never weaken that into marker-only deletion/overwrite authority;
+- reversible install/uninstall must fail closed when the target file is user-owned or modified.
+
+## 2026-09-19 — Integration-test credentials are not production runtime authority
+
+Origin:
+- Stage 8 found the mcp-auth-proxy binary and Stage 5 E2E OAuth state, including machine-local secret material, but no separate production/autostart credential contract.
+
+Protected lesson:
+- existence of a secret is not authorization to reuse it for a new lifecycle purpose;
+- Start All must truthfully report a required unmanaged component instead of silently promoting E2E state into persistent runtime state;
+- credentials remain machine-local and lifecycle adapters consume only explicitly owned credential references/configuration.
+
+## 2026-09-19 — Stage 8 harness and closure-cost evidence
+
+Origin:
+- Serena instruction/config calls timed out at the orchestration layer; Coding Tools remained bound to `coding-tools-mcp-demo`; its default Python lacked pytest; the shared venv editable install pointed at the canonical tree.
+
+Protected lesson:
+- diagnose the preferred-tool/session failure before fallback;
+- honor Coding Tools workspace policy with an isolated worktree rather than bypassing it;
+- validate that worktree with the known venv plus explicit worktree `PYTHONPATH` when the default interpreter lacks test dependencies;
+- closure evidence includes live Windows PID probing, two-pass idempotent Start All, targeted restart, Manager HTTP boundaries, full tests/lint/secret scan, docs/commit and verified handoff—not only implementation.

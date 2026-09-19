@@ -216,7 +216,10 @@ def run_repair(
     return receipt
 
 
-def manager_repair_executor(_contract: object) -> dict[str, Any]:
+def manager_repair_executor(
+    _contract: object,
+    _payload: dict[str, Any] | None = None,
+) -> dict[str, Any]:
     result = run_repair(dry_run=False, confirm=True)
     return {
         "ok": True,

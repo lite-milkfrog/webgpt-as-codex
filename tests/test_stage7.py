@@ -169,14 +169,12 @@ def test_repair_is_fixed_dry_run_confirmed_and_reversible(
     assert backups
 
 
-def test_manager_wires_only_stage7_owned_actions() -> None:
+def test_manager_preserves_stage7_owned_actions_after_later_stage_wiring() -> None:
     server = build_server("127.0.0.1", 0)
     try:
         actions = {row["name"]: row for row in server.action_runner.contracts()}
         assert actions["doctor"]["available"] is True
         assert actions["repair"]["available"] is True
-        assert actions["start_all"]["available"] is False
-        assert actions["restart"]["available"] is False
         assert actions["update"]["available"] is False
     finally:
         server.server_close()

@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import argparse
 import json
-import os
 import re
 import shutil
 import subprocess
@@ -13,7 +12,7 @@ from urllib.parse import urlsplit, urlunsplit
 
 import requests
 
-from .discovery import discover_component
+from .discovery import discover_component, process_health, process_markers, process_snapshot
 from .health import HEALTH_LEVELS, configured_public_mcp_url, sanitize_for_output
 from .mcp import initialize, rpc, session_id
 from .paths import ensure_state_dirs, state_root
@@ -26,57 +25,9 @@ _EXACT_VERSION_RE = re.compile(
     r"(?i)^v?(\d+\.\d+\.\d+(?:[-+][0-9A-Za-z.-]+)?)$"
 )
 
-
-def _process_snapshot() -> list[str] | None:
-    try:
-        if os.name == "nt":
-            command = (
-                "Get-CimInstance Win32_Process | "
-                "ForEach-Object { ($_.Name + ' ' + [string]$_.CommandLine) }"
-            )
-            result = subprocess.run(
-                ["powershell", "-NoProfile", "-NonInteractive", "-Command", command],
-                capture_output=True,
-                text=True,
-                encoding="utf-8",
-                errors="replace",
-                timeout=8,
-                check=False,
-            )
-        else:
-            result = subprocess.run(
-                ["ps", "-eo", "comm=,args="],
-                capture_output=True,
-                text=True,
-                encoding="utf-8",
-                errors="replace",
-                timeout=8,
-                check=False,
-            )
-    except (OSError, subprocess.SubprocessError):
-        return None
-    if result.returncode:
-        return None
-    return [line.lower() for line in result.stdout.splitlines() if line.strip()]
-
-
-def _process_markers(component: Component) -> list[str]:
-    configured = component.raw.get("process_contains")
-    if isinstance(configured, list):
-        values = [str(value).strip().lower() for value in configured if str(value).strip()]
-        if values:
-            return values
-    command = component.raw.get("version_command") or []
-    if command and str(command[0]).lower() not in {"npx", "npm"}:
-        return [Path(str(command[0])).stem.lower()]
-    return []
-
-
-def _process_health(component: Component, snapshot: list[str] | None) -> bool | None:
-    markers = _process_markers(component)
-    if not markers or snapshot is None:
-        return None
-    return any(all(marker in row for marker in markers) for row in snapshot)
+_process_health = process_health
+_process_markers = process_markers
+_process_snapshot = process_snapshot
 
 
 def _manifest_version(component: Component) -> tuple[str | None, str]:
@@ -448,7 +399,10 @@ def run_doctor(*, include_remote: bool = True, persist: bool = True) -> dict[str
     return result
 
 
-def manager_doctor_executor(_contract: object) -> dict[str, Any]:
+def manager_doctor_executor(
+    _contract: object,
+    _payload: dict[str, Any] | None = None,
+) -> dict[str, Any]:
     result = run_doctor(include_remote=True, persist=True)
     return {
         "ok": True,

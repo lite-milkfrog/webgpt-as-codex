@@ -15,6 +15,10 @@ def build_parser() -> argparse.ArgumentParser:
     sub.add_parser("status")
     sub.add_parser("start")
     sub.add_parser("stop")
+    sub.add_parser("restart")
+    sub.add_parser("launcher")
+    sub.add_parser("desktop-launcher")
+    sub.add_parser("autostart")
     sub.add_parser("repair")
     sub.add_parser("manager")
     sub.add_parser("bootstrap")
@@ -33,7 +37,21 @@ def main(argv: list[str] | None = None) -> int:
     if args.command == "paths":
         print(state_root())
         return 0
-    if args.command in {None, "doctor", "status", "start", "stop", "repair", "manager", "bootstrap", "add-mcp"}:
+    if args.command in {
+        None,
+        "doctor",
+        "status",
+        "start",
+        "stop",
+        "restart",
+        "launcher",
+        "desktop-launcher",
+        "autostart",
+        "repair",
+        "manager",
+        "bootstrap",
+        "add-mcp",
+    }:
         from .commands import dispatch
         return dispatch(args.command or "status", unknown)
     parser.error("unknown command")
