@@ -7,12 +7,17 @@ from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Any
 from urllib.error import HTTPError, URLError
+from urllib.parse import urlsplit
 
+from .health import redact_text
 from .mcp import initialize, rpc, session_id
 from .paths import ensure_state_dirs, repo_root
-from .registry import Component, write_custom_component
+from .registry import Component
+from .stateio import atomic_write_text_bundle, json_text
 
 GUIDE_SCHEMA_VERSION = 1
+MAX_TOOL_COUNT = 512
+MAX_GUIDE_BYTES = 1_048_576
 _SECRET_KEY_RE = re.compile(r"(?i)(password|secret|token|api[_-]?key|authorization|cookie|private[_-]?key)")
 _SECRET_VALUE_RE = re.compile(r"(?i)\b(bearer\s+[A-Za-z0-9._~+/=-]{8,}|sk-[A-Za-z0-9_-]{8,})\b")
 
@@ -56,24 +61,60 @@ def validate_onboarding_manifest(data: dict[str, Any]) -> None:
     cid = str(data["id"])
     if not re.fullmatch(r"[a-z0-9][a-z0-9-]{0,63}", cid):
         raise ValueError("component id must be lowercase kebab-case")
+    for field in ("display_name", "role"):
+        value = data.get(field)
+        if not isinstance(value, str) or not value.strip() or len(value) > 128:
+            raise ValueError(f"{field} must be a non-empty string up to 128 characters")
+    if not isinstance(data.get("required"), bool) or not isinstance(data.get("enabled_by_default"), bool):
+        raise TypeError("required and enabled_by_default must be booleans")
     if data["transport"] != "streamable_http":
         raise ValueError("generic onboarding currently requires streamable_http")
     endpoint = data.get("default_endpoint")
-    if not isinstance(endpoint, str) or not endpoint.startswith(("http://", "https://")):
+    if not isinstance(endpoint, str) or len(endpoint) > 2048:
         raise ValueError("default_endpoint must be an http(s) MCP endpoint")
+    try:
+        parsed = urlsplit(endpoint)
+    except ValueError as exc:
+        raise ValueError("default_endpoint must be a valid http(s) MCP endpoint") from exc
+    if (
+        parsed.scheme not in {"http", "https"}
+        or not parsed.hostname
+        or parsed.username
+        or parsed.password
+        or parsed.query
+        or parsed.fragment
+    ):
+        raise ValueError("default_endpoint must not contain credentials, query or fragment")
     secrets = _secret_paths(data)
     if secrets:
         raise ValueError("credential literals are forbidden: " + ", ".join(secrets))
 
 
+def _portable_value(value: Any) -> Any:
+    if isinstance(value, dict):
+        return {str(key): _portable_value(child) for key, child in value.items()}
+    if isinstance(value, list):
+        return [_portable_value(child) for child in value]
+    if isinstance(value, tuple):
+        return [_portable_value(child) for child in value]
+    if isinstance(value, str):
+        return redact_text(value)
+    if value is None or isinstance(value, (bool, int, float)):
+        return value
+    return str(value)
+
+
 def _portable_tool(tool: dict[str, Any]) -> dict[str, Any]:
-    result: dict[str, Any] = {"name": str(tool.get("name", ""))}
+    name = tool.get("name")
+    if not isinstance(name, str) or not name.strip() or len(name) > 128:
+        raise ValueError("MCP tool name must be a non-empty string up to 128 characters")
+    result: dict[str, Any] = {"name": name.strip()}
     description = tool.get("description")
     if isinstance(description, str) and description.strip():
-        result["description"] = description.strip()
+        result["description"] = redact_text(description.strip())
     schema = tool.get("inputSchema")
     if isinstance(schema, dict):
-        result["input_schema"] = schema
+        result["input_schema"] = _portable_value(schema)
     return result
 
 
@@ -90,8 +131,28 @@ def discover_mcp_capabilities(component: Component, *, timeout: float = 8.0) -> 
         tools = listed.body.get("result", {}).get("tools")
         if listed.status != 200 or not isinstance(tools, list) or not all(isinstance(item, dict) for item in tools):
             return CapabilityEvidence("failed", "ok", "failed", None, result.get("serverInfo") or {}, [], "malformed-tools-list")
+        if len(tools) > MAX_TOOL_COUNT:
+            return CapabilityEvidence(
+                "failed",
+                "ok",
+                "failed",
+                None,
+                {},
+                [],
+                "tools-list-too-large",
+            )
         portable = [_portable_tool(item) for item in tools]
-        return CapabilityEvidence("success", "ok", "ok", len(portable), result.get("serverInfo") or {}, portable)
+        server_info = result.get("serverInfo") or {}
+        if not isinstance(server_info, dict):
+            server_info = {}
+        return CapabilityEvidence(
+            "success",
+            "ok",
+            "ok",
+            len(portable),
+            _portable_value(server_info),
+            portable,
+        )
     except (ConnectionError, TimeoutError, OSError, HTTPError, URLError) as exc:
         return CapabilityEvidence("unavailable", "unavailable", "unattempted", None, {}, [], type(exc).__name__)
     except (TypeError, ValueError, json.JSONDecodeError) as exc:
@@ -141,6 +202,8 @@ def validate_operating_guide(guide: dict[str, Any]) -> None:
         raise ValueError("Operating Guide missing: " + ", ".join(missing))
     if guide["schema_version"] != GUIDE_SCHEMA_VERSION:
         raise ValueError("unsupported Operating Guide schema version")
+    if len(json.dumps(guide, ensure_ascii=False).encode("utf-8")) > MAX_GUIDE_BYTES:
+        raise ValueError("Operating Guide exceeds public-safe size limit")
     secrets = _secret_paths(guide)
     if secrets:
         raise ValueError("Operating Guide contains secret-bearing data: " + ", ".join(secrets))
@@ -191,6 +254,19 @@ def apply_onboarding_plan(plan: dict[str, Any]) -> dict[str, Any]:
     validate_onboarding_manifest(data)
     guide = dict(plan["guide"])
     validate_operating_guide(guide)
+    if guide.get("component_id") != data["id"]:
+        raise ValueError("Operating Guide component id does not match manifest")
+    evidence = plan.get("capability_evidence")
+    routing = plan.get("routing")
+    if not isinstance(evidence, dict) or evidence.get("status") not in {
+        "success",
+        "unavailable",
+        "failed",
+        "unattempted",
+    }:
+        raise ValueError("capability evidence status is invalid")
+    if not isinstance(routing, dict) or routing.get("component_id") != data["id"]:
+        raise ValueError("routing recommendation does not match manifest")
     builtin_path = repo_root() / "components" / f"{data['id']}.json"
     custom_path = ensure_state_dirs() / "config" / "components" / f"{data['id']}.json"
     if builtin_path.exists():
@@ -199,22 +275,26 @@ def apply_onboarding_plan(plan: dict[str, Any]) -> dict[str, Any]:
         existing = json.loads(custom_path.read_text(encoding="utf-8"))
         if existing != data:
             raise ValueError("component id already onboarded with a different manifest")
-    component_path = write_custom_component(data)
     guide_path, inventory_path = _state_paths(data["id"])
-    guide_path.write_text(json.dumps(guide, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     inventory_payload = {
         "component_id": data["id"],
-        "capability_status": plan["capability_evidence"]["status"],
-        "routing": plan["routing"],
+        "capability_status": evidence["status"],
+        "routing": routing,
         "guide_path": str(guide_path),
         "machine_local": True,
     }
-    inventory_path.write_text(json.dumps(inventory_payload, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    atomic_write_text_bundle(
+        {
+            custom_path: json_text(data),
+            guide_path: json_text(guide),
+            inventory_path: json_text(inventory_payload),
+        }
+    )
     return {
-        "component_path": str(component_path),
+        "component_path": str(custom_path),
         "guide_path": str(guide_path),
         "inventory_path": str(inventory_path),
-        "capability_status": plan["capability_evidence"]["status"],
+        "capability_status": evidence["status"],
     }
 
 

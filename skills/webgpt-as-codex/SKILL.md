@@ -80,14 +80,15 @@ New MCPs use discovery-first onboarding, not name-based capability inference. Th
 
 Capability evidence distinguishes `success`, `unavailable`, `failed` and `unattempted`. A newly onboarded component becomes visible to registry/Doctor/Manager without gaining Stage 8 start/kill/restart authority.
 
-Portable MCP Guides contain reusable mental model, actual exposed tools/schema, best/poor use cases, goal patterns, mistakes, failure diagnosis, verification, performance/cost, lessons and alternatives. Machine-local endpoints, bindings, paths and transient health stay outside Git.
+Portable MCP Guides contain reusable mental model, actual exposed tools/schema, best/poor use cases, goal patterns, mistakes, failure diagnosis, verification, performance/cost, lessons and alternatives. Machine-local endpoints, bindings, paths and transient health stay outside Git. Treat machine-local custom manifests and remote tools/list schema as untrusted input: custom entries cannot shadow built-ins or inject executable/lifecycle authority, and schema strings are sanitized/bounded before persistence.
 
 See `add-mcp.md` and `mcp-operating-guide.md`.
 
 ## Manager boundary
 The Manager is a loopback-only local control surface backed by the component registry and durable Doctor evidence.
 Its browser UI never owns agent runtimes, polling stays bounded/shallow, and health levels remain distinct.
-Manager actions are a fixed allowlist whose real executors are supplied only by the stage that owns their safety contract.
+Manager actions are a fixed allowlist whose real executors are supplied only by the stage that owns their safety contract. Browser requests must satisfy the fixed action payload schema, loopback Host/port and same-origin Origin when present; executor failures are surfaced as sanitized failure classes, not raw exception text.
+Manager Update is repository-approved authority, never a generic downloader/shell: only fixed updateable component ids plus repository-declared version/source/digest/destination metadata may mutate an already-staged machine-local artifact. Refuse running/owned targets, verify before and after replace, preserve a backup and treat an already-current digest as idempotent success.
 
 ## Bootstrap / Doctor / Repair discipline
 - bootstrap must discover first and preserve a healthy service; installed-but-stopped does not authorize an automatic restart;
@@ -108,6 +109,13 @@ Manager actions are a fixed allowlist whose real executors are supplied only by 
 - browser/Manager UI/desktop launcher lifetime never owns agent-runtime lifetime;
 - Windows desktop/autostart launchers must be transparent, reversible, credential-free and refuse to overwrite/delete unmanaged files;
 - do not reuse integration-test OAuth credentials as a production/autostart launch contract merely because the files exist.
+
+## Durable local-state discipline
+- use temporary-file + fsync + atomic replace for durable machine-local JSON/text receipts;
+- when one logical apply owns several files, stage every output before replacement and roll back already replaced targets on a later in-process failure;
+- malformed machine-local optional/custom state must fail closed or be isolated without replacing repository truth;
+- public/API output is recursively sanitized, including private URLs embedded inside larger strings;
+- a connector disappearing from the current tool session is harness evidence, not permission to infer target failure or silently weaken validation.
 
 ## Completion
 A stage is complete only when owned behavior is implemented, validation is green, post-state is verified, affected docs/ledger are updated, closure is written, the stage is committed, the next prompt is generated from that committed HEAD, validated/hashed, Playwright-submitted, the sent user message is verified and the next assistant run is verified.

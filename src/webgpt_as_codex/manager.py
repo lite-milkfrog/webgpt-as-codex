@@ -10,6 +10,7 @@ from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from typing import Any
+from urllib.parse import urlsplit
 
 from .health import ManagerStatusService, sanitize_for_output
 from .paths import repo_root
@@ -22,6 +23,7 @@ class ActionContract:
     owner_stage: str
     confirmation_required: bool
     impact: str
+    payload_fields: tuple[str, ...] = ("confirm",)
 
 
 ACTION_CONTRACTS: dict[str, ActionContract] = {
@@ -38,6 +40,7 @@ ACTION_CONTRACTS: dict[str, ActionContract] = {
         "STAGE-8-DESKTOP-LAUNCHER-AND-AUTOSTART",
         True,
         "restarts repository-owned runtimes only",
+        ("confirm", "component"),
     ),
     "doctor": ActionContract(
         "doctor",
@@ -59,6 +62,7 @@ ACTION_CONTRACTS: dict[str, ActionContract] = {
         "STAGE-11-SECURITY-RELIABILITY-HARDENING",
         True,
         "bounded update after provenance/version checks",
+        ("confirm", "component"),
     ),
 }
 
@@ -68,6 +72,10 @@ class ActionBusyError(RuntimeError):
 
 
 class ActionConfirmationError(PermissionError):
+    pass
+
+
+class ActionPayloadError(ValueError):
     pass
 
 
@@ -95,6 +103,10 @@ class ActionRunner:
         contract = ACTION_CONTRACTS.get(name)
         if contract is None:
             raise KeyError(name)
+        body = dict(payload or {})
+        unknown = sorted(set(body) - set(contract.payload_fields))
+        if unknown:
+            raise ActionPayloadError("unsupported action fields: " + ", ".join(unknown))
         if contract.confirmation_required and not confirm:
             raise ActionConfirmationError(name)
         executor = self._executors.get(name)
@@ -108,7 +120,7 @@ class ActionRunner:
         if not self._lock.acquire(blocking=False):
             raise ActionBusyError("another manager action is already running")
         try:
-            result = executor(contract, dict(payload or {}))
+            result = executor(contract, body)
         finally:
             self._lock.release()
         if not isinstance(result, dict):
@@ -136,6 +148,39 @@ class ManagerRequestHandler(BaseHTTPRequestHandler):
 
     def log_message(self, format: str, *args: object) -> None:
         return
+
+    def _loopback_request_host(self) -> bool:
+        raw = self.headers.get("Host", "")
+        try:
+            parsed = urlsplit("//" + raw)
+            host = (parsed.hostname or "").lower().rstrip(".")
+            port = parsed.port
+        except ValueError:
+            return False
+        if host not in {"127.0.0.1", "::1", "localhost"}:
+            return False
+        return port == self.server.server_address[1]
+
+    def _same_origin_if_present(self) -> bool:
+        raw = self.headers.get("Origin")
+        if not raw:
+            return True
+        try:
+            parsed = urlsplit(raw)
+            host = (parsed.hostname or "").lower().rstrip(".")
+            port = parsed.port or (80 if parsed.scheme == "http" else None)
+        except ValueError:
+            return False
+        return (
+            parsed.scheme == "http"
+            and host in {"127.0.0.1", "::1", "localhost"}
+            and port == self.server.server_address[1]
+            and not parsed.username
+            and not parsed.password
+        )
+
+    def _request_origin_ok(self) -> bool:
+        return self._loopback_request_host() and self._same_origin_if_present()
 
     def _json(self, payload: Any, status: HTTPStatus = HTTPStatus.OK) -> None:
         body = json.dumps(sanitize_for_output(payload), ensure_ascii=False).encode("utf-8")
@@ -167,6 +212,9 @@ class ManagerRequestHandler(BaseHTTPRequestHandler):
         self.wfile.write(body)
 
     def do_GET(self) -> None:
+        if not self._request_origin_ok():
+            self._json({"ok": False, "error": "loopback-origin-required"}, HTTPStatus.FORBIDDEN)
+            return
         if self.path in {"/", "/index.html"}:
             self._html(repo_root() / "manager" / "static" / "index.html")
             return
@@ -182,6 +230,9 @@ class ManagerRequestHandler(BaseHTTPRequestHandler):
         self.send_error(HTTPStatus.NOT_FOUND.value)
 
     def do_POST(self) -> None:
+        if not self._request_origin_ok():
+            self._json({"ok": False, "error": "loopback-origin-required"}, HTTPStatus.FORBIDDEN)
+            return
         if not self.path.startswith("/api/actions/"):
             self.send_error(HTTPStatus.NOT_FOUND.value)
             return
@@ -217,8 +268,21 @@ class ManagerRequestHandler(BaseHTTPRequestHandler):
         except ActionConfirmationError:
             self._json({"ok": False, "error": "confirmation-required"}, HTTPStatus.CONFLICT)
             return
+        except ActionPayloadError:
+            self._json({"ok": False, "error": "invalid-action-payload"}, HTTPStatus.BAD_REQUEST)
+            return
         except ActionBusyError:
             self._json({"ok": False, "error": "action-busy"}, HTTPStatus.CONFLICT)
+            return
+        except Exception as exc:  # noqa: BLE001 - HTTP trust boundary must fail closed
+            self._json(
+                {
+                    "ok": False,
+                    "error": "action-failed",
+                    "failure_type": type(exc).__name__,
+                },
+                HTTPStatus.INTERNAL_SERVER_ERROR,
+            )
             return
         status = HTTPStatus.OK if result.get("ok") else HTTPStatus.CONFLICT
         self.server.status_service.snapshot(force=True)
@@ -238,6 +302,7 @@ def build_server(
         from .doctor import manager_doctor_executor
         from .repair import manager_repair_executor
         from .runtime import manager_restart_executor, manager_start_all_executor
+        from .update import manager_update_executor
 
         action_runner = ActionRunner(
             {
@@ -245,6 +310,7 @@ def build_server(
                 "restart": manager_restart_executor,
                 "doctor": manager_doctor_executor,
                 "repair": manager_repair_executor,
+                "update": manager_update_executor,
             }
         )
     return ManagerHTTPServer(

@@ -56,7 +56,7 @@ Machine-local Manager configuration lives outside Git under the normal state roo
 
 The UI lifecycle does not own runtime lifecycle. Closing a tab only removes the browser view. Manager and later runtime supervisors are independent processes, and agent runtimes are not children of the browser UI.
 
-Stage 6 defines fixed action contracts only: Start All, Restart, Doctor, Repair and Update. There is no arbitrary-command endpoint. Mutating contracts require confirmation, POST requests require the same-origin control header, and real executors are injected only by their owner stages: Doctor/Repair in Stage 7, Start/Restart in Stage 8, and Update hardening later.
+Stage 6 defines fixed action contracts only: Start All, Restart, Doctor, Repair and Update. There is no arbitrary-command endpoint. Mutating contracts require confirmation, POST requests require the same-origin control header, and real executors are injected only by their owner stages: Doctor/Repair in Stage 7, Start/Restart in Stage 8, and Update in Stage 11. Stage 11 additionally validates the loopback Host/Origin and rejects unsupported action payload fields before execution so a browser request cannot smuggle command/path/URL authority through a fixed action name.
 
 ## Bootstrap / Doctor / Repair
 Bootstrap is discovery-first and idempotent. It evaluates component manifests plus live discovery before proposing work. A component with an already healthy listener is preserved. Installed-but-stopped runtimes are reported as deferred to Stage 8 rather than being started by bootstrap. Bootstrap apply only creates/verifies machine-local state layout and persists a sanitized plan; it does not install, start or restart services.
@@ -68,6 +68,8 @@ Doctor persists `doctor/last-result.json` under the machine-local state root onl
 OAuth Doctor checks are intentionally read-only. Local metadata can establish local metadata health, but the project still treats real public HTTPS as authoritative for OAuth acceptance. Doctor may validate a configured public HTTPS edge with protected-resource metadata plus the unauthenticated 401 challenge; it does not create DCR clients, tokens or mutate the OAuth database merely to refresh a status screen.
 
 Repair is a fixed allowlist, not a shell. Stage 7 permits only state-layout creation and bounded Manager-config repairs. Mutating use requires confirmation and configuration edits create a machine-local backup first. Runtime recovery remains a diagnostic hint until Stage 8 owns start/restart supervision.
+
+Stage 11 centralizes crash-safe machine-local persistence through temporary-file + fsync + atomic replace helpers. Multi-file onboarding apply stages all outputs before replacement and performs bounded in-process rollback if a later replacement fails. Repository state remains authoritative, while machine-local JSON receipts fail closed instead of tolerating partial writes as valid truth.
 
 ## Runtime lifecycle / desktop launch / autostart
 Stage 8 adds a repository-owned runtime supervisor without turning component manifests or the Manager into an arbitrary shell. Lifecycle ownership requires a fixed repository adapter plus a machine-local PID receipt whose PID, process birth token and executable image still match the live process. A stale PID file, dead PID, reused PID or image mismatch is discarded rather than trusted.
@@ -90,7 +92,7 @@ manifest validation -> credential-literal rejection -> initialize -> tools/list 
 
 Capability evidence has four states: success, unavailable, failed and unattempted. Names never establish capability. A reached-but-malformed server is different from an unreachable server, and a skipped prerequisite is different from both.
 
-The machine-local apply path stores custom manifests, machine-readable Guides and onboarding/routing receipts under the external state directory. This makes newly onboarded components visible through the existing registry, Manager and Doctor without committing local endpoint/binding/health information.
+The machine-local apply path stores custom manifests, machine-readable Guides and onboarding/routing receipts under the external state directory. Stage 11 treats those files as untrusted machine-local input on every load: custom components cannot shadow built-ins, cannot inject lifecycle/version-command authority, and malformed custom entries are ignored rather than taking down the public registry. External tools/list descriptions and schemas are recursively sanitized and bounded before persistence. This makes newly onboarded components visible through the existing registry, Manager and Doctor without committing local endpoint/binding/health information.
 
 Portable Guide documents live with the Skill and may be attached to public-safe component manifests by stable component id. Serena and Coding Tools are the first representative Guide attachments validated from real Stage 9 initialize/tools/list evidence.
 

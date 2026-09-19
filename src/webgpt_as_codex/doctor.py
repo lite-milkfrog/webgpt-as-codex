@@ -17,6 +17,7 @@ from .health import HEALTH_LEVELS, configured_public_mcp_url, sanitize_for_outpu
 from .mcp import initialize, rpc, session_id
 from .paths import ensure_state_dirs, state_root
 from .registry import Component, load_components
+from .stateio import atomic_write_json
 
 _VERSION_RE = re.compile(
     r"(?i)\b(?:version\s*[:=]?\s*|v)(\d+\.\d+\.\d+(?:[-+][0-9A-Za-z.-]+)?)\b"
@@ -355,10 +356,8 @@ def _summarize(
 def persist_doctor_result(result: dict[str, Any]) -> Path:
     root = ensure_state_dirs()
     target = root / "doctor" / "last-result.json"
-    tmp = target.with_suffix(".json.tmp")
     cleaned = sanitize_for_output(result)
-    tmp.write_text(json.dumps(cleaned, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
-    tmp.replace(target)
+    atomic_write_json(target, cleaned)
     return target
 
 

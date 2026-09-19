@@ -9,6 +9,7 @@ from .discovery import discover_all
 from .health import sanitize_for_output
 from .paths import ensure_state_dirs
 from .registry import Component, load_components
+from .stateio import atomic_write_json
 
 
 def _item(component: Component, discovered: dict[str, Any]) -> dict[str, Any]:
@@ -74,10 +75,7 @@ def run_bootstrap(*, apply: bool = False) -> dict[str, Any]:
     if apply:
         root = ensure_state_dirs()
         path = root / "bootstrap" / "last-plan.json"
-        path.write_text(
-            json.dumps(sanitize_for_output(result), ensure_ascii=False, indent=2) + "\n",
-            encoding="utf-8",
-        )
+        atomic_write_json(path, sanitize_for_output(result))
     return sanitize_for_output(result)
 
 

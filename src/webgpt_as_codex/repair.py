@@ -10,6 +10,7 @@ from typing import Any
 
 from .health import configured_public_mcp_url, sanitize_for_output
 from .paths import ensure_state_dirs, state_root
+from .stateio import atomic_write_json, atomic_write_text
 
 REPAIR_ACTIONS = {
     "ensure-state-layout",
@@ -154,7 +155,7 @@ def _reset_invalid_manager_config() -> dict[str, Any]:
     root = ensure_state_dirs()
     path = root / "config" / "manager.json"
     backup = _backup(path, root / "repair" / "backups")
-    path.write_text("{}\n", encoding="utf-8")
+    atomic_write_text(path, "{}\n")
     return {"backup_created": backup.is_file(), "replacement": "empty-object"}
 
 
@@ -166,7 +167,7 @@ def _remove_invalid_public_mcp_url() -> dict[str, Any]:
         raise RuntimeError("manager config is not a JSON object")
     backup = _backup(path, root / "repair" / "backups")
     data.pop("public_mcp_url", None)
-    path.write_text(json.dumps(data, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    atomic_write_json(path, data)
     return {"backup_created": backup.is_file(), "removed": "public_mcp_url"}
 
 
@@ -209,10 +210,7 @@ def run_repair(
     )
     if not dry_run:
         root = ensure_state_dirs()
-        (root / "repair" / "last-result.json").write_text(
-            json.dumps(receipt, ensure_ascii=False, indent=2) + "\n",
-            encoding="utf-8",
-        )
+        atomic_write_json(root / "repair" / "last-result.json", receipt)
     return receipt
 
 

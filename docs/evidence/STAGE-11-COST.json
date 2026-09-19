@@ -1,0 +1,20 @@
+{
+  "schema_version": 1,
+  "stage": "STAGE-11-SECURITY-RELIABILITY-HARDENING",
+  "source_head": "c71b78325086cd2619aa83dcfff518e6082ed408",
+  "scope": "bounded security reliability hardening of current mutation and trust boundaries",
+  "measurement_basis": "rounded wall-clock observation from the Stage 11 window; retry/tool-switch/failure counts are observed lower bounds rather than platform telemetry",
+  "implementation_seconds": 1200,
+  "closure_seconds": 480,
+  "test_seconds": 300,
+  "docs_seconds": 300,
+  "retry_count": 5,
+  "tool_switch_count": 2,
+  "harness_failure_count": 5,
+  "handoff_first_pass": null,
+  "almost_done_incidents": 0,
+  "split_decision": "freeze-and-close",
+  "split_depth": 0,
+  "split_reason": "core implementation was complete when the soft budget was exceeded; scope was frozen so validation, documentation, commit and verified handoff retained ownership",
+  "closure_verified": false
+}

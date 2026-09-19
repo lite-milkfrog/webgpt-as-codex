@@ -1,0 +1,25 @@
+{
+  "current_stage": "STAGE-12-README-RELEASE-FINAL-ACCEPTANCE",
+  "next_stage": "FINAL-OVERALL-ACCEPTANCE",
+  "after_next_stage": "PROJECT-COMPLETE",
+  "stage_objective": "Finalize WebGPT-as-Codex as a public-safe, reproducible release candidate without reopening closed implementation: make README/release-facing documentation match the verified Stage 0-11 architecture and actual CLI/runtime behavior, validate packaging/install/use paths and repository cleanliness, perform the final pre-acceptance gates, and hand off a fresh committed release state to Final Overall Acceptance.",
+  "required_outputs": [
+    "audit README and release-facing docs against current verified behavior, correcting stale Stage 0-11 descriptions without redesigning closed functionality",
+    "verify package metadata, install/CLI entry points, repository inclusion/exclusion boundaries and public-safe release contents so machine-local state, secrets and generated private artifacts cannot ship",
+    "run release-facing smoke tests plus the full repository tests, Ruff, secret scan and git diff/post-state checks",
+    "update current-state/architecture/decisions/experience/Skill documentation only where release evidence exposes a real mismatch, then write the Stage 12 closure",
+    "commit Stage 12, generate the Final Overall Acceptance prompt from the new verified HEAD, validate/hash it, Playwright-submit exactly once and verify sent-message + /c/ + new assistant run"
+  ],
+  "do_not_redo": [
+    "Stages 0-11 unless release verification exposes contradictory evidence at a minimum affected boundary",
+    "OAuth/Tailscale architecture, runtime supervisor, Add MCP, Loop Engineering or Stage 11 security contracts except release-blocking regressions",
+    "new product features or broad refactors; Stage 12 is documentation/release/final-acceptance preparation",
+    "Final Overall Acceptance itself; this stage prepares and hands off to that separate final window"
+  ],
+  "known_risks": [
+    "README and package metadata may lag the verified implementation and could misstate availability, lifecycle ownership or security boundaries.",
+    "Release packaging must not include machine-local state, staged update artifacts, handoff receipts, credentials, local endpoints or private paths.",
+    "A green unit suite does not alone prove install/entry-point/release usability; exercise the built/installed package and representative safe CLI surfaces.",
+    "Final handoff remains an external exactly-once side effect and is successful only after sent-message, /c/ URL and new-assistant-run verification."
+  ]
+}

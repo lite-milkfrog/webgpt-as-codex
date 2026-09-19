@@ -12,6 +12,7 @@ import requests
 
 from .handoff import validate_handoff_prompt
 from .mcp import _decode
+from .stateio import atomic_write_json
 
 
 @dataclass(frozen=True)
@@ -470,11 +471,7 @@ def cli(argv: list[str] | None = None) -> int:
     }
     if args.receipt:
         args.receipt.parent.mkdir(parents=True, exist_ok=True)
-        args.receipt.write_text(
-            json.dumps(payload, ensure_ascii=False, indent=2) + "\n",
-            encoding="utf-8",
-            newline="\n",
-        )
+        atomic_write_json(args.receipt, payload)
     print(json.dumps(payload, ensure_ascii=False))
     return 0
 

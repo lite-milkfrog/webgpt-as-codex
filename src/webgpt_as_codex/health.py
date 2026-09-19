@@ -3,6 +3,7 @@ from __future__ import annotations
 import ipaddress
 import json
 import re
+import threading
 import time
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
@@ -25,6 +26,7 @@ _SECRET_KEY_PARTS = (
     "private-key",
 )
 _BEARER_RE = re.compile(r"(?i)(bearer\s+)[A-Za-z0-9._~+/=-]+")
+_URL_RE = re.compile(r"https?://[^\s<>\"']+", re.IGNORECASE)
 _ASSIGNMENT_RE = re.compile(
     r"(?i)\b(password|token|secret|cookie|authorization|private[_-]?key)\b"
     r"(\s*[:=]\s*)([^\s,;]+)"
@@ -65,9 +67,7 @@ def safe_url_for_output(value: str) -> str:
 def redact_text(value: str) -> str:
     text = _BEARER_RE.sub(r"\1[redacted]", value)
     text = _ASSIGNMENT_RE.sub(lambda m: f"{m.group(1)}{m.group(2)}[redacted]", text)
-    if text.startswith(("http://", "https://")):
-        return safe_url_for_output(text)
-    return text
+    return _URL_RE.sub(lambda match: safe_url_for_output(match.group(0)), text)
 
 
 def sanitize_for_output(value: Any, *, key: str = "") -> Any:
@@ -191,32 +191,34 @@ class ManagerStatusService:
         self.cache_ttl_seconds = max(1.0, cache_ttl_seconds)
         self._cached_at = 0.0
         self._cached: dict[str, Any] | None = None
+        self._cache_lock = threading.Lock()
 
     def snapshot(self, *, force: bool = False) -> dict[str, Any]:
-        now = time.monotonic()
-        if not force and self._cached is not None and now - self._cached_at < self.cache_ttl_seconds:
+        with self._cache_lock:
+            now = time.monotonic()
+            if not force and self._cached is not None and now - self._cached_at < self.cache_ttl_seconds:
+                return self._cached
+
+            state = ensure_state_dirs()
+            config = _read_json(state / "config" / "manager.json")
+            doctor = _read_json(state / "doctor" / "last-result.json")
+            registry = load_components()
+            with ThreadPoolExecutor(max_workers=min(8, max(1, len(registry)))) as pool:
+                rows = list(pool.map(lambda item: _component_row(item, doctor), registry.values()))
+            rows.sort(key=lambda item: (not item["required"], item["display_name"].lower()))
+
+            result = {
+                "generated_at": time.time(),
+                "poll_after_ms": int(self.cache_ttl_seconds * 1000),
+                "components": rows,
+                "gateway": _plane_summary(rows, "mcpjungle"),
+                "oauth": _plane_summary(rows, "mcp-auth-proxy"),
+                "tailscale": _plane_summary(rows, "tailscale"),
+                "remote_desktop_commander": _plane_summary(rows, "remote-desktop-commander"),
+                "public_mcp_url": configured_public_mcp_url(config),
+                "last_doctor": _doctor_summary(doctor),
+                "health_levels": list(HEALTH_LEVELS),
+            }
+            self._cached = sanitize_for_output(result)
+            self._cached_at = now
             return self._cached
-
-        state = ensure_state_dirs()
-        config = _read_json(state / "config" / "manager.json")
-        doctor = _read_json(state / "doctor" / "last-result.json")
-        registry = load_components()
-        with ThreadPoolExecutor(max_workers=min(8, max(1, len(registry)))) as pool:
-            rows = list(pool.map(lambda item: _component_row(item, doctor), registry.values()))
-        rows.sort(key=lambda item: (not item["required"], item["display_name"].lower()))
-
-        result = {
-            "generated_at": time.time(),
-            "poll_after_ms": int(self.cache_ttl_seconds * 1000),
-            "components": rows,
-            "gateway": _plane_summary(rows, "mcpjungle"),
-            "oauth": _plane_summary(rows, "mcp-auth-proxy"),
-            "tailscale": _plane_summary(rows, "tailscale"),
-            "remote_desktop_commander": _plane_summary(rows, "remote-desktop-commander"),
-            "public_mcp_url": configured_public_mcp_url(config),
-            "last_doctor": _doctor_summary(doctor),
-            "health_levels": list(HEALTH_LEVELS),
-        }
-        self._cached = sanitize_for_output(result)
-        self._cached_at = now
-        return self._cached

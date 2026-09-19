@@ -328,3 +328,35 @@ Protected lesson:
 - after one fresh tab-list retry, pre-submit recovery may reuse an existing target only when exactly one blank ChatGPT tab exists;
 - multiple blank candidates remain ambiguous and must fail rather than guessing;
 - this recovery is legal only before composer typing/submission; after submit is attempted, exactly-once post-state rules take over.
+
+## 2026-09-19 — Loopback control needs browser-origin validation too
+
+Origin:
+- Stage 11 Manager hardening found that loopback bind + a custom control header did not independently constrain browser Host/Origin semantics.
+
+Protected lesson:
+- loopback binding is necessary but not sufficient for a browser-facing local control plane;
+- validate loopback Host/port and same-origin Origin when present before reading action authority;
+- fixed action names also need fixed payload schemas so extra URL/path/command fields cannot be smuggled through an otherwise safe executor;
+- raw executor exception text is private-state leakage risk and should not cross the HTTP boundary.
+
+## 2026-09-19 — Machine-local extension state is untrusted authority
+
+Origin:
+- Stage 11 reviewed Stage 9 custom MCP manifests and multi-file onboarding persistence.
+
+Protected lesson:
+- a machine-local custom manifest may extend visibility but must not shadow a repository component or inject executable/lifecycle authority;
+- revalidate custom state on every load instead of trusting that only the official onboarding path could have written it;
+- sanitize and bound remote schema/description text before persisting it into reusable local knowledge;
+- logical multi-file applies should stage first and roll back partial replacements rather than leaving mixed-generation state.
+
+## 2026-09-19 — Tool exposure drift is separate from repository health
+
+Origin:
+- Stage 11 began with Coding Tools successfully bound to WebGPT-as-Codex, then the connector functions disappeared from the active tool session while the local repository and tests remained healthy.
+
+Protected lesson:
+- treat connector/function disappearance as session or tool-exposure evidence first;
+- verify the target repository independently before declaring the preferred MCP unavailable or the project broken;
+- continue through the approved host fallback when the target post-state is independently verifiable, and record the tool switch as stage-cost evidence.

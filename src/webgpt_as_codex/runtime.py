@@ -21,6 +21,7 @@ from .discovery import discover_all, process_health, process_snapshot
 from .gateway import mcpjungle_binary
 from .paths import ensure_state_dirs, state_root
 from .registry import load_components
+from .stateio import atomic_write_json
 
 ArgvBuilder = Callable[[], list[str]]
 CwdBuilder = Callable[[], Path]
@@ -264,9 +265,7 @@ def _write_pid_record(component_id: str, pid: int, log_path: Path) -> None:
         "log_file": str(log_path.relative_to(state_root())),
     }
     path = _pid_path(component_id)
-    tmp = path.with_suffix(".tmp")
-    tmp.write_text(json.dumps(payload, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
-    tmp.replace(path)
+    atomic_write_json(path, payload)
 
 
 def _spawn(spec: RuntimeSpec) -> int:
@@ -526,7 +525,7 @@ class RuntimeSupervisor:
         }
         root = ensure_state_dirs()
         (root / "runtime").mkdir(parents=True, exist_ok=True)
-        _state_path().write_text(json.dumps(result, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+        atomic_write_json(_state_path(), result)
         return result
 
 

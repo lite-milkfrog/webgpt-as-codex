@@ -12,6 +12,7 @@ from typing import Any
 
 from .health import sanitize_for_output
 from .paths import ensure_state_dirs
+from .stateio import atomic_write_json
 
 SOFT_BUDGET_DEFAULT_SECONDS = 20 * 60
 SOFT_BUDGET_MIN_SECONDS = 15 * 60
@@ -363,14 +364,7 @@ class StageClosureState:
 
 
 def _atomic_json(path: Path, payload: dict[str, Any]) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    temp = path.with_suffix(path.suffix + ".tmp")
-    temp.write_text(
-        json.dumps(payload, ensure_ascii=False, indent=2, sort_keys=True) + "\n",
-        encoding="utf-8",
-        newline="\n",
-    )
-    temp.replace(path)
+    atomic_write_json(path, payload, sort_keys=True)
 
 
 class LoopStateStore:

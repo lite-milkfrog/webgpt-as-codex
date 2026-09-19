@@ -208,7 +208,7 @@ def test_start_all_preserves_process_only_system_component(
     assert result["fully_ready"] is True
 
 
-def test_manager_wires_stage8_start_restart_but_not_update() -> None:
+def test_manager_preserves_stage8_start_restart_after_stage11_update_wiring() -> None:
     server = build_server("127.0.0.1", 0)
     try:
         actions = {row["name"]: row for row in server.action_runner.contracts()}
@@ -216,7 +216,8 @@ def test_manager_wires_stage8_start_restart_but_not_update() -> None:
         assert actions["restart"]["available"] is True
         assert actions["doctor"]["available"] is True
         assert actions["repair"]["available"] is True
-        assert actions["update"]["available"] is False
+        assert actions["update"]["available"] is True
+        assert actions["update"]["owner_stage"] == "STAGE-11-SECURITY-RELIABILITY-HARDENING"
     finally:
         server.server_close()
 

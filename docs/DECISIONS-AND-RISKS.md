@@ -166,3 +166,20 @@ Do not infer a platform timeout from a few stages or invent duration data. Use m
 
 ### Live dogfood evidence
 Stage 10 again found Coding Tools bound to a different workspace. Serena web and local MCP configuration both reported the target project and a ready language-server state, while the actual semantic `get_symbols_overview` call returned no active language servers. This proves configuration summaries are not semantic-capability proof and justified repository/host fallback without changing the portable routing role.
+
+## Stage 11 — Security / reliability hardening
+
+### Decision: Manager Update is repository-approved, offline-by-default authority
+The Stage 11 Update executor is not a downloader or shell. Manager may select only a fixed updateable component id. The repository must predeclare the release version, same-upstream release URL, artifact name, SHA-256 and bounded machine-binary destination. Execution consumes only an already staged machine-local artifact, verifies the digest before and after replacement, refuses a running/owned runtime, creates a backup when replacing an existing binary, and is idempotent when the verified destination is already current. With no repository-approved update entry, Update reports `no-approved-update` and performs no mutation.
+
+### Decision: machine-local configuration is untrusted input
+Custom MCP manifests are revalidated on every registry load. They cannot shadow built-in ids, inject version/lifecycle command fields, or gain a safe-call tool without repository review. Malformed custom entries are isolated rather than breaking built-in registry availability. External tools/list descriptions and schema strings are recursively sanitized and bounded before machine-local Guide persistence.
+
+### Decision: durable state writes fail closed
+Bootstrap, Doctor, Repair, Runtime PID/state, Loop state and Playwright handoff receipts use temporary-file + fsync + atomic replace. Multi-file onboarding apply stages all outputs before replacement and rolls back already replaced files if a later replacement fails within the process. Partial state is not accepted as valid durable truth.
+
+### Risk: local control surfaces are vulnerable to browser-origin confusion without Host/Origin checks
+Loopback binding alone does not prove a browser request originated from the local Manager page. Stage 11 therefore validates loopback Host/port and, when present, same-origin HTTP Origin in addition to the control header. Unsupported action payload fields fail before executor invocation, and executor exceptions return sanitized failure classes rather than exception text.
+
+### Risk: connector/tool exposure can drift independently of target health
+During Stage 11 the web Coding Tools functions disappeared after earlier successful repository binding. The repository HEAD and working tree remained reachable and all gates were completed through Desktop Commander. Treat tool exposure/session drift as harness evidence until target post-state contradicts it.

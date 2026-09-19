@@ -175,6 +175,7 @@ def test_manager_preserves_stage7_owned_actions_after_later_stage_wiring() -> No
         actions = {row["name"]: row for row in server.action_runner.contracts()}
         assert actions["doctor"]["available"] is True
         assert actions["repair"]["available"] is True
-        assert actions["update"]["available"] is False
+        assert actions["update"]["available"] is True
+        assert actions["update"]["owner_stage"] == "STAGE-11-SECURITY-RELIABILITY-HARDENING"
     finally:
         server.server_close()
