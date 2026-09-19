@@ -38,6 +38,7 @@ The cross-stage Self-Evolving Skill / MCP Operating Guide / Loop Engineering req
 - approximately 20 minutes is a soft stage budget including closure, not a claimed platform limit;
 - subsequent stages collect baseline evidence and may split bounded owner concerns when closure is at risk;
 - Playwright handoff prefers a new page in the existing authenticated browser context and verifies the active composer, sent message and next assistant run.
+- the repository handoff generator itself carries the Self-Evolving execution contract, Operating-Guide routing distinction, soft stage budget and active-composer rule, so the requirement propagates in every newly generated downstream prompt rather than relying on chat memory.
 
 ## Ownership boundary
 Stage 7 does not own service startup, restart, launcher/autostart or browser/runtime lifecycle. Those remain Stage 8 work. It also does not repeat Stage 5 OAuth DCR/PKCE/token database mutation merely to refresh Doctor.

@@ -18,6 +18,7 @@ REQUIRED_MARKERS = (
     "## Do not redo",
     "## MCP routing contract",
     "## Failure protocol",
+    "## Self-evolving execution contract",
     "## Closure contract",
     "## Recursive continuation invariant",
     "## Automatic handoff contract",
@@ -72,8 +73,10 @@ SOURCE_HEAD = {spec.source_head}
 3. latest previous-stage closure
 4. docs/ARCHITECTURE.md
 5. skills/webgpt-as-codex/SKILL.md
-6. skills/webgpt-as-codex/handoff.md
-7. relevant component manifests and tests
+6. skills/webgpt-as-codex/loop-engineering.md
+7. skills/webgpt-as-codex/handoff.md
+8. skills/webgpt-as-codex/routing.md
+9. relevant component manifests, MCP Guides/inventory when present, and tests
 
 The local repository SoT outranks chat memory.
 
@@ -96,6 +99,8 @@ The local repository SoT outranks chat memory.
 - Windows-MCP: native Windows GUI fallback.
 - Desktop Commander / shell: host files/processes when structured project tools do not fit.
 - Prefer structured tools; diagnose preferred-tool failure before fallback.
+- Routing decides WHICH capability; actual schema/Operating Guide knowledge decides HOW to use it.
+- One failed call is not proof an MCP is unavailable: inspect binding, session, auth, schema, harness and real post-state first.
 - Never let a temporary test instance change the shared Serena active project.
 
 ## Failure protocol
@@ -105,6 +110,17 @@ The local repository SoT outranks chat memory.
 4. use a bounded temporary instance when production-like services must remain untouched;
 5. record reusable lessons in the Experience Ledger;
 6. do not broaden into closed stages without contradictory evidence.
+7. explore reasonable tools/schema/environment/log/history evidence before asking the user unless the missing fact/choice is genuinely user-exclusive.
+
+## Self-evolving execution contract
+- Do not merely execute. Execute -> Observe -> Diagnose -> Explore -> Compare -> Improve -> Verify -> Record -> Reuse.
+- Observe the full chain: SoT loading, planning, stage sizing, routing, MCP use, implementation, validation, docs, Git, prompt generation, Playwright submit and receiving-run verification.
+- Treat repeated friction, premature fallback, user reminders, missing docs and almost-finished handoffs as candidate process defects.
+- Classify lessons narrowly: general -> Skill; MCP-specific -> Operating Guide; machine-specific -> local inventory/config; one-off -> stage evidence.
+- User guidance that reveals a reusable operating principle is valid experience input.
+- Use an approximately 20-minute soft stage budget INCLUDING closure/handoff. This is a heuristic, not a platform timeout.
+- If implementation expansion threatens tests/docs/commit/verified handoff, split into a bounded sub-stage while preserving CURRENT/NEXT/AFTER_NEXT and one-owner scope.
+- Collect stage-cost evidence so this heuristic can self-correct instead of hardcoding an unsupported duration limit.
 
 ## Safety
 - Never copy secrets, OAuth DBs, passwords, tokens, cookies, private keys or machine-specific private state into Git.
@@ -122,7 +138,10 @@ Before closing this stage:
 6. commit the stage;
 7. generate the next prompt from the new verified HEAD;
 8. validate prompt required markers + SOURCE_HEAD;
-9. write prompt SHA-256 / handoff receipt locally.
+9. hash the exact prompt;
+10. Playwright-submit the exact prompt in the already authenticated browser context;
+11. verify sent user message + /c/ conversation + new assistant run;
+12. write prompt SHA-256 / handoff receipt locally.
 
 ## Recursive continuation invariant
 This handoff rule is recursive and MUST be inherited by every subsequent window:
@@ -137,12 +156,13 @@ This handoff rule is recursive and MUST be inherited by every subsequent window:
 ## Automatic handoff contract
 Automatic continuation is authorized.
 After closure, use Playwright MCP with the logged-in ChatGPT browser state:
-1. open a new ChatGPT conversation;
-2. enter the exact validated prompt file;
-3. submit once;
-4. verify the prompt appears as a sent user message;
-5. verify a new assistant run/response begins;
-6. only then mark the handoff successful.
+1. keep one MCP session and reuse the already authenticated browser context; do not create a fresh isolated profile merely to get a new conversation;
+2. open a new ChatGPT tab/page;
+3. reacquire fresh DOM evidence and wait for the real active composer; an initial hidden hydration fallback textarea is not a valid target;
+4. enter the exact validated prompt file and submit once;
+5. verify the prompt appears as a sent user message containing SOURCE_HEAD;
+6. verify the URL is /c/... and a new assistant run/response begins;
+7. only then mark the handoff successful.
 A populated textbox, click, navigation, or prompt file alone is NOT proof of handoff.
 
 Continue Loop Engineering recursively until the full project and final overall acceptance are complete.
@@ -160,8 +180,14 @@ def validate_handoff_prompt(text: str, *, expected_stage: str, expected_head: st
         errors.append("SOURCE_HEAD mismatch")
     if "Do not stop after reporting progress" not in text:
         errors.append("continuous-execution rule missing")
-    if "verify a new assistant run/response begins" not in text:
+    if "new assistant run/response begins" not in text:
         errors.append("handoff verification rule missing")
+    if "Execute -> Observe -> Diagnose -> Explore -> Compare -> Improve -> Verify -> Record -> Reuse" not in text:
+        errors.append("self-evolving execution rule missing")
+    if "20-minute soft stage budget" not in text:
+        errors.append("soft stage budget rule missing")
+    if "real active composer" not in text:
+        errors.append("active-composer handoff rule missing")
     if "recursive continuation ends only after the planned final stage and Final Overall Acceptance" not in text:
         errors.append("recursive continuation invariant missing")
     return errors

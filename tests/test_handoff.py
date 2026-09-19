@@ -20,6 +20,10 @@ def test_stable_handoff_contains_required_contract() -> None:
     ) == []
     assert "## Recursive continuation invariant" in text
     assert "recursive continuation ends only after the planned final stage and Final Overall Acceptance" in text
+    assert "## Self-evolving execution contract" in text
+    assert "20-minute soft stage budget" in text
+    assert "real active composer" in text
+    assert "Routing decides WHICH capability" in text
 
 
 def test_handoff_rejects_stale_head() -> None:
