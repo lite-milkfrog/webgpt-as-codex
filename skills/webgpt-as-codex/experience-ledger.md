@@ -498,6 +498,30 @@ Protected lesson:
 - test parity at the functional surface (routes, controls, sections, mutation count, API endpoints and DOM accessibility), not only by asserting that both files exist;
 - package/install validation must exercise every shared static dependency from outside the source checkout.
 
+## 2026-09-20 — A live listener can still be a stale runtime generation
+
+Origin:
+- Stage 17 post-acceptance desktop testing found the production 9200 Manager process predated the Stage 17 implementation while continuing to read the newer HTML file from disk.
+- the result was a mixed generation: `/` returned the new HTML shell but the old route table returned 404 for `/en`, `/zh`, `/manager.css`, `/manager.js` and `/api/local-config`.
+
+Protected lesson:
+- process/listener/healthz evidence proves liveness, not that a long-running interpreter loaded the current code generation;
+- pair lifecycle ownership and PID birth/image identity with a current runtime-generation marker and key capability/resource contract;
+- strict legacy-product identity can justify one bounded stale refresh, but a same-port unrelated/ambiguous listener remains protected;
+- Windows venv launchers may introduce a parent launcher plus a different real listener PID, so the ownership receipt must follow the listening process while retaining bounded parent-cleanup identity.
+
+## 2026-09-20 — User desktop browser opening is not browser automation
+
+Origin:
+- the user reported that the one-click Manager launcher opened an empty Edge experience without the expected logged-in state.
+- real host acceptance showed one normal Edge profile (`Default`) already in use.
+
+Protected lesson:
+- keep a user-facing desktop URL opener independent from Playwright standalone/isolated profile creation;
+- if the normal browser is already running, explicitly reuse its current normal profile; if not, use the operating system's normal URL-handler path;
+- never default a desktop Manager launcher to temp user-data-dir, InPrivate or automation-only profiles;
+- verify the real host path by comparing browser top-level process/profile state before and after launch, not merely by asserting that an `open()` call returned success.
+
 ## 2026-09-20 — Managed launcher upgrades need stronger ownership than a marker and weaker identity than exact bytes
 
 Origin:

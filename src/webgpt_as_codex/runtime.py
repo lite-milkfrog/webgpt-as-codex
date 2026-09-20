@@ -3,8 +3,10 @@ from __future__ import annotations
 import argparse
 import ctypes
 import ctypes.wintypes
+import hashlib
 import json
 import os
+import re
 import signal
 import subprocess
 import sys
@@ -19,12 +21,14 @@ from typing import Any
 
 from .discovery import discover_all, process_health, process_snapshot
 from .gateway import mcpjungle_binary
-from .paths import ensure_state_dirs, state_root
+from .paths import ensure_state_dirs, resource_root, state_root
 from .registry import load_components
 from .stateio import atomic_write_json
 
 ArgvBuilder = Callable[[], list[str]]
 CwdBuilder = Callable[[], Path]
+GenerationBuilder = Callable[[], str]
+ContractProbe = Callable[[], bool]
 
 
 @dataclass(frozen=True)
@@ -35,6 +39,51 @@ class RuntimeSpec:
     health_url: str
     argv_builder: ArgvBuilder
     cwd_builder: CwdBuilder
+    generation_builder: GenerationBuilder | None = None
+    contract_probe: ContractProbe | None = None
+
+
+def _manager_generation() -> str:
+    root = resource_root()
+    paths = [
+        Path(__file__).with_name("manager.py"),
+        root / "manager" / "static" / "index.html",
+        root / "manager" / "static" / "index.zh-CN.html",
+        root / "manager" / "static" / "manager.css",
+        root / "manager" / "static" / "manager.js",
+    ]
+    digest = hashlib.sha256()
+    for path in paths:
+        digest.update(path.name.encode("utf-8"))
+        try:
+            digest.update(path.read_bytes())
+        except OSError:
+            digest.update(b"<missing>")
+    return digest.hexdigest()
+
+
+def _http_200(url: str, timeout: float = 1.25) -> bool:
+    try:
+        request = urllib.request.Request(url, headers={"Cache-Control": "no-cache"})
+        with urllib.request.urlopen(request, timeout=timeout) as response:
+            return response.status == 200
+    except (OSError, TimeoutError, ValueError, urllib.error.URLError):
+        return False
+
+
+def _manager_contract_ready() -> bool:
+    base = "http://127.0.0.1:9200"
+    return all(
+        _http_200(base + path)
+        for path in (
+            "/healthz",
+            "/en",
+            "/zh",
+            "/manager.css",
+            "/manager.js",
+            "/api/local-config",
+        )
+    )
 
 
 def _mcpjungle_argv() -> list[str]:
@@ -96,6 +145,8 @@ RUNTIME_SPECS: dict[str, RuntimeSpec] = {
         "http://127.0.0.1:9200/healthz",
         _manager_argv,
         _manager_cwd,
+        _manager_generation,
+        _manager_contract_ready,
     ),
     "mcp-auth-proxy": RuntimeSpec(
         "mcp-auth-proxy",
@@ -274,21 +325,155 @@ def _owned_pid(component_id: str) -> tuple[int | None, str]:
     return pid, "owned"
 
 
-def _write_pid_record(component_id: str, pid: int, log_path: Path) -> None:
+def _runtime_generation(spec: RuntimeSpec) -> str | None:
+    if spec.generation_builder is None:
+        return None
+    try:
+        return spec.generation_builder()
+    except (OSError, RuntimeError, ValueError):
+        return None
+
+
+def _runtime_contract_ready(spec: RuntimeSpec) -> bool | None:
+    if spec.contract_probe is None:
+        return None
+    try:
+        return bool(spec.contract_probe())
+    except (OSError, RuntimeError, ValueError):
+        return False
+
+
+def _write_pid_record(spec: RuntimeSpec, pid: int, log_path: Path) -> None:
     birth = _process_birth_token(pid)
     if not birth:
-        raise RuntimeError(f"could not establish process identity for {component_id}")
+        raise RuntimeError(f"could not establish process identity for {spec.id}")
     payload = {
         "schema": 1,
-        "component_id": component_id,
+        "component_id": spec.id,
         "pid": pid,
         "birth_token": birth,
         "image_name": _process_image_name(pid),
         "started_at": datetime.now(UTC).isoformat(),
         "log_file": str(log_path.relative_to(state_root())),
     }
-    path = _pid_path(component_id)
+    generation = _runtime_generation(spec)
+    if generation:
+        payload["runtime_generation"] = generation
+    path = _pid_path(spec.id)
     atomic_write_json(path, payload)
+
+
+def _listener_pid(endpoint: str) -> int | None:
+    if os.name != "nt":
+        return None
+    from urllib.parse import urlparse
+
+    parsed = urlparse(endpoint)
+    port = parsed.port
+    if port is None:
+        return None
+    try:
+        completed = subprocess.run(
+            ["netstat", "-ano", "-p", "tcp"],
+            capture_output=True,
+            text=True,
+            timeout=4,
+            check=False,
+            creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
+        )
+    except (OSError, subprocess.TimeoutExpired):
+        return None
+    matches: set[int] = set()
+    for line in completed.stdout.splitlines():
+        fields = line.split()
+        if len(fields) < 5 or fields[0].upper() != "TCP":
+            continue
+        local = fields[1]
+        state = fields[-2].upper()
+        if state != "LISTENING" or not local.endswith(f":{port}"):
+            continue
+        try:
+            matches.add(int(fields[-1]))
+        except ValueError:
+            continue
+    return next(iter(matches)) if len(matches) == 1 else None
+
+
+def _process_command_line(pid: int) -> str | None:
+    if os.name != "nt":
+        try:
+            return Path(f"/proc/{pid}/cmdline").read_bytes().replace(b"\0", b" ").decode()
+        except OSError:
+            return None
+    command = (
+        "$p=Get-CimInstance Win32_Process -Filter 'ProcessId="
+        + str(int(pid))
+        + "'; if($p){[Console]::Out.Write($p.CommandLine)}"
+    )
+    try:
+        completed = subprocess.run(
+            ["powershell.exe", "-NoProfile", "-NonInteractive", "-Command", command],
+            capture_output=True,
+            text=True,
+            timeout=5,
+            check=False,
+            creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
+        )
+    except (OSError, subprocess.TimeoutExpired):
+        return None
+    value = completed.stdout.strip()
+    return value or None
+
+
+def _manager_process_identity(pid: int) -> bool:
+    if _process_image_name(pid) not in {"python.exe", "pythonw.exe", "python", "pythonw"}:
+        return False
+    command = _process_command_line(pid)
+    if not command:
+        return False
+    pattern = (
+        r"(?:^|\s)-m\s+webgpt_as_codex\s+manager\s+"
+        r"--host\s+127\.0\.0\.1\s+--port\s+9200(?:\s|$)"
+    )
+    return re.search(pattern, command, flags=re.IGNORECASE) is not None
+
+
+def _legacy_manager_listener_pid(spec: RuntimeSpec) -> int | None:
+    if spec.id != "manager":
+        return None
+    pid = _listener_pid(spec.endpoint)
+    if pid is None:
+        return None
+    return pid if _manager_process_identity(pid) else None
+
+
+def _sync_listener_identity(spec: RuntimeSpec, launch_pid: int) -> int:
+    if spec.id != "manager":
+        return launch_pid
+    listener_pid = _listener_pid(spec.endpoint)
+    if listener_pid is None or listener_pid == launch_pid:
+        return launch_pid
+    if not _manager_process_identity(listener_pid):
+        return launch_pid
+    record = _load_pid_record(spec.id)
+    if not record or record.get("pid") != launch_pid:
+        return launch_pid
+    listener_birth = _process_birth_token(listener_pid)
+    if not listener_birth:
+        return launch_pid
+    payload = dict(record)
+    payload.update(
+        {
+            "pid": listener_pid,
+            "birth_token": listener_birth,
+            "image_name": _process_image_name(listener_pid),
+            "launcher_pid": launch_pid,
+            "launcher_birth_token": record.get("birth_token"),
+            "launcher_image_name": record.get("image_name"),
+        }
+    )
+    atomic_write_json(_pid_path(spec.id), payload)
+    return listener_pid
 
 
 def _spawn(spec: RuntimeSpec) -> int:
@@ -318,7 +503,7 @@ def _spawn(spec: RuntimeSpec) -> int:
         )
     finally:
         log.close()
-    _write_pid_record(spec.id, process.pid, log_path)
+    _write_pid_record(spec, process.pid, log_path)
     return process.pid
 
 
@@ -382,6 +567,16 @@ class RuntimeSupervisor:
             }
         pid, ownership = _owned_pid(component_id)
         listener = _listener_up(spec.endpoint)
+        record = _load_pid_record(component_id) if pid is not None else None
+        generation_current: bool | None = None
+        if pid is not None and spec.generation_builder is not None:
+            generation = _runtime_generation(spec)
+            generation_current = bool(
+                generation
+                and record
+                and record.get("runtime_generation") == generation
+            )
+        contract_ready = _runtime_contract_ready(spec) if listener else None
         if pid is not None and listener:
             state = "running-owned"
         elif pid is not None:
@@ -398,6 +593,8 @@ class RuntimeSupervisor:
             "pid": pid,
             "listener_up": listener,
             "ownership_evidence": ownership,
+            "generation_current": generation_current,
+            "contract_ready": contract_ready,
             "state": state,
         }
 
@@ -411,11 +608,83 @@ class RuntimeSupervisor:
             }
         before = self.status(component_id)
         if before["listener_up"]:
+            if component_id == "manager" and before["owned"] and (
+                before.get("generation_current") is False
+                or before.get("contract_ready") is False
+            ):
+                stopped = self.stop(component_id)
+                if not stopped.get("ok"):
+                    return stopped
+                if _listener_up(spec.endpoint):
+                    return {
+                        "ok": False,
+                        "component_id": component_id,
+                        "status": "stale-owner-stop-ambiguous",
+                        "stop": stopped,
+                    }
+                pid = _spawn(spec)
+                if not _wait_ready(spec, pid) or _runtime_contract_ready(spec) is False:
+                    return {
+                        "ok": False,
+                        "component_id": component_id,
+                        "status": "refreshed-but-not-ready",
+                        "pid": pid,
+                        "stop": stopped,
+                    }
+                pid = _sync_listener_identity(spec, pid)
+                return {
+                    "ok": True,
+                    "component_id": component_id,
+                    "status": "refreshed-owned-stale",
+                    "pid": pid,
+                    "stop": stopped,
+                }
+            if component_id == "manager" and not before["owned"] and before.get(
+                "contract_ready"
+            ) is False:
+                legacy_pid = _legacy_manager_listener_pid(spec)
+                if legacy_pid is None:
+                    return {
+                        "ok": False,
+                        "component_id": component_id,
+                        "status": "stale-or-unknown-unmanaged-listener",
+                    }
+                shutdown = _bounded_stop(legacy_pid)
+                if _listener_up(spec.endpoint):
+                    return {
+                        "ok": False,
+                        "component_id": component_id,
+                        "status": "legacy-manager-stop-ambiguous",
+                        "legacy_pid": legacy_pid,
+                        "shutdown": shutdown,
+                    }
+                pid = _spawn(spec)
+                if not _wait_ready(spec, pid) or _runtime_contract_ready(spec) is False:
+                    return {
+                        "ok": False,
+                        "component_id": component_id,
+                        "status": "refreshed-but-not-ready",
+                        "pid": pid,
+                        "legacy_pid": legacy_pid,
+                        "shutdown": shutdown,
+                    }
+                pid = _sync_listener_identity(spec, pid)
+                return {
+                    "ok": True,
+                    "component_id": component_id,
+                    "status": "refreshed-legacy-stale",
+                    "pid": pid,
+                    "legacy_pid": legacy_pid,
+                    "shutdown": shutdown,
+                }
+            pid = before["pid"]
+            if component_id == "manager" and before["owned"] and pid is not None:
+                pid = _sync_listener_identity(spec, pid)
             return {
                 "ok": True,
                 "component_id": component_id,
                 "status": "preserved-owned" if before["owned"] else "preserved-unmanaged",
-                "pid": before["pid"],
+                "pid": pid,
             }
         if before["owned"]:
             return {
@@ -432,6 +701,7 @@ class RuntimeSupervisor:
                 "status": "started-but-not-ready",
                 "pid": pid,
             }
+        pid = _sync_listener_identity(spec, pid)
         return {"ok": True, "component_id": component_id, "status": "started", "pid": pid}
 
     def stop(self, component_id: str) -> dict[str, Any]:
@@ -441,6 +711,7 @@ class RuntimeSupervisor:
                 "component_id": component_id,
                 "status": "not-repository-managed",
             }
+        record = _load_pid_record(component_id)
         pid, ownership = _owned_pid(component_id)
         if pid is None:
             return {
@@ -450,13 +721,37 @@ class RuntimeSupervisor:
                 "ownership_evidence": ownership,
             }
         mode = _bounded_stop(pid)
+        launcher_shutdown: str | None = None
+        if record:
+            try:
+                launcher_pid = int(record.get("launcher_pid") or 0)
+            except (TypeError, ValueError):
+                launcher_pid = 0
+            if launcher_pid and launcher_pid != pid and _pid_exists(launcher_pid):
+                expected_birth = record.get("launcher_birth_token")
+                expected_image = record.get("launcher_image_name")
+                actual_birth = _process_birth_token(launcher_pid)
+                actual_image = _process_image_name(launcher_pid)
+                if (
+                    expected_birth
+                    and actual_birth == expected_birth
+                    and (
+                        not expected_image
+                        or not actual_image
+                        or actual_image == expected_image
+                    )
+                ):
+                    launcher_shutdown = _bounded_stop(launcher_pid)
         _remove_pid_record(component_id)
-        return {
+        result = {
             "ok": True,
             "component_id": component_id,
             "status": "stopped",
             "shutdown": mode,
         }
+        if launcher_shutdown:
+            result["launcher_shutdown"] = launcher_shutdown
+        return result
 
     def restart(self, component_id: str) -> dict[str, Any]:
         if component_id not in self.specs:

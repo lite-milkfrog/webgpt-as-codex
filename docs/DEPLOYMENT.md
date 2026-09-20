@@ -159,6 +159,10 @@ Managed launcher refresh may recognize the complete known previous WebGPT launch
 
 The browser UI never owns runtime lifetime.
 
+Manager liveness and Manager generation are separate facts. A live 9200 listener/healthz does not prove that the process loaded the current Python route table or current packaged/source UI contract. Repository-owned Manager reuse therefore requires ownership/process identity plus current runtime-generation/resource capability evidence. A strictly identified legacy WebGPT Manager may be refreshed when its current contract is stale; an unrelated or ambiguous listener is preserved and reported rather than killed.
+
+The Desktop launcher is a user browser entry point, not a Playwright runtime. When the user's normal Microsoft Edge session is already running, the launcher reuses its last-used normal profile; otherwise it dispatches through the Windows default URL handler. It never intentionally creates a temporary user-data directory, isolated automation profile or InPrivate session for Manager opening.
+
 ## Phase 9 — final manual actions
 
 Only interactive account/browser authorization remains:

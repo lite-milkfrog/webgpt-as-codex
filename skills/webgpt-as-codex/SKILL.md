@@ -104,11 +104,13 @@ Environment/custom-component/OAuth mutations are serialized so a browser double-
 
 ## Runtime supervisor / launcher discipline
 - discovery is permission to preserve, not permission to kill: stop/restart requires repository-owned PID identity evidence;
+- listener/health success is not current-generation proof for long-running code. For the Manager, compare runtime generation plus required resource/API capability contract before preserving an owned process; a legacy listener may be refreshed only after strict WebGPT process identity proof, while ambiguous/unrelated listeners fail closed;
 - stale PID files and PID reuse are rejected using process birth identity plus executable-image checks;
 - Start All preserves healthy unmanaged listeners and process-only system services, then starts only fixed repository-managed missing runtimes;
 - report required-but-unmanaged missing services separately from managed action success; never turn partial startup into a full-health claim;
 - Manager runtime actions keep a fixed component allowlist and never accept arbitrary commands, argv, paths or PIDs from the browser;
 - browser/Manager UI/desktop launcher lifetime never owns agent-runtime lifetime;
+- desktop URL opening and Playwright automation profiles are separate responsibilities: prefer the user's existing normal browser profile for the desktop Manager, otherwise use the OS default URL handler; do not create a temp/isolated/InPrivate automation profile merely to open the Manager;
 - Windows desktop/autostart launchers must be transparent, reversible, credential-free and refuse to overwrite/delete unmanaged files;
 - when the repository-managed launcher format evolves, upgrading a known previous managed version requires a complete historical structure match; a marker alone is never sufficient ownership evidence;
 - do not reuse integration-test OAuth credentials as a production/autostart launch contract merely because the files exist.

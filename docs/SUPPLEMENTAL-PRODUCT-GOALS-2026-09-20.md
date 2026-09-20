@@ -132,3 +132,5 @@ The project must ship:
 Identifiers, commands, URLs, schema keys, hashes and protocol constants remain exact across languages.
 
 Stage 17 verified the Manager/desktop portion of this goal: English and Chinese Manager shells now share one functional JS/CSS contract, the real managed Desktop/Startup launchers default to Chinese, explicit `/en` and `/zh` remain available, and both languages passed DOM-level parity checks. Stage 18 still owns the repository-wide Chinese documentation/release mirror and third-party notices.
+
+The Stage 17 post-acceptance hotfix additionally verifies that a long-running stale Manager cannot be accepted merely because port 9200 is listening: WebGPT now proves process identity plus runtime/resource contract before refreshing an owned/legacy stale Manager, and refuses to kill ambiguous listeners. The user-facing Desktop launcher also keeps browser automation separate from ordinary URL opening by reusing the normal running Edge profile when present, with the Windows default URL handler as fallback.

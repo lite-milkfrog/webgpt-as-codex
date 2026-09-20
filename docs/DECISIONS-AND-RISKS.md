@@ -264,6 +264,24 @@ Tailscale is now an explicit environment gate. Installation may be automated fro
 
 WebGPT-owned MCPJungle/mcp-auth-proxy bootstrap uses repository-approved official release origins and SHA-256 verification. Existing binaries are preserved by default. Stage 15 may add latest-stable resolution, but source-origin and compatibility validation remain mandatory.
 
+## Stage 17 post-acceptance hotfix — runtime generation / desktop browser continuity
+
+### Decision: listener health is not runtime-generation proof
+
+A long-running Python Manager may continue serving a live listener and shallow health endpoint while retaining an older route table and reading newer static files from disk. Manager preservation therefore requires lifecycle identity plus runtime-generation/resource-contract evidence. A stale process is refreshed only when it is repository-owned or matches the strict legacy WebGPT Manager identity. An unrelated/ambiguous process on 9200 is never terminated.
+
+### Decision: ownership follows the real listener, not only the venv launch wrapper
+
+On Windows a venv `pythonw.exe` launch may create a child base-Python process that becomes the actual listener. The machine-local receipt rebinds to the listener PID/birth/image while retaining the launcher PID identity only for bounded cleanup. This avoids treating a living parent wrapper as the service identity.
+
+### Decision: desktop browser continuity is separate from Playwright profile lifecycle
+
+The one-click desktop Manager opener is ordinary user browsing, not a Playwright automation session. If Edge is already running, WebGPT reuses the last-used normal profile; otherwise it uses the Windows default URL handler. The desktop launcher must not create a temporary user-data directory, InPrivate session or automation-only blank profile.
+
+### Live acceptance
+
+The real stale 9200 Manager was safely replaced after strict identity/contract proof. `/`, `/en`, `/zh`, `/manager.css`, `/manager.js` and `/api/local-config` then returned the current Stage 17 contract. Two consecutive Desktop launches preserved the same core MCP/Gateway/Manager listeners and the same existing Edge `Default` top-level process, while Windows-MCP observed the complete Manager control tree.
+
 ## Stage 16 — concurrency / session isolation / complementary recovery
 
 ### Decision: concurrency authority is explicit per shared state

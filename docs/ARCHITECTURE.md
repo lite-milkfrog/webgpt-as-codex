@@ -158,6 +158,10 @@ Stage 17 adds a bilingual presentation/control layer without creating a second a
 
 Stage 17 local configuration output is deliberately narrower than raw machine state. It exposes product/deployment readiness, component/version/migration visibility, local/public MCP addresses and configured/not-configured OAuth state, but strips executable paths, secret paths and private Tailscale DNS identity. Explicit OAuth reveal is a separate loopback-only confirmed operation; its plaintext response is never copied into the status snapshot or activity log.
 
+Stage 17 post-acceptance hardening also distinguishes a healthy listener from the code generation actually loaded by a long-running Manager. The supervisor records a runtime generation, checks required Stage 17 resource/API routes and only refreshes a stale owned process after identity proof. A strictly matched legacy WebGPT Manager may be refreshed once; an unrelated or ambiguous process on port 9200 remains fail-closed. On Windows, the ownership receipt follows the real listening interpreter even when a venv launcher process is its parent.
+
+Desktop URL opening is intentionally separate from Playwright automation. The user-facing launcher prefers the already-running normal Edge profile and otherwise the Windows default URL handler; it does not create a temporary/in-private/automation-only browser profile merely to display the Manager.
+
 All Stage 17 local mutations (environment, custom components and OAuth password operations) share a Manager-local non-blocking mutation lock. The HTTP boundary continues to require loopback Host/Origin plus the control header and confirmation, rejects unknown fields and oversized bodies, and returns sanitized error classes. Custom-component create/delete changes only the machine-local registry: it does not add a route, runtime adapter or lifecycle authority. Built-in manifests cannot be deleted through this surface.
 
 ## Bootstrap / Doctor / Repair

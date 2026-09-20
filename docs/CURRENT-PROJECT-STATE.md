@@ -100,6 +100,21 @@ Stage 17 proof:
 
 Stage 17 closure: `docs/STAGE-17-CLOSURE.md`.
 
+Stage 17 post-acceptance hotfix: CLOSED_LOCAL_VERIFIED.
+
+Post-acceptance Hotfix proof:
+- reproduced the real mixed-version Manager on port 9200: root HTML came from the new Stage 17 static tree while `/en`, `/zh`, `/manager.css`, `/manager.js` and `/api/local-config` were missing from the old long-running route table;
+- Runtime Supervisor now records a Manager runtime generation, probes the Stage 17 resource/API contract and refreshes a stale process only after WebGPT ownership/process identity is proven;
+- a strict legacy WebGPT Manager process may be safely adopted for one stale refresh; an unrelated or ambiguous 9200 listener is never killed;
+- Windows venv launcher indirection is accounted for by rebinding the machine-local receipt to the actual listening Python PID while preserving launcher identity for bounded cleanup;
+- the desktop opener now reuses the already-running normal Microsoft Edge profile when available and otherwise falls back to the Windows default URL handler; it does not create a temp/isolated/InPrivate automation profile;
+- real Desktop launcher acceptance returned Chinese root HTML plus HTTP 200 for CSS/JS/local-config, preserved the same Manager/Gateway/core-MCP PIDs across a second launch, and preserved the existing Edge `Default` top-level process without creating a new profile window;
+- Windows-MCP live desktop evidence showed the full Manager control tree in the foreground rather than the prior unstyled/bare page;
+- targeted Hotfix/Stage8/Stage17 gate: 31 PASS; full repository: 184 PASS; Ruff, repository secret scan and `git diff --check`: PASS;
+- Computer Agent Skill advanced to `1.1.17-local-candidate`; validator reports `VALIDATION_OK`, 51 scenarios, adding R50/R51 for mixed-version long-running services and desktop-browser-profile separation.
+
+Hotfix closure: `docs/STAGE-17-POST-ACCEPTANCE-HOTFIX-CLOSURE.md`.
+
 Repository: local checkout; use the active project/workspace binding rather than committing a machine-specific absolute path.
 Stage 4 proof: unified Gateway, 4 core MCP backends, 87 tools, safe calls PASS.
 Stage 5 proof: real Tailscale HTTPS edge, DCR + PKCE + token + 401 gate + restart + refresh + authenticated MCP call PASS.

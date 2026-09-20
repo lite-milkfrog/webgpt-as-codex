@@ -62,6 +62,8 @@ Stages 0-11 established and regression-tested:
 - discovery-first Bootstrap, deep Doctor and allowlisted Repair;
 - PID birth/image ownership checks, idempotent Start All and bounded Restart;
 - reversible credential-free desktop launcher/autostart, with a current-deployment Chinese default and safe structural upgrade of the previously managed launcher;
+- stale-Manager generation/contract detection so a still-listening old Python process cannot mix a new static tree with an old route table; ambiguous non-WebGPT listeners remain protected from termination;
+- desktop Manager opening that reuses the user's normal running Edge profile (or the Windows default URL handler) instead of creating an automation-only blank profile;
 - generic Add MCP with capability-evidence states and portable Operating Guides;
 - durable Loop Engineering state and exactly-once Playwright handoff semantics;
 - atomic machine-local state writes, untrusted custom-manifest validation and bounded rollback;

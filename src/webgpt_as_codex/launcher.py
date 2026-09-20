@@ -4,6 +4,7 @@ import argparse
 import json
 import os
 import re
+import subprocess
 import sys
 import webbrowser
 from collections.abc import Callable
@@ -86,6 +87,100 @@ def _pythonw() -> Path:
         if candidate.is_file():
             return candidate
     return current
+
+
+def _edge_executable() -> Path | None:
+    if os.name != "nt":
+        return None
+    try:
+        import winreg
+
+        key_path = r"Software\Microsoft\Windows\CurrentVersion\App Paths\msedge.exe"
+        for root in (winreg.HKEY_CURRENT_USER, winreg.HKEY_LOCAL_MACHINE):
+            try:
+                with winreg.OpenKey(root, key_path) as key:
+                    value, _ = winreg.QueryValueEx(key, None)
+            except OSError:
+                continue
+            candidate = Path(str(value).strip('"'))
+            if candidate.is_file():
+                return candidate
+    except (OSError, ImportError):
+        pass
+    candidates = [
+        Path(os.getenv("ProgramFiles(x86)", r"C:\Program Files (x86)"))
+        / "Microsoft"
+        / "Edge"
+        / "Application"
+        / "msedge.exe",
+        Path(os.getenv("ProgramFiles", r"C:\Program Files"))
+        / "Microsoft"
+        / "Edge"
+        / "Application"
+        / "msedge.exe",
+    ]
+    return next((path for path in candidates if path.is_file()), None)
+
+
+def _edge_reuse_target() -> tuple[Path, str] | None:
+    if os.name != "nt":
+        return None
+    try:
+        running = subprocess.run(
+            ["tasklist", "/FI", "IMAGENAME eq msedge.exe", "/FO", "CSV", "/NH"],
+            capture_output=True,
+            text=True,
+            timeout=3,
+            check=False,
+            creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
+        )
+    except (OSError, subprocess.TimeoutExpired):
+        return None
+    if "msedge.exe" not in running.stdout.lower():
+        return None
+    local = os.getenv("LOCALAPPDATA")
+    user_data = (
+        Path(local)
+        if local
+        else user_home() / "AppData" / "Local"
+    ) / "Microsoft" / "Edge" / "User Data"
+    try:
+        state = json.loads((user_data / "Local State").read_text(encoding="utf-8"))
+        profile = state.get("profile", {}).get("last_used")
+    except (OSError, json.JSONDecodeError, AttributeError):
+        return None
+    if not isinstance(profile, str) or not re.fullmatch(r"(?:Default|Profile \d+)", profile):
+        return None
+    executable = _edge_executable()
+    return (executable, profile) if executable else None
+
+
+def _launch_edge_profile(executable: Path, profile: str, url: str) -> bool:
+    try:
+        subprocess.Popen(
+            [str(executable), f"--profile-directory={profile}", url],
+            stdin=subprocess.DEVNULL,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            close_fds=True,
+            creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
+        )
+        return True
+    except OSError:
+        return False
+
+
+def _open_manager_url(url: str) -> tuple[bool, str]:
+    edge = _edge_reuse_target()
+    if edge and _launch_edge_profile(edge[0], edge[1], url):
+        return True, "existing-edge-profile"
+    if os.name == "nt":
+        try:
+            os.startfile(url)  # type: ignore[attr-defined]
+            return True, "windows-default-url-handler"
+        except OSError:
+            pass
+    return bool(webbrowser.open(url)), "default-webbrowser-fallback"
 
 
 def _launcher_content(*, open_browser: bool) -> str:
@@ -246,14 +341,16 @@ def run_launcher(*, open_browser: bool = True, start_all: bool = True) -> dict[s
     manager = supervisor.start("manager")
     runtimes = supervisor.start_all(include_manager=False) if start_all else None
     opened = False
+    browser_mode = "not-requested"
     if manager.get("ok") and open_browser:
-        opened = bool(webbrowser.open("http://127.0.0.1:9200/"))
+        opened, browser_mode = _open_manager_url("http://127.0.0.1:9200/")
     return {
         "ok": bool(manager.get("ok")) and (runtimes is None or bool(runtimes.get("ok"))),
         "manager": manager,
         "start_all": runtimes,
         "browser_open_requested": open_browser,
         "browser_open_dispatched": opened,
+        "browser_open_mode": browser_mode,
         "runtime_lifetime_independent_of_browser": True,
     }
 
