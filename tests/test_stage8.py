@@ -288,7 +288,7 @@ def test_launcher_exits_without_owning_runtime_lifetime(monkeypatch: pytest.Monk
 
         def start_all(self, *, include_manager: bool = False) -> dict:
             assert include_manager is False
-            return {"ok": True, "status": "complete"}
+            return {"ok": True, "status": "complete", "fully_ready": True}
 
     monkeypatch.setattr(launcher, "RuntimeSupervisor", FakeSupervisor)
     monkeypatch.setattr(launcher.webbrowser, "open", lambda _url: True)
@@ -297,6 +297,33 @@ def test_launcher_exits_without_owning_runtime_lifetime(monkeypatch: pytest.Monk
     assert result["browser_open_dispatched"] is True
     assert result["runtime_lifetime_independent_of_browser"] is True
 
+
+
+def test_explicit_open_reopens_browser_for_existing_manager(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    class FakeSupervisor:
+        def start(self, component_id: str) -> dict:
+            assert component_id == "manager"
+            return {"ok": True, "status": "preserved-owned"}
+
+        def start_all(self, *, include_manager: bool = False) -> dict:
+            assert include_manager is False
+            return {"ok": True, "status": "complete", "fully_ready": True}
+
+    opened: list[str] = []
+    monkeypatch.setattr(launcher, "RuntimeSupervisor", FakeSupervisor)
+    monkeypatch.setattr(
+        launcher,
+        "_open_manager_url",
+        lambda url: (opened.append(url) or True, "unexpected"),
+    )
+    result = launcher.run_launcher(open_browser=True, start_all=True)
+    assert result["ok"] is True
+    assert result["browser_open_requested"] is True
+    assert result["browser_open_dispatched"] is True
+    assert result["browser_open_mode"] == "unexpected"
+    assert opened == ["http://127.0.0.1:9200/"]
 
 @pytest.mark.skipif(os.name != "nt", reason="Windows PID identity contract")
 def test_windows_process_identity_probe() -> None:

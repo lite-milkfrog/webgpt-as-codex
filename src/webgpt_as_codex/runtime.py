@@ -30,6 +30,10 @@ CwdBuilder = Callable[[], Path]
 GenerationBuilder = Callable[[], str]
 ContractProbe = Callable[[], bool]
 
+EDGE_PREREQ_WAIT_ENV = "WEBGPT_CODEX_EDGE_PREREQ_WAIT_SECONDS"
+EDGE_PREREQ_WAIT_DEFAULT = 180.0
+EDGE_PREREQ_POLL_INTERVAL = 3.0
+
 
 @dataclass(frozen=True)
 class RuntimeSpec:
@@ -436,6 +440,8 @@ def _listener_pid(endpoint: str) -> int | None:
             ["netstat", "-ano", "-p", "tcp"],
             capture_output=True,
             text=True,
+            encoding="utf-8",
+            errors="replace",
             timeout=4,
             check=False,
             creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
@@ -474,6 +480,8 @@ def _process_command_line(pid: int) -> str | None:
             ["powershell.exe", "-NoProfile", "-NonInteractive", "-Command", command],
             capture_output=True,
             text=True,
+            encoding="utf-8",
+            errors="replace",
             timeout=5,
             check=False,
             creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
@@ -666,6 +674,42 @@ def _bounded_stop(pid: int, graceful_seconds: float = 5.0) -> str:
     if not _wait_dead(pid, 3.0):
         raise RuntimeError(f"process {pid} did not stop within bounded shutdown")
     return "forced"
+
+
+def _edge_prereq_wait_seconds() -> float:
+    raw = os.getenv(EDGE_PREREQ_WAIT_ENV)
+    if raw is None:
+        return EDGE_PREREQ_WAIT_DEFAULT
+    try:
+        value = float(raw)
+    except ValueError:
+        return EDGE_PREREQ_WAIT_DEFAULT
+    return max(0.0, value)
+
+
+def _wait_for_edge_prerequisites(
+    environment: dict[str, Any],
+    *,
+    timeout: float,
+    interval: float = EDGE_PREREQ_POLL_INTERVAL,
+    sleep: Callable[[float], None] = time.sleep,
+    monotonic: Callable[[], float] = time.monotonic,
+) -> tuple[dict[str, Any], float]:
+    # A Windows reboot can leave Tailscale offline for tens of seconds after
+    # login; a single fail-closed check here permanently strands the OAuth edge.
+    from .prerequisites import environment_report
+
+    started = monotonic()
+    deadline = started + max(0.0, timeout)
+    while True:
+        now = monotonic()
+        if now >= deadline:
+            break
+        sleep(min(interval, deadline - now))
+        environment = environment_report()
+        if environment.get("ready_for_edge"):
+            return environment, monotonic() - started
+    return environment, monotonic() - started
 
 
 class RuntimeSupervisor:
@@ -917,7 +961,12 @@ class RuntimeSupervisor:
             "start": started,
         }
 
-    def start_all(self, *, include_manager: bool = False) -> dict[str, Any]:
+    def start_all(
+        self,
+        *,
+        include_manager: bool = False,
+        edge_prereq_wait: float | None = None,
+    ) -> dict[str, Any]:
         components = load_components()
         discovery = discover_all(components)
         snapshot = process_snapshot()
@@ -926,6 +975,9 @@ class RuntimeSupervisor:
         from .prerequisites import environment_report
 
         environment = environment_report()
+        edge_wait = _edge_prereq_wait_seconds() if edge_prereq_wait is None else max(
+            0.0, edge_prereq_wait
+        )
         start_priority = {"mcpjungle": 0, "mcp-auth-proxy": 1}
         ordered_components = sorted(
             components.items(),
@@ -934,16 +986,26 @@ class RuntimeSupervisor:
         for component_id, component in ordered_components:
             live = discovery.get(component_id, {})
             process_up = process_health(component, snapshot)
-            if component_id == "mcp-auth-proxy" and component.enabled_by_default and not environment["ready_for_edge"]:
-                rows.append(
-                    {
-                        "component_id": component_id,
-                        "status": "prerequisites-not-ready",
-                        "ok": False,
-                        "next_steps": environment["next_steps"],
-                    }
-                )
-            elif component_id == "mcp-auth-proxy" and component.enabled_by_default:
+            if component_id == "mcp-auth-proxy" and component.enabled_by_default:
+                if not environment["ready_for_edge"]:
+                    environment, _waited = _wait_for_edge_prerequisites(
+                        environment, timeout=edge_wait
+                    )
+                if not environment["ready_for_edge"]:
+                    rows.append(
+                        {
+                            "component_id": component_id,
+                            "status": "prerequisites-not-ready",
+                            "ok": False,
+                            "next_steps": environment["next_steps"],
+                            "prerequisite_wait_seconds": round(
+                                _edge_prereq_wait_seconds() if edge_prereq_wait is None
+                                else max(0.0, edge_prereq_wait),
+                                1,
+                            ),
+                        }
+                    )
+                    continue
                 rows.append(self.start(component_id))
             elif live.get("listener_up") is True or (
                 component.default_endpoint is None and process_up is True
@@ -1003,7 +1065,7 @@ class RuntimeSupervisor:
 
 
 def manager_start_all_executor(_contract: object, _payload: dict[str, Any]) -> dict[str, Any]:
-    return RuntimeSupervisor().start_all(include_manager=False)
+    return RuntimeSupervisor().start_all(include_manager=False, edge_prereq_wait=15.0)
 
 
 def manager_restart_executor(_contract: object, payload: dict[str, Any]) -> dict[str, Any]:

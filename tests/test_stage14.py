@@ -161,6 +161,7 @@ def test_production_edge_uses_standard_https_port(
 def test_start_all_blocks_edge_when_prerequisites_are_not_ready(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
+    monkeypatch.setenv("WEBGPT_CODEX_EDGE_PREREQ_WAIT_SECONDS", "0")
     components = {
         "mcpjungle": _component("mcpjungle", "http://127.0.0.1:9330/mcp"),
         "mcp-auth-proxy": _component("mcp-auth-proxy", "http://127.0.0.1:9340"),

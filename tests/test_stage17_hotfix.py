@@ -174,11 +174,17 @@ def test_browser_opener_reuses_existing_edge_profile(
 ) -> None:
     edge = Path("C:/Program Files/Microsoft/Edge/Application/msedge.exe")
     calls: list[tuple[Path, str, str]] = []
+    focus_calls: list[bool] = []
     monkeypatch.setattr(launcher, "_edge_reuse_target", lambda: (edge, "Default"))
     monkeypatch.setattr(
         launcher,
         "_launch_edge_profile",
         lambda exe, profile, url: calls.append((exe, profile, url)) or True,
+    )
+    monkeypatch.setattr(
+        launcher,
+        "_focus_existing_edge_window",
+        lambda: focus_calls.append(True) or True,
     )
     monkeypatch.setattr(
         launcher.webbrowser,
@@ -189,15 +195,22 @@ def test_browser_opener_reuses_existing_edge_profile(
     assert opened is True
     assert mode == "existing-edge-profile"
     assert calls == [(edge, "Default", "http://127.0.0.1:9200/")]
+    assert focus_calls == [True]
 
 
 def test_browser_opener_windows_fallback_uses_default_url_handler(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     opened: list[str] = []
+    focus_calls: list[bool] = []
     monkeypatch.setattr(launcher, "_edge_reuse_target", lambda: None)
     monkeypatch.setattr(launcher.os, "name", "nt")
     monkeypatch.setattr(launcher.os, "startfile", opened.append, raising=False)
+    monkeypatch.setattr(
+        launcher,
+        "_focus_existing_edge_window",
+        lambda: focus_calls.append(True) or True,
+    )
     monkeypatch.setattr(
         launcher.webbrowser,
         "open",
@@ -207,6 +220,21 @@ def test_browser_opener_windows_fallback_uses_default_url_handler(
     assert ok is True
     assert mode == "windows-default-url-handler"
     assert opened == ["http://127.0.0.1:9200/"]
+    assert focus_calls == [True]
+
+
+def test_browser_focus_failure_is_best_effort(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    edge = Path("C:/Program Files/Microsoft/Edge/Application/msedge.exe")
+    monkeypatch.setattr(launcher, "_edge_reuse_target", lambda: (edge, "Default"))
+    monkeypatch.setattr(launcher, "_launch_edge_profile", lambda *_args: True)
+    monkeypatch.setattr(launcher, "_focus_existing_edge_window", lambda: False)
+
+    opened, mode = launcher._open_manager_url("http://127.0.0.1:9200/")
+
+    assert opened is True
+    assert mode == "existing-edge-profile"
 
 
 def test_launcher_never_requests_isolated_browser_profile() -> None:

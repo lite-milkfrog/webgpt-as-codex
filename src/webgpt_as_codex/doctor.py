@@ -361,6 +361,41 @@ def persist_doctor_result(result: dict[str, Any]) -> Path:
     return target
 
 
+def _edge_prerequisites_context(
+    rows: dict[str, dict[str, Any]],
+) -> dict[str, Any] | None:
+    edge_down = any(
+        row.get("health", {}).get("listener") is False
+        for row in rows.values()
+        if isinstance(row, dict) and row.get("id") == "mcp-auth-proxy"
+    )
+    if not edge_down:
+        return None
+    from .prerequisites import environment_report
+
+    environment = environment_report()
+    tailscale = environment.get("tailscale", {})
+    return {
+        "ready_for_edge": bool(environment.get("ready_for_edge")),
+        "tailscale": {
+            key: tailscale.get(key)
+            for key in (
+                "installed",
+                "backend_state",
+                "online",
+                "dns_name",
+                "funnel_cli_ok",
+                "next_action",
+            )
+        },
+        "next_steps": environment.get("next_steps"),
+        "note": (
+            "edge listener is down; prerequisites above explain why start-all "
+            "did not (or could not) launch the OAuth edge"
+        ),
+    }
+
+
 def run_doctor(*, include_remote: bool = True, persist: bool = True) -> dict[str, Any]:
     components = load_components()
     process_rows = _process_snapshot()
@@ -378,17 +413,21 @@ def run_doctor(*, include_remote: bool = True, persist: bool = True) -> dict[str
         rows,
         remote_expected=include_remote and public_mcp is not None,
     )
+    edge_prerequisites = _edge_prerequisites_context(rows)
+    checks: dict[str, Any] = {
+        "process_snapshot_available": process_rows is not None,
+        "public_remote_configured": public_mcp is not None,
+        "remote": remote_evidence,
+        "persistence": "machine-local-sanitized",
+    }
+    if edge_prerequisites is not None:
+        checks["edge_prerequisites"] = edge_prerequisites
     result = sanitize_for_output(
         {
             "status": status,
             "completed_at": datetime.now(UTC).isoformat(),
             "summary": summary,
-            "checks": {
-                "process_snapshot_available": process_rows is not None,
-                "public_remote_configured": public_mcp is not None,
-                "remote": remote_evidence,
-                "persistence": "machine-local-sanitized",
-            },
+            "checks": checks,
             "components": rows,
             "health_levels": list(HEALTH_LEVELS),
         }

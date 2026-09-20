@@ -745,6 +745,11 @@
       "reason": "Executable source/test/script artifact; code identifiers/protocol strings are not documentation translation targets."
     },
     {
+      "path": "tests/test_reboot_recovery.py",
+      "status": "NOT_HUMAN_READER_CONTENT",
+      "reason": "Executable source/test/script artifact; code identifiers/protocol strings are not documentation translation targets."
+    },
+    {
       "path": "tests/test_scaffold.py",
       "status": "NOT_HUMAN_READER_CONTENT",
       "reason": "Executable source/test/script artifact; code identifiers/protocol strings are not documentation translation targets."

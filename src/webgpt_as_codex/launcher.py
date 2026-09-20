@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import ctypes
 import json
 import os
 import re
@@ -130,6 +131,8 @@ def _edge_reuse_target() -> tuple[Path, str] | None:
             ["tasklist", "/FI", "IMAGENAME eq msedge.exe", "/FO", "CSV", "/NH"],
             capture_output=True,
             text=True,
+            encoding="utf-8",
+            errors="replace",
             timeout=3,
             check=False,
             creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
@@ -170,13 +173,80 @@ def _launch_edge_profile(executable: Path, profile: str, url: str) -> bool:
         return False
 
 
+def _focus_existing_edge_window() -> bool:
+    """Best-effort foreground activation for a normal existing Edge window.
+
+    This intentionally does not inspect browser DOM/tabs and does not require a
+    Playwright/DevTools profile. The user-facing desktop launcher only needs to
+    make the normal browser visible after dispatching the Manager URL.
+    """
+    if os.name != "nt":
+        return False
+    try:
+        from ctypes import wintypes
+
+        user32 = ctypes.windll.user32
+        kernel32 = ctypes.windll.kernel32
+    except (AttributeError, ImportError):
+        return False
+
+    process_query_limited_information = 0x1000
+    sw_restore = 9
+    candidates: list[int] = []
+
+    def is_edge_window(hwnd: int) -> bool:
+        if not user32.IsWindowVisible(hwnd):
+            return False
+        pid = wintypes.DWORD()
+        user32.GetWindowThreadProcessId(hwnd, ctypes.byref(pid))
+        if not pid.value:
+            return False
+        handle = kernel32.OpenProcess(
+            process_query_limited_information, False, pid.value
+        )
+        if not handle:
+            return False
+        try:
+            size = wintypes.DWORD(32768)
+            buffer = ctypes.create_unicode_buffer(size.value)
+            if not kernel32.QueryFullProcessImageNameW(
+                handle, 0, buffer, ctypes.byref(size)
+            ):
+                return False
+            return Path(buffer.value).name.casefold() == "msedge.exe"
+        finally:
+            kernel32.CloseHandle(handle)
+
+    callback_type = ctypes.WINFUNCTYPE(
+        wintypes.BOOL, wintypes.HWND, wintypes.LPARAM
+    )
+
+    @callback_type
+    def collect(hwnd: int, _lparam: int) -> bool:
+        if is_edge_window(hwnd):
+            candidates.append(int(hwnd))
+        return True
+
+    try:
+        user32.EnumWindows(collect, 0)
+        if not candidates:
+            return False
+        hwnd = candidates[0]
+        user32.ShowWindowAsync(hwnd, sw_restore)
+        return bool(user32.SetForegroundWindow(hwnd))
+    except (OSError, ValueError):
+        return False
+
+
 def _open_manager_url(url: str) -> tuple[bool, str]:
     edge = _edge_reuse_target()
     if edge and _launch_edge_profile(edge[0], edge[1], url):
+        _focus_existing_edge_window()
         return True, "existing-edge-profile"
     if os.name == "nt":
         try:
             os.startfile(url)  # type: ignore[attr-defined]
+            _focus_existing_edge_window()
             return True, "windows-default-url-handler"
         except OSError:
             pass
@@ -198,23 +268,50 @@ def _launcher_content(*, open_browser: bool) -> str:
     python = str(Path(sys.executable))
     log_root = _launcher_log_dir()
     log_path = log_root / ("desktop-launcher.log" if open_browser else "autostart.log")
+    if open_browser:
+        visible = (
+            "echo WebGPT-as-Codex: detecting environment and waiting for real readiness...\r\n"
+            "echo (After a reboot, waiting for the network/Tailscale can take up to 3 minutes.)\r\n"
+        )
+        success = (
+            "echo WebGPT-as-Codex is READY. Manager: http://127.0.0.1:9200/\r\n"
+        )
+        remote_desktop_commander = (
+            'if exist "%LOCALAPPDATA%\\DesktopCommander\\start-remote.ps1" (\r\n'
+            '  powershell -NoProfile -WindowStyle Hidden -ExecutionPolicy Bypass -File "%LOCALAPPDATA%\\DesktopCommander\\start-remote.ps1"\r\n'
+            "  if errorlevel 1 (\r\n"
+            "    echo Remote Desktop Commander start failed. WebGPT-as-Codex remains READY.\r\n"
+            "    echo RDC log: %LOCALAPPDATA%\\DesktopCommander\\remote-agent.log\r\n"
+            "  ) else (\r\n"
+            "    echo Remote Desktop Commander start requested successfully.\r\n"
+            "  )\r\n"
+            ")\r\n"
+        )
+        tail = "  pause\r\n"
+    else:
+        visible = ""
+        success = ""
+        remote_desktop_commander = ""
+        tail = ""
     return (
         "@echo off\r\n"
         f"{_MARKER}\r\n"
         "setlocal\r\n"
         'set "WEBGPT_CODEX_UI_LANG=zh-CN"\r\n'
-        f'if not exist "{log_root}" mkdir "{log_root}"\r\n'
-        f'"{python}" -m webgpt_as_codex launcher {flag} --start-all > "{log_path}" 2>&1\r\n'
-        "if errorlevel 1 (\r\n"
-        "  echo WebGPT launcher failed. Diagnostic output:\r\n"
-        f'  type "{log_path}"\r\n'
-        f'  echo Full log: {log_path}\r\n'
-        + ("  pause\r\n" if open_browser else "")
+        + visible
+        + f'if not exist "{log_root}" mkdir "{log_root}"\r\n'
+        + f'"{python}" -m webgpt_as_codex launcher {flag} --start-all > "{log_path}" 2>&1\r\n'
+        + "if errorlevel 1 (\r\n"
+        + "  echo WebGPT launcher failed. Diagnostic output:\r\n"
+        + f'  type "{log_path}"\r\n'
+        + f"  echo Full log: {log_path}\r\n"
+        + tail
         + "  exit /b 2\r\n"
-        " )\r\n"
-        "endlocal\r\n"
+        + " )\r\n"
+        + success
+        + remote_desktop_commander
+        + "endlocal\r\n"
     )
-
 
 def _previous_launcher_matches(content: str, *, open_browser: bool) -> bool:
     normalized = content.replace("\r\n", "\n").strip()
@@ -255,6 +352,100 @@ def _legacy_launcher_matches(content: str, *, open_browser: bool) -> bool:
     return re.fullmatch(pattern, normalized, flags=re.IGNORECASE) is not None
 
 
+def _redirect_generation_matches(content: str, *, open_browser: bool) -> bool:
+    flag = "--open" if open_browser else "--no-open"
+    normalized = content.replace("\r\n", "\n").strip()
+    pause = r"  pause\n" if open_browser else ""
+    pattern = (
+        r"@echo off\n"
+        + re.escape(_MARKER)
+        + r"\nsetlocal\nset \"WEBGPT_CODEX_UI_LANG=zh-CN\"\n"
+        + r'if not exist "[^"\n]+" mkdir "[^"\n]+"\n'
+        + r'"([^"\n]+)" '
+        + re.escape(f"-m webgpt_as_codex launcher {flag} --start-all")
+        + r' > "([^"\n]+)" 2>&1\n'
+        + r"if errorlevel 1 \(\n"
+        + r"  echo WebGPT launcher failed\. Diagnostic output:\n"
+        + r'  type "[^"\n]+"\n'
+        + r"  echo Full log: [^\n]+\n"
+        + pause
+        + r"  exit /b 2\n"
+        + r" \)\n"
+        + r"endlocal"
+    )
+    return re.fullmatch(pattern, normalized, flags=re.IGNORECASE) is not None
+
+
+def _visible_ready_generation_matches(content: str) -> bool:
+    normalized = content.replace("\r\n", "\n").strip()
+    pattern = (
+        r"@echo off\n"
+        + re.escape(_MARKER)
+        + r"\nsetlocal\nset \"WEBGPT_CODEX_UI_LANG=zh-CN\"\n"
+        + re.escape(
+            "echo WebGPT-as-Codex: detecting environment and waiting for real readiness...\n"
+            "echo (After a reboot, waiting for the network/Tailscale can take up to 3 minutes.)\n"
+        )
+        + r'if not exist "[^"\n]+" mkdir "[^"\n]+"\n'
+        + r'"([^"\n]+)" '
+        + re.escape("-m webgpt_as_codex launcher --open --start-all")
+        + r' > "([^"\n]+)" 2>&1\n'
+        + r"if errorlevel 1 \(\n"
+        + r"  echo WebGPT launcher failed\. Diagnostic output:\n"
+        + r'  type "[^"\n]+"\n'
+        + r"  echo Full log: [^\n]+\n"
+        + r"  pause\n"
+        + r"  exit /b 2\n"
+        + r" \)\n"
+        + re.escape(
+            "echo WebGPT-as-Codex is READY. Manager: http://127.0.0.1:9200/\n"
+        )
+        + r"endlocal"
+    )
+    return re.fullmatch(pattern, normalized, flags=re.IGNORECASE) is not None
+
+
+def _isolated_rdc_suffix_generation_matches(content: str) -> bool:
+    normalized = content.replace("\r\n", "\n").strip()
+    pattern = (
+        r"@echo off\n"
+        + re.escape(_MARKER)
+        + r"\nsetlocal\nset \"WEBGPT_CODEX_UI_LANG=zh-CN\"\n"
+        + re.escape(
+            "echo WebGPT-as-Codex: detecting environment and waiting for real readiness...\n"
+            "echo (After a reboot, waiting for the network/Tailscale can take up to 3 minutes.)\n"
+        )
+        + r'if not exist "[^"\n]+" mkdir "[^"\n]+"\n'
+        + r'"([^"\n]+)" '
+        + re.escape("-m webgpt_as_codex launcher --open --start-all")
+        + r' > "([^"\n]+)" 2>&1\n'
+        + r"if errorlevel 1 \(\n"
+        + r"  echo WebGPT launcher failed\. Diagnostic output:\n"
+        + r'  type "[^"\n]+"\n'
+        + r"  echo Full log: [^\n]+\n"
+        + r"  pause\n"
+        + r"  exit /b 2\n"
+        + r" \)\n"
+        + re.escape(
+            "echo WebGPT-as-Codex is READY. Manager: http://127.0.0.1:9200/\n"
+            "REM Remote Desktop Commander is isolated from the WebGPT-as-Codex startup path.\n"
+            "REM A failure here must never turn a healthy WebGPT-as-Codex launch into a failure.\n"
+        )
+        + r'powershell -NoProfile -WindowStyle Hidden -ExecutionPolicy Bypass -File '
+        + r'"[^"\n]+\\AppData\\Local\\DesktopCommander\\start-remote\.ps1"\n'
+        + r"if errorlevel 1 \(\n"
+        + re.escape(
+            "  echo Remote Desktop Commander start failed. WebGPT-as-Codex remains READY.\n"
+        )
+        + r"  echo RDC log: [^\n]+\\AppData\\Local\\DesktopCommander\\remote-agent\.log\n"
+        + r"\) else \(\n"
+        + re.escape("  echo Remote Desktop Commander start requested successfully.\n")
+        + r"\)\n"
+        + r"endlocal"
+    )
+    return re.fullmatch(pattern, normalized, flags=re.IGNORECASE) is not None
+
+
 def _managed_file_status(
     path: Path,
     expected: str,
@@ -279,10 +470,13 @@ def _managed_file_status(
         }
     normalized = content.replace("\r\n", "\n")
     normalized_expected = expected.replace("\r\n", "\n")
+    managed = normalized == normalized_expected and _MARKER in content
     return {
         "installed": True,
-        "managed": normalized == normalized_expected and _MARKER in content,
+        "managed": managed,
         "upgradeable": bool(
+            not managed
+            and
             legacy_matcher
             and _MARKER in content
             and legacy_matcher(content)
@@ -335,6 +529,9 @@ def desktop_launcher(action: str) -> dict[str, Any]:
     legacy_matcher = lambda content: (
         _legacy_launcher_matches(content, open_browser=True)
         or _previous_launcher_matches(content, open_browser=True)
+        or _redirect_generation_matches(content, open_browser=True)
+        or _visible_ready_generation_matches(content)
+        or _isolated_rdc_suffix_generation_matches(content)
     )
     if action == "status":
         return {
@@ -355,6 +552,7 @@ def autostart(action: str) -> dict[str, Any]:
     legacy_matcher = lambda content: (
         _legacy_launcher_matches(content, open_browser=False)
         or _previous_launcher_matches(content, open_browser=False)
+        or _redirect_generation_matches(content, open_browser=False)
     )
     if action == "status":
         return {
@@ -377,9 +575,11 @@ def run_launcher(*, open_browser: bool = True, start_all: bool = True) -> dict[s
     browser_mode = "not-requested"
     if manager.get("ok") and open_browser:
         opened, browser_mode = _open_manager_url("http://127.0.0.1:9200/")
+    runtimes_ready = runtimes is None or bool(runtimes.get("fully_ready"))
+    browser_ready = (not open_browser) or opened
     return {
-        "ok": bool(manager.get("ok")) and (runtimes is None or bool(runtimes.get("ok")))
-        and (not open_browser or opened),
+        "ok": bool(manager.get("ok")) and runtimes_ready and browser_ready,
+        "fully_ready": runtimes_ready,
         "manager": manager,
         "start_all": runtimes,
         "browser_open_requested": open_browser,
@@ -387,7 +587,6 @@ def run_launcher(*, open_browser: bool = True, start_all: bool = True) -> dict[s
         "browser_open_mode": browser_mode,
         "runtime_lifetime_independent_of_browser": True,
     }
-
 
 def cli_launcher(argv: list[str]) -> int:
     parser = argparse.ArgumentParser(prog="webgpt-codex launcher")

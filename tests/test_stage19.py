@@ -140,7 +140,7 @@ def test_browser_launch_failure_is_reported(monkeypatch: pytest.MonkeyPatch) -> 
             return {"ok": True}
 
         def start_all(self, *, include_manager: bool = False) -> dict:
-            return {"ok": True}
+            return {"ok": True, "fully_ready": True}
 
     monkeypatch.setattr(launcher, "RuntimeSupervisor", FakeSupervisor)
     monkeypatch.setattr(launcher, "_open_manager_url", lambda _url: (False, "failed"))
