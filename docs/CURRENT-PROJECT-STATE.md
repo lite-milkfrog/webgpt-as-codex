@@ -3,9 +3,9 @@
 [**English**](CURRENT-PROJECT-STATE.md) | [简体中文](zh-CN/CURRENT-PROJECT-STATE.md)
 
 PROJECT = WebGPT-as-Codex
-CURRENT_STAGE = STAGE-19-END-TO-END-DEPLOYMENT-ACCEPTANCE
-NEXT_STAGE = SUPPLEMENTAL-FINAL-ACCEPTANCE
-AFTER_NEXT_STAGE = GLOBAL_LOOP_COMPLETE
+CURRENT_STAGE = SUPPLEMENTAL-FINAL-ACCEPTANCE
+NEXT_STAGE = GLOBAL_LOOP_COMPLETE
+AFTER_NEXT_STAGE = TERMINAL
 
 Stage 1: CLOSED_LOCAL_VERIFIED
 Stage 2: CLOSED_LOCAL_VERIFIED
@@ -29,7 +29,7 @@ Supplemental chain (user requirements added after the accepted TERMINAL state):
 - Stage 16: CLOSED_LOCAL_VERIFIED
 - Stage 17: CLOSED_LOCAL_VERIFIED
 - Stage 18: CLOSED_LOCAL_VERIFIED
-- Stage 19: PLANNED
+- Stage 19: CLOSED_LOCAL_VERIFIED; REAL_HOST_VERIFIED + REAL_CHATGPT_VERIFIED
 - Supplemental Final Acceptance: PLANNED
 
 The supplemental chain does not invalidate the accepted Stage 1-12 evidence. It owns only the later one-repository deployment, production unified Gateway, fresh-machine dependency/bootstrap, complementary Remote Desktop Commander recovery, multi-window concurrency, bilingual Manager/desktop experience and complete Chinese mirror requirements.
@@ -162,8 +162,8 @@ Cross-stage supplemental contract is active immediately:
 - future verified stages/runs continue collecting stage-cost evidence (implementation/closure effort, retries, tool switches, tests/docs, handoff first-pass success and almost-done incidents) so the heuristic can self-correct without inventing a platform timeout.
 
 Remaining planned roadmap:
-- `STAGE-19-END-TO-END-DEPLOYMENT-ACCEPTANCE`
 - `SUPPLEMENTAL-FINAL-ACCEPTANCE`
+- `GLOBAL_LOOP_COMPLETE`
 
 See `docs/ROADMAP-2026-09-20.md`, `docs/SUPPLEMENTAL-PRODUCT-GOALS-2026-09-20.md`, `docs/DEPLOYMENT.md` and `docs/CONCURRENCY-AND-FALLBACK.md`.
 
@@ -173,3 +173,16 @@ Supplemental ownership:
 
 Recursive handoff invariant:
 The original Final Overall Acceptance and Project Complete remain CLOSED_LOCAL_VERIFIED. The supplemental chain inherits the same exact closure/handoff rules if a new window is required. The current user has explicitly authorized continuous Loop Engineering until the supplemental roadmap is fully closed; do not terminate at an intermediate supplemental stage merely because a prior TERMINAL sentinel once existed.
+
+Stage 19 proof:
+- canonical public MCP identity is HTTPS 443 with no explicit legacy port; the live Funnel maps canonical HTTPS to the repository OAuth compatibility edge on loopback 9341;
+- a real recovery incident proved that raw OAuth child liveness on 9340 is not Edge readiness: Start All had incorrectly preserved an unmanaged 9340 listener while 9341 was absent. Runtime supervision now treats repository-owned OAuth Edge readiness as the 9341 contract and no longer reports that state fully ready;
+- the Edge can safely reuse an already-running OAuth proxy only when the listener is the expected local port and its advertised issuer matches the current canonical public base. The compatibility edge then restores 9341 without rotating the OAuth password or changing public identity;
+- Windows launcher-to-listener PID rebinding now applies to the OAuth Edge as well as Manager, so the receipt follows the real 9341 listener and generation/contract readiness no longer false-reds after venv launcher indirection;
+- real host recovery restored 9341 metadata 200, public /mcp 401 and canonical OAuth metadata 200 while keeping the same public URL/issuer;
+- controlled production OAuth E2E passed public metadata, protected 401, DCR + PKCE token, authenticated MCP with 87 tools, Edge restart, refresh-token continuity and authenticated MCP after restart with the same 87-tool surface;
+- the user then reconfigured the ChatGPT connector successfully; after that success the production connector/Funnel/OAuth state was frozen against further disruptive acceptance in this stage;
+- full repository gate: 205 PASS; Ruff PASS; SECRET_SCAN_PASS; git diff --check PASS;
+- a fresh wheel installed into a new external venv and verified 8 component manifests, 4 Manager resources, all 9 release resources, the authoritative LICENSE hash and CLI version 0.1.0.
+
+Stage 19 closure: docs/STAGE-19-CLOSURE.md.

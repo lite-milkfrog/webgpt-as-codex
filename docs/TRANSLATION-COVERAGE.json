@@ -208,6 +208,11 @@
       "reason": "Canonical closure evidence remains unchanged; Chinese readers use docs/zh-CN/HISTORICAL-EVIDENCE-INDEX.md and live SoT mirrors."
     },
     {
+      "path": "docs/STAGE-19-CLOSURE.md",
+      "status": "HISTORICAL_EVIDENCE_PRESERVED_WITH_INDEX",
+      "reason": "Canonical closure evidence remains unchanged; Chinese readers use docs/zh-CN/HISTORICAL-EVIDENCE-INDEX.md and live SoT mirrors."
+    },
+    {
       "path": "docs/STAGE-2-CLOSURE.md",
       "status": "HISTORICAL_EVIDENCE_PRESERVED_WITH_INDEX",
       "reason": "Canonical closure evidence remains unchanged; Chinese readers use docs/zh-CN/HISTORICAL-EVIDENCE-INDEX.md and live SoT mirrors."
@@ -796,6 +801,11 @@
     },
     {
       "path": "tests/test_stage18.py",
+      "status": "NOT_HUMAN_READER_CONTENT",
+      "reason": "Executable source/test/script artifact; code identifiers/protocol strings are not documentation translation targets."
+    },
+    {
+      "path": "tests/test_stage19.py",
       "status": "NOT_HUMAN_READER_CONTENT",
       "reason": "Executable source/test/script artifact; code identifiers/protocol strings are not documentation translation targets."
     },

@@ -136,3 +136,11 @@ Identifiers, commands, URLs, schema keys, hashes and protocol constants remain e
 Stage 17 verified the Manager/desktop portion of this goal: English and Chinese Manager shells now share one functional JS/CSS contract, the real managed Desktop/Startup launchers default to Chinese, explicit `/en` and `/zh` remain available, and both languages passed DOM-level parity checks. Stage 18 still owns the repository-wide Chinese documentation/release mirror and third-party notices.
 
 The Stage 17 post-acceptance hotfix additionally verifies that a long-running stale Manager cannot be accepted merely because port 9200 is listening: WebGPT now proves process identity plus runtime/resource contract before refreshing an owned/legacy stale Manager, and refuses to kill ambiguous listeners. The user-facing Desktop launcher also keeps browser automation separate from ordinary URL opening by reusing the normal running Edge profile when present, with the Windows default URL handler as fallback.
+
+## Stage 19 product-goal reconciliation
+
+The production Gateway contract is now verified on canonical HTTPS 443 with the compatibility edge on 9341, OAuth proxy on 9340 and Gateway on 9330. Readiness is end-to-end: a surviving 9340 child alone is insufficient.
+
+The real recovery path preserves a compatible OAuth child only when its canonical issuer matches, then reconstructs the managed 9341 Edge without changing public identity or credentials. Runtime receipts follow the real listener PID rather than a Windows venv launcher wrapper.
+
+Real production acceptance passed public OAuth metadata, 401 protection, DCR/PKCE, authenticated 87-tool MCP, controlled Edge restart, refresh continuity and authenticated MCP after restart. The user then confirmed the ChatGPT connector was configured successfully. From that point, disruptive production acceptance is frozen and remaining final acceptance is reconciliation/release-readiness work rather than more connector churn.

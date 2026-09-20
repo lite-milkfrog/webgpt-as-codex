@@ -110,3 +110,15 @@ CLI Serena real probe 自报 1.28.1，源码仍是单 `_active_project`；shared
 ## Stage16 verification
 
 Stage14-16 regression 52 PASS；full 167 PASS；Ruff、secret scan、diff check PASS。真实 isolated Serena 在 non-9121 slot 完成 initialize 与 `tools/list=29`，临时 listener 最终不存在。shared/production listener 保持 baseline PID，shared Serena 仍为 1.7.0 / `Jarvis-dev`。Computer Agent 1.1.16 validator 49 scenarios。shutdown race 经验被固化为 R49：stop timeout/non-zero 后先做 bounded post-state，而不是立刻第二次 mutation。
+
+## Stage 19 — self-restart control-plane recovery
+
+runtime-plane connector 不能成为自己 restart 的唯一维修路径。WebGPT/OAuth restart 时，由独立 repair plane（本地 Agent shell/filesystem/process 或 Remote Desktop Commander）执行 mutation 与 post-state verification。
+
+WebGPT/OAuth restart 后不得复用旧 MCP session 或 browser ref；必须重新获得 readiness 与 fresh tool/page state。
+
+Stage19 明确区分 child liveness 与 wrapper readiness：9340 OAuth child up + 9341 Edge down 是 degraded，不是 healthy，Start All/Doctor 不能 false-green。
+
+只有 canonical issuer identity 匹配时才允许复用现存 9340 child；这是 preserve/reconciliation，不是第二次 mutation。ambiguous child identity fail closed。
+
+真实 ChatGPT connector 一旦配置成功，后续 acceptance 优先 read-only verify；反复 restart/re-register 不是增加信心的合理方式，因为它会把已知 good integration 置于风险中。

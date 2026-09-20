@@ -130,3 +130,10 @@ A stage is complete only when owned behavior is implemented, validation is green
 Use an approximately 20-minute soft stage budget including closure/handoff; it is a heuristic, not a hard timeout. Split a stage when continuing implementation would endanger true closure. Short fully closed stages are preferable to repeated almost-complete windows.
 
 For release-facing stages, source-tree tests are not package proof. Build and install the artifact in an isolated environment, exercise representative entry points, and verify required non-code runtime resources from the installed layout before calling the release usable.
+
+## Stage 19 OAuth Edge recovery discipline
+- Treat 9341 compatibility-edge readiness as the managed OAuth Edge contract; 9340 child liveness alone is degraded, not ready.
+- Reuse an existing 9340 child only when the current canonical public issuer matches and local listener identity is unambiguous.
+- Reconcile Windows venv launcher PID to the real 9341 listener only after strict process + edge-state evidence.
+- Use an independent repair plane for WebGPT/OAuth self-restart; reacquire tool/browser refs after the runtime returns.
+- After the real ChatGPT connector is confirmed working, freeze disruptive Connector/Funnel/OAuth acceptance unless a concrete defect requires mutation.

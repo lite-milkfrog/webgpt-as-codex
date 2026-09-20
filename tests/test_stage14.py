@@ -150,6 +150,14 @@ def test_runtime_owns_edge_wrapper_not_external_backends() -> None:
     assert "coding-tools" not in runtime.MANAGER_RESTARTABLE
 
 
+def test_production_edge_uses_standard_https_port(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(edge_runtime, "tailscale_dns_name", lambda: "node.example.ts.net")
+    assert edge_runtime.PUBLIC_PORT == 443
+    assert edge_runtime.public_base_url() == "https://node.example.ts.net"
+
+
 def test_start_all_blocks_edge_when_prerequisites_are_not_ready(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:

@@ -3,9 +3,9 @@
 [English](../CURRENT-PROJECT-STATE.md) | **简体中文**
 
 PROJECT = WebGPT-as-Codex  
-CURRENT_STAGE = STAGE-19-END-TO-END-DEPLOYMENT-ACCEPTANCE
-NEXT_STAGE = SUPPLEMENTAL-FINAL-ACCEPTANCE
-AFTER_NEXT_STAGE = GLOBAL_LOOP_COMPLETE
+CURRENT_STAGE = SUPPLEMENTAL-FINAL-ACCEPTANCE
+NEXT_STAGE = GLOBAL_LOOP_COMPLETE
+AFTER_NEXT_STAGE = TERMINAL
 
 ## 已接受主链
 
@@ -20,7 +20,7 @@ Stage 1-12、Final Overall Acceptance、Project Complete 均为 `CLOSED_LOCAL_VE
 - Stage 17: `CLOSED_LOCAL_VERIFIED`
 - Stage 17 post-acceptance Hotfix: `CLOSED_LOCAL_VERIFIED`
 - Stage 18: `CLOSED_LOCAL_VERIFIED`
-- Stage 19: `PLANNED`
+- Stage 19: `CLOSED_LOCAL_VERIFIED`；并完成 REAL_HOST_VERIFIED + REAL_CHATGPT_VERIFIED
 - Supplemental Final Acceptance: `PLANNED`
 
 ## Stage 13 证据
@@ -131,3 +131,17 @@ secret scan、diff check PASS；源码 checkout 外 isolated wheel 安装验证
 Closure: `docs/STAGE-18-CLOSURE.md`。
 
 Stage18 完成后，程序状态仍为 `ACTIVE`，必须递归交接 Stage19。
+
+## Stage 19 证据
+
+- canonical public MCP identity 固定为 HTTPS 443，不再依赖显式旧端口；真实 Funnel 指向 loopback 9341 OAuth compatibility edge。
+- 真实恢复事故证明：9340 OAuth child 存活不等于 Edge ready。此前 Start All 会在 9341 缺失时因为 9340 仍监听而错误报 fully ready；现已改为以仓库拥有的 9341 contract 为准。
+- 已运行 OAuth proxy 只有在 9340 listener 与当前 canonical public issuer 完全匹配时才允许复用；随后由 compatibility edge 恢复 9341，不旋转 OAuth 密码、不改变 public identity。
+- Windows venv launcher 到真实 listener 的 PID rebinding 现在也覆盖 OAuth Edge，receipt 会绑定真实 9341 listener，避免 generation/contract 假红。
+- 真实主机恢复后：9341 OAuth metadata = 200，public /mcp = 401，public OAuth metadata = 200，URL/issuer 保持不变。
+- production OAuth E2E 通过 metadata、401、DCR + PKCE token、87 tools authenticated MCP、Edge restart、refresh continuity、restart 后再次 87 tools authenticated MCP。
+- 用户随后已在 ChatGPT 端重新配置成功；从该成功点开始，本 Stage 冻结 production connector/Funnel/OAuth，禁止为了验收再次做扰动性 restart。
+- full repository gate：205 PASS；Ruff PASS；SECRET_SCAN_PASS；git diff --check PASS。
+- fresh wheel 在 repo 外新 venv 安装并验证 8 component manifests、4 Manager resources、9 release resources、LICENSE hash 与 CLI 0.1.0。
+
+Closure: `docs/STAGE-19-CLOSURE.md`。

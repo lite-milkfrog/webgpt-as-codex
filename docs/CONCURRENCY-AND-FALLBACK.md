@@ -151,3 +151,15 @@ The current CLI-installed Serena used by the real isolated Stage 16 probe self-r
 - Computer Agent Skill 1.1.16-local-candidate: `VALIDATION_OK`, 49 scenarios.
 
 The real Serena cleanup probe also produced the Stage 16 shutdown-race lesson: the first bounded stop confirmation can time out even though the isolated process exits shortly afterwards. The final implementation therefore observes post-state for a bounded window before deciding that a new mutation could be necessary.
+
+## Stage 19 — self-restart control-plane recovery
+
+A runtime-plane connector must not be the only repair path for its own restart. If WebGPT/OAuth is being restarted, use the independent repair plane (local Agent shell/filesystem/process access or Remote Desktop Commander) for the mutation and post-state verification.
+
+Do not reuse stale MCP session or browser references across a WebGPT/OAuth restart. Reacquire readiness and fresh tool/page state after the runtime returns.
+
+Stage 19 also separates child liveness from wrapper readiness: 9340 OAuth child up + 9341 Edge down is degraded, not healthy. Start All/Doctor-style readiness must not false-green that state.
+
+Recovery may reuse an already-running 9340 child only when canonical issuer identity matches. This is preserve/reconciliation, not a second mutation. Ambiguous child identity remains fail-closed.
+
+After a real ChatGPT connector has been successfully established, acceptance work should prefer read-only verification. Repeated restart/re-register cycles are not a valid way to gain confidence when they put the known-good external integration at risk.

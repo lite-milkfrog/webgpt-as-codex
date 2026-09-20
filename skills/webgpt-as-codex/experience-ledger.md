@@ -591,3 +591,27 @@ Protected lesson:
 - never invent or paste an upstream license from memory when repository/upstream
   metadata can identify the provenance boundary; the redistributed upstream
   artifact's own license/NOTICE remains authoritative.
+
+## 2026-09-20 — Child-process liveness must not satisfy wrapper readiness
+
+Origin:
+- Stage 19 real recovery after an OAuth Edge restart left the child OAuth proxy on 9340 alive while the repository compatibility edge on 9341 was absent;
+- discovery looked only at the component manifest endpoint and incorrectly reported Start All `fully_ready=true`.
+
+Protected lesson:
+- define readiness at the product/runtime boundary, not whichever child port happens to answer;
+- for repository-managed wrappers, Start All must consult the managed RuntimeSpec/contract before declaring ready;
+- a surviving child can be reused only after strict identity/issuer validation;
+- `port alive != correct generation != complete runtime contract`.
+
+## 2026-09-20 — Self-restart needs an independent repair plane
+
+Origin:
+- the production OAuth E2E restarted the same WebGPT Edge carrying the current ChatGPT tool session;
+- the runtime recovered, but the control session could disappear during the restart.
+
+Protected lesson:
+- never require a runtime-plane connector to be the only mechanism that restarts itself;
+- use an independent local Agent/RDC repair plane for restart + post-state evidence;
+- reacquire MCP/browser session references after restart;
+- once the user confirms a real external connector is configured successfully, freeze disruptive acceptance and prefer read-only verification unless a real defect requires mutation.

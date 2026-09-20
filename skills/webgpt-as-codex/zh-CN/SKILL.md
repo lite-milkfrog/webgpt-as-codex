@@ -114,3 +114,10 @@ environment/custom-component/OAuth mutation 全部 serialize，避免 double-cli
 Stage 只有在 owned behavior implemented、validation green、post-state verified、affected docs/ledger updated、closure written、stage committed、next prompt 从 committed HEAD 生成/validate/hash、Playwright-submit、sent message + next assistant run verified 后才完成。
 
 约 20 分钟 soft budget 含 closure/handoff。release-facing stage 不能只做 source-tree test；必须 build/install artifact 到 isolated environment，验证代表性 entry point 和 required non-code resource。
+
+## Stage 19 OAuth Edge recovery discipline
+- managed OAuth Edge contract 以 9341 compatibility-edge readiness 为准；只有 9340 child 存活属于 degraded，不是 ready。
+- 只有 current canonical public issuer 匹配且 local listener identity 无歧义时才复用已有 9340 child。
+- Windows venv launcher PID 只有在 strict process + edge-state evidence 后才 rebind 到真实 9341 listener。
+- WebGPT/OAuth self-restart 使用独立 repair plane；runtime 恢复后重新获取 tool/browser refs。
+- 真实 ChatGPT connector 一旦确认工作，冻结 disruptive Connector/Funnel/OAuth acceptance，除非新的真实 defect 需要 mutation。

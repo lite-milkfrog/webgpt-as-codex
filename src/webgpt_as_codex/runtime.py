@@ -62,6 +62,63 @@ def _manager_generation() -> str:
     return digest.hexdigest()
 
 
+def _auth_edge_generation() -> str:
+    paths = [
+        Path(__file__).with_name("edge_runtime.py"),
+        Path(__file__).with_name("edge.py"),
+        Path(__file__).with_name("oauth_compat.py"),
+    ]
+    digest = hashlib.sha256()
+    for path in paths:
+        digest.update(path.name.encode("utf-8"))
+        try:
+            digest.update(path.read_bytes())
+        except OSError:
+            digest.update(b"<missing>")
+    return digest.hexdigest()
+
+
+def _auth_edge_contract_ready() -> bool:
+    edge_state = ensure_state_dirs() / "runtime" / "edge.json"
+    try:
+        state = json.loads(edge_state.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return False
+    if (
+        not isinstance(state, dict)
+        or state.get("status") != "running"
+        or state.get("public_port") != 443
+    ):
+        return False
+    receipt = _load_pid_record("mcp-auth-proxy")
+    if not receipt or state.get("edge_pid") != receipt.get("pid"):
+        return False
+    auth_pid = state.get("oauth_pid")
+    if not isinstance(auth_pid, int) or auth_pid <= 0:
+        return False
+    if not state.get("oauth_birth_token") or (
+        _process_birth_token(auth_pid) != state["oauth_birth_token"]
+    ):
+        return False
+    if os.name == "nt" and _listener_pid("http://127.0.0.1:9340") != auth_pid:
+        return False
+    public_mcp_url = state.get("public_mcp_url")
+    if not isinstance(public_mcp_url, str) or not public_mcp_url.endswith("/mcp"):
+        return False
+    expected_issuer = public_mcp_url[:-4].rstrip("/")
+    try:
+        with urllib.request.urlopen(
+            "http://127.0.0.1:9341/.well-known/oauth-authorization-server",
+            timeout=1.25,
+        ) as response:
+            if response.status != 200:
+                return False
+            payload = json.loads(response.read().decode("utf-8"))
+    except (OSError, TimeoutError, ValueError, urllib.error.URLError, json.JSONDecodeError):
+        return False
+    return str(payload.get("issuer", "")).rstrip("/") == expected_issuer
+
+
 def _http_200(url: str, timeout: float = 1.25) -> bool:
     try:
         request = urllib.request.Request(url, headers={"Cache-Control": "no-cache"})
@@ -155,6 +212,8 @@ RUNTIME_SPECS: dict[str, RuntimeSpec] = {
         "http://127.0.0.1:9341/.well-known/oauth-protected-resource",
         _auth_edge_argv,
         _auth_edge_cwd,
+        _auth_edge_generation,
+        _auth_edge_contract_ready,
     ),
     "mcpjungle": RuntimeSpec(
         "mcpjungle",
@@ -438,6 +497,19 @@ def _manager_process_identity(pid: int) -> bool:
     return re.search(pattern, command, flags=re.IGNORECASE) is not None
 
 
+def _auth_edge_process_identity(pid: int) -> bool:
+    if _process_image_name(pid) not in {"python.exe", "pythonw.exe", "python", "pythonw"}:
+        return False
+    command = _process_command_line(pid)
+    if not command:
+        return False
+    return re.search(
+        r"(?:^|\s)-m\s+webgpt_as_codex\s+edge-runtime(?:\s|$)",
+        command,
+        flags=re.IGNORECASE,
+    ) is not None
+
+
 def _legacy_manager_listener_pid(spec: RuntimeSpec) -> int | None:
     if spec.id != "manager":
         return None
@@ -447,14 +519,59 @@ def _legacy_manager_listener_pid(spec: RuntimeSpec) -> int | None:
     return pid if _manager_process_identity(pid) else None
 
 
+def _webgpt_auth_listener_pid() -> int | None:
+    from .edge import auth_proxy_binary
+
+    pid = _listener_pid("http://127.0.0.1:9340")
+    if pid is None:
+        return None
+    command = _process_command_line(pid)
+    binary = str(auth_proxy_binary()).lower()
+    data_path = str(ensure_state_dirs() / "oauth-data").lower()
+    if not command or binary not in command.lower() or data_path not in command.lower():
+        return None
+    if not re.search(r"--listen\s+127\.0\.0\.1:9340(?:\s|$)", command):
+        return None
+    return pid
+
+
+def _owned_auth_child_pid(edge_pid: int) -> int | None:
+    try:
+        state = json.loads(
+            (ensure_state_dirs() / "runtime" / "edge.json").read_text(encoding="utf-8")
+        )
+        child = state.get("oauth_pid")
+        if not isinstance(child, int) or child <= 0 or state.get("edge_pid") != edge_pid:
+            return None
+        if not state.get("oauth_birth_token") or (
+            _process_birth_token(child) != state["oauth_birth_token"]
+        ):
+            return None
+        return child if _webgpt_auth_listener_pid() == child else None
+    except (OSError, ValueError, TypeError, json.JSONDecodeError):
+        return None
+
+
 def _sync_listener_identity(spec: RuntimeSpec, launch_pid: int) -> int:
-    if spec.id != "manager":
+    if spec.id not in {"manager", "mcp-auth-proxy"}:
         return launch_pid
     listener_pid = _listener_pid(spec.endpoint)
     if listener_pid is None or listener_pid == launch_pid:
         return launch_pid
-    if not _manager_process_identity(listener_pid):
-        return launch_pid
+    if spec.id == "manager":
+        if not _manager_process_identity(listener_pid):
+            return launch_pid
+    else:
+        if not _auth_edge_process_identity(listener_pid):
+            return launch_pid
+        try:
+            edge_state = json.loads(
+                (ensure_state_dirs() / "runtime" / "edge.json").read_text(encoding="utf-8")
+            )
+        except (OSError, json.JSONDecodeError):
+            return launch_pid
+        if edge_state.get("edge_pid") != listener_pid:
+            return launch_pid
     record = _load_pid_record(spec.id)
     if not record or record.get("pid") != launch_pid:
         return launch_pid
@@ -567,6 +684,8 @@ class RuntimeSupervisor:
             }
         pid, ownership = _owned_pid(component_id)
         listener = _listener_up(spec.endpoint)
+        if pid is not None and listener:
+            pid = _sync_listener_identity(spec, pid)
         record = _load_pid_record(component_id) if pid is not None else None
         generation_current: bool | None = None
         if pid is not None and spec.generation_builder is not None:
@@ -608,7 +727,7 @@ class RuntimeSupervisor:
             }
         before = self.status(component_id)
         if before["listener_up"]:
-            if component_id == "manager" and before["owned"] and (
+            if before["owned"] and spec.generation_builder is not None and (
                 before.get("generation_current") is False
                 or before.get("contract_ready") is False
             ):
@@ -623,7 +742,10 @@ class RuntimeSupervisor:
                         "stop": stopped,
                     }
                 pid = _spawn(spec)
-                if not _wait_ready(spec, pid) or _runtime_contract_ready(spec) is False:
+                ready = _wait_ready(spec, pid)
+                if ready:
+                    pid = _sync_listener_identity(spec, pid)
+                if not ready or _runtime_contract_ready(spec) is False:
                     return {
                         "ok": False,
                         "component_id": component_id,
@@ -659,7 +781,10 @@ class RuntimeSupervisor:
                         "shutdown": shutdown,
                     }
                 pid = _spawn(spec)
-                if not _wait_ready(spec, pid) or _runtime_contract_ready(spec) is False:
+                ready = _wait_ready(spec, pid)
+                if ready:
+                    pid = _sync_listener_identity(spec, pid)
+                if not ready or _runtime_contract_ready(spec) is False:
                     return {
                         "ok": False,
                         "component_id": component_id,
@@ -694,7 +819,10 @@ class RuntimeSupervisor:
                 "pid": before["pid"],
             }
         pid = _spawn(spec)
-        if not _wait_ready(spec, pid):
+        ready = _wait_ready(spec, pid)
+        if ready:
+            pid = _sync_listener_identity(spec, pid)
+        if not ready or _runtime_contract_ready(spec) is False:
             return {
                 "ok": False,
                 "component_id": component_id,
@@ -720,7 +848,13 @@ class RuntimeSupervisor:
                 "status": "not-owned",
                 "ownership_evidence": ownership,
             }
-        mode = _bounded_stop(pid)
+        auth_child = _owned_auth_child_pid(pid) if component_id == "mcp-auth-proxy" else None
+        if auth_child is not None:
+            mode = _bounded_stop(pid, graceful_seconds=15.0)
+        else:
+            mode = _bounded_stop(pid)
+        if auth_child is not None and _pid_exists(auth_child):
+            _bounded_stop(auth_child)
         launcher_shutdown: str | None = None
         if record:
             try:
@@ -749,6 +883,8 @@ class RuntimeSupervisor:
             "status": "stopped",
             "shutdown": mode,
         }
+        if auth_child is not None:
+            result["owned_auth_child_cleared"] = not _pid_exists(auth_child)
         if launcher_shutdown:
             result["launcher_shutdown"] = launcher_shutdown
         return result
@@ -798,7 +934,18 @@ class RuntimeSupervisor:
         for component_id, component in ordered_components:
             live = discovery.get(component_id, {})
             process_up = process_health(component, snapshot)
-            if live.get("listener_up") is True or (
+            if component_id == "mcp-auth-proxy" and component.enabled_by_default and not environment["ready_for_edge"]:
+                rows.append(
+                    {
+                        "component_id": component_id,
+                        "status": "prerequisites-not-ready",
+                        "ok": False,
+                        "next_steps": environment["next_steps"],
+                    }
+                )
+            elif component_id == "mcp-auth-proxy" and component.enabled_by_default:
+                rows.append(self.start(component_id))
+            elif live.get("listener_up") is True or (
                 component.default_endpoint is None and process_up is True
             ):
                 owned_pid, _ = _owned_pid(component_id)
@@ -812,15 +959,6 @@ class RuntimeSupervisor:
                             if live.get("listener_up") is True
                             else "process"
                         ),
-                    }
-                )
-            elif component_id == "mcp-auth-proxy" and component.enabled_by_default and not environment["ready_for_edge"]:
-                rows.append(
-                    {
-                        "component_id": component_id,
-                        "status": "prerequisites-not-ready",
-                        "ok": False,
-                        "next_steps": environment["next_steps"],
                     }
                 )
             elif component_id in self.specs and component.enabled_by_default:

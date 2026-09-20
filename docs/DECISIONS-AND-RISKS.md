@@ -426,3 +426,20 @@ requires an explicit disposition for every candidate, verifies every
 component provenance against manifests, covers declared Python dependencies and
 checks the release-resource list. A later source change must update its mirror
 or intentionally revise the coverage contract.
+
+## Stage 19 — OAuth Edge readiness decisions
+
+### Decision: 9340 child liveness is not OAuth Edge readiness
+The product contract terminates at the repository compatibility edge on 9341 before the child OAuth proxy on 9340. Therefore a live 9340 listener cannot make Start All report the Edge fully ready while 9341 is absent.
+
+### Decision: preserve a compatible OAuth child instead of rotating state
+When a pre-existing 9340 child advertises the current canonical public issuer, the new 9341 wrapper may reuse it. This avoids gratuitous password rotation, OAuth database churn and connector recreation. Any issuer mismatch or ambiguous listener identity fails closed.
+
+### Decision: receipt identity follows the real OAuth Edge listener
+Windows venv launch wrappers can produce a launch PID distinct from the listener PID. Stage 19 extends the existing Manager reconciliation pattern to the OAuth Edge and rebinds only after strict process identity plus `edge.json` evidence.
+
+### Risk: self-restart can cut the control plane
+A ChatGPT session routed through WebGPT can lose its own tool transport while restarting WebGPT. Repair/restart acceptance therefore belongs to an independent repair plane, with post-restart session/tool references reacquired rather than assumed valid.
+
+### Risk: repeated production acceptance can break a known-good connector
+Once the user confirms the real ChatGPT connector is successfully configured, subsequent acceptance should freeze disruptive Connector/Funnel/OAuth mutations. A Windows reboot remains an explicit manual acceptance item rather than being forced during closure.

@@ -112,3 +112,11 @@ Unified Gateway 与 Remote Desktop Commander 是独立 rescue path：
 identifier、command、URL、schema key、hash、protocol constant 在语言间保持精确不变。
 
 Stage17 已完成 Manager/desktop 部分。Stage18 负责仓库级 documentation/release mirror 与 third-party notices。Stage17 Hotfix 进一步保证“9200 listening”不能单独证明当前 runtime generation，并把普通 desktop URL opening 与 Playwright automation profile 分离。
+
+## Stage 19 产品目标对齐
+
+生产 Gateway contract 已在 canonical HTTPS 443 上真实验证：9341 compatibility edge、9340 OAuth proxy、9330 Gateway。readiness 是端到端的；只有 9340 child 存活不能算完整 ready。
+
+真实 recovery path 只有在 canonical issuer 匹配时才复用兼容 OAuth child，然后恢复 managed 9341 Edge，不改变 public identity 或 credential。runtime receipt 跟随真实 listener PID，不把 Windows venv launcher wrapper 当最终 identity。
+
+生产验收通过 public OAuth metadata、401 protection、DCR/PKCE、authenticated 87-tool MCP、controlled Edge restart、refresh continuity、restart 后 authenticated MCP。随后用户确认 ChatGPT connector 配置成功；从该时点开始冻结扰动性 production acceptance，后续只做 reconciliation/release-readiness，不再反复 churn connector。

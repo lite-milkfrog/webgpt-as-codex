@@ -11,7 +11,7 @@ from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
-from .paths import user_home
+from .paths import state_root, user_home
 from .runtime import RuntimeSupervisor
 
 _MARKER = "REM WebGPT-as-Codex managed launcher"
@@ -183,17 +183,50 @@ def _open_manager_url(url: str) -> tuple[bool, str]:
     return bool(webbrowser.open(url)), "default-webbrowser-fallback"
 
 
+def _launcher_log_dir() -> Path:
+    override = os.getenv("WEBGPT_CODEX_LAUNCH_LOG_DIR")
+    if override:
+        return Path(override).expanduser().resolve()
+    agent_data = Path("D:/AgentData")
+    if os.name == "nt" and agent_data.is_dir():
+        return agent_data / "20_State" / "WebGPT-as-Codex" / "logs"
+    return state_root() / "logs" / "launcher"
+
+
 def _launcher_content(*, open_browser: bool) -> str:
     flag = "--open" if open_browser else "--no-open"
-    python = str(_pythonw())
+    python = str(Path(sys.executable))
+    log_root = _launcher_log_dir()
+    log_path = log_root / ("desktop-launcher.log" if open_browser else "autostart.log")
     return (
         "@echo off\r\n"
         f"{_MARKER}\r\n"
         "setlocal\r\n"
         'set "WEBGPT_CODEX_UI_LANG=zh-CN"\r\n'
-        f'start "" /b "{python}" -m webgpt_as_codex launcher {flag} --start-all\r\n'
+        f'if not exist "{log_root}" mkdir "{log_root}"\r\n'
+        f'"{python}" -m webgpt_as_codex launcher {flag} --start-all > "{log_path}" 2>&1\r\n'
+        "if errorlevel 1 (\r\n"
+        "  echo WebGPT launcher failed. Diagnostic output:\r\n"
+        f'  type "{log_path}"\r\n'
+        f'  echo Full log: {log_path}\r\n'
+        + ("  pause\r\n" if open_browser else "")
+        + "  exit /b 2\r\n"
+        " )\r\n"
         "endlocal\r\n"
     )
+
+
+def _previous_launcher_matches(content: str, *, open_browser: bool) -> bool:
+    normalized = content.replace("\r\n", "\n").strip()
+    flag = "--open" if open_browser else "--no-open"
+    pattern = (
+        r"@echo off\n" + re.escape(_MARKER)
+        + r"\nsetlocal\nset \"WEBGPT_CODEX_UI_LANG=zh-CN\"\n"
+        + r'start "" /b "([^"\n]+\\(?:pythonw|python)\.exe)" '
+        + re.escape(f"-m webgpt_as_codex launcher {flag} --start-all")
+        + r"\nendlocal"
+    )
+    return re.fullmatch(pattern, normalized, flags=re.IGNORECASE) is not None
 
 
 def _legacy_launcher_content(*, open_browser: bool) -> str:
@@ -299,9 +332,9 @@ def _uninstall(
 def desktop_launcher(action: str) -> dict[str, Any]:
     path = desktop_dir() / _DESKTOP_NAME
     expected = _launcher_content(open_browser=True)
-    legacy_matcher = lambda content: _legacy_launcher_matches(
-        content,
-        open_browser=True,
+    legacy_matcher = lambda content: (
+        _legacy_launcher_matches(content, open_browser=True)
+        or _previous_launcher_matches(content, open_browser=True)
     )
     if action == "status":
         return {
@@ -319,9 +352,9 @@ def desktop_launcher(action: str) -> dict[str, Any]:
 def autostart(action: str) -> dict[str, Any]:
     path = startup_dir() / _AUTOSTART_NAME
     expected = _launcher_content(open_browser=False)
-    legacy_matcher = lambda content: _legacy_launcher_matches(
-        content,
-        open_browser=False,
+    legacy_matcher = lambda content: (
+        _legacy_launcher_matches(content, open_browser=False)
+        or _previous_launcher_matches(content, open_browser=False)
     )
     if action == "status":
         return {
@@ -345,7 +378,8 @@ def run_launcher(*, open_browser: bool = True, start_all: bool = True) -> dict[s
     if manager.get("ok") and open_browser:
         opened, browser_mode = _open_manager_url("http://127.0.0.1:9200/")
     return {
-        "ok": bool(manager.get("ok")) and (runtimes is None or bool(runtimes.get("ok"))),
+        "ok": bool(manager.get("ok")) and (runtimes is None or bool(runtimes.get("ok")))
+        and (not open_browser or opened),
         "manager": manager,
         "start_all": runtimes,
         "browser_open_requested": open_browser,

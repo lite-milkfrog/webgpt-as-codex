@@ -178,3 +178,15 @@ Handoff 因果分离：committed plan 不冻结 `SOURCE_HEAD`；closure commit �
 Stage12 规定 installed wheel 与 source checkout 是不同环境。原边界为 Python runtime + `share/webgpt-as-codex/components` + `share/webgpt-as-codex/manager/static`。
 
 Stage18 在不改变 runtime authority 的前提下增加一个**有界公开 release resource 集**：双语 README、原始 `LICENSE`、非约束中文阅读译本、双语 third-party notices、provenance JSON、translation coverage manifest/docs，安装到 `share/webgpt-as-codex/release`。Stage closure、prompt、完整 Skill source、machine-local state/secrets/update/handoff/PID/browser-account evidence 仍不进入 wheel。
+
+## Stage 19 — canonical OAuth Edge 恢复
+
+生产 public identity 固定为 HTTPS 443。Tailscale Funnel 指向 loopback 9341 的 repository compatibility edge；child OAuth proxy 仍在 9340，Unified Gateway 在 9330。
+
+Stage19 关闭了一个 false-green：9340 child 存活不等于 repository-owned OAuth Edge ready。`Start All` 现在以 9341 runtime contract 判断 managed Edge，而不是把 raw child listener 当成完整 Edge。
+
+只有当现存 9340 child 的 listener 端口正确、advertised issuer 与当前 canonical public base 完全一致时才允许复用。随后 9341 compatibility edge 可以围绕它恢复，不旋转 credential、不改变 public identity。incompatible/ambiguous generation fail closed。
+
+Windows venv launcher indirection 也纳入 OAuth Edge reconciliation：managed receipt 只有在 process identity + `edge.json` 都匹配时，才从 launch PID rebind 到真实 9341 listener。因此 generation/readiness 描述真实 listener，而不是 wrapper PID。
+
+repair plane 与 runtime plane 保持独立。完整本地 Agent 或 Remote Desktop Commander 可以在 public WebGPT connector 不可用时维修 WebGPT；坏掉的 public endpoint 绝不能成为修复自身的前置依赖。

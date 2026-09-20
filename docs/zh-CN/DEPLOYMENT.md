@@ -159,3 +159,15 @@ Desktop launcher 是普通用户浏览入口，不是 Playwright runtime。已�
 - desktop launcher + Manager 工作；
 - fallback path 已演练；
 - concurrency policy 已文档化并测试。
+
+## Stage 19 production identity / recovery
+
+生产 WebGPT 使用一个 canonical `https://<stable-tailnet-dns>/mcp` HTTPS 443 identity。普通 Manager、Gateway、OAuth Edge、WebGPT、Windows restart 不应主动改变这个 identity、issuer 或 OAuth credential。
+
+`Start All` 必须区分 9340 OAuth child 与完整 9341 OAuth Edge。仅有 9340 listener 绝不能满足 Edge readiness；只有 9341 compatibility contract、当前 issuer、repository generation 与 public 401/OAuth metadata 一致时才算 ready。
+
+如果匹配的 9340 child 在 9341 wrapper 缺失时仍然存活，WebGPT 只有验证 canonical issuer 后才可复用它，从而无需 credential rotation 或 connector recreation。unknown/incompatible listener fail closed。
+
+Stage19 真实主机验收已经通过 local 9341 metadata 200、public `/mcp` 401、当前 OAuth metadata、DCR + PKCE、authenticated MCP、refresh continuity，以及 Edge restart 前后相同的 87-tool surface。用户确认 ChatGPT connector 配置成功后，本 Stage 冻结 production Connector/Funnel/OAuth，禁止继续做扰动性 acceptance。
+
+成功配置后没有强制 Windows 整机重启。该项记录为 manual real-reboot acceptance；startup/recovery contract 已实现并测试，但保护刚建立的 production connector 优先于“为了证明而重启”。

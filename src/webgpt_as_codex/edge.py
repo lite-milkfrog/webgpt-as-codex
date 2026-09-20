@@ -14,6 +14,45 @@ import requests
 
 from .paths import ensure_state_dirs
 
+FUNNEL_ALLOWED_HTTPS_PORTS = frozenset({443, 8443, 10000})
+
+
+def public_https_base(dns: str, public_port: int) -> str:
+    if public_port == 443:
+        return f"https://{dns}"
+    return f"https://{dns}:{public_port}"
+
+
+def funnel_proxy_for_port(public_port: int) -> str | None:
+    result = subprocess.run(
+        [str(tailscale_binary()), "funnel", "status", "--json"],
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        errors="replace",
+        timeout=20,
+        check=False,
+    )
+    if result.returncode:
+        raise RuntimeError(result.stderr or result.stdout)
+    data = json.loads(result.stdout or "{}")
+    web = data.get("Web", {})
+    if not isinstance(web, dict):
+        return None
+    for authority, config in web.items():
+        authority_port = 443
+        if ":" in authority:
+            suffix = authority.rsplit(":", 1)[-1]
+            if suffix.isdigit():
+                authority_port = int(suffix)
+        if authority_port != public_port or not isinstance(config, dict):
+            continue
+        handlers = config.get("Handlers", {})
+        root = handlers.get("/") if isinstance(handlers, dict) else None
+        if isinstance(root, dict) and root.get("Proxy"):
+            return str(root["Proxy"])
+    return None
+
 
 def auth_proxy_binary() -> Path:
     override = os.getenv("WEBGPT_CODEX_AUTH_PROXY")
@@ -127,7 +166,16 @@ def temporary_auth_proxy(
                 process.wait(timeout=3)
 
 
-def start_funnel(local_url: str, *, public_port: int = 10003) -> str:
+def start_funnel(local_url: str, *, public_port: int = 443) -> str:
+    if public_port not in FUNNEL_ALLOWED_HTTPS_PORTS:
+        raise ValueError(
+            "Tailscale Funnel HTTPS port must be one of 443, 8443, or 10000"
+        )
+    existing = funnel_proxy_for_port(public_port)
+    if existing and existing.rstrip("/") != local_url.rstrip("/"):
+        raise RuntimeError(
+            f"Tailscale Funnel HTTPS port {public_port} already has another target"
+        )
     dns = tailscale_dns_name()
     result = subprocess.run(
         [
@@ -148,10 +196,10 @@ def start_funnel(local_url: str, *, public_port: int = 10003) -> str:
     )
     if result.returncode:
         raise RuntimeError(result.stderr or result.stdout)
-    return f"https://{dns}:{public_port}"
+    return public_https_base(dns, public_port)
 
 
-def stop_funnel(*, public_port: int = 10003) -> None:
+def stop_funnel(*, public_port: int = 443) -> None:
     result = subprocess.run(
         [
             str(tailscale_binary()),

@@ -185,3 +185,15 @@ A deployment is not complete until:
 - desktop launcher and Manager work;
 - fallback paths are exercised;
 - concurrency policy is documented and tested.
+
+## Stage 19 production identity / recovery rule
+
+Production WebGPT uses one canonical `https://<stable-tailnet-dns>/mcp` identity on HTTPS 443. Ordinary Manager, Gateway, OAuth Edge, WebGPT and Windows restarts must not intentionally change that identity, issuer or OAuth credential.
+
+`Start All` must distinguish the 9340 OAuth child from the complete 9341 OAuth Edge. A raw 9340 listener can never by itself satisfy Edge readiness. The managed Edge is ready only when the 9341 compatibility contract, current issuer, repository generation and public 401/OAuth metadata all agree.
+
+If a matching 9340 OAuth child survives while the 9341 wrapper is absent, WebGPT may reuse that child only after verifying the canonical issuer. This permits restart recovery without forcing a credential rotation or connector recreation. Unknown/incompatible listeners fail closed.
+
+Stage 19 real-host acceptance proved local 9341 metadata 200, public `/mcp` 401, current OAuth metadata, DCR + PKCE, authenticated MCP, refresh continuity and the same 87-tool surface across an Edge restart. After the user confirmed the ChatGPT connector was configured successfully, the production Connector/Funnel/OAuth state was frozen against further disruptive acceptance in this stage.
+
+A full Windows reboot was deliberately not forced after that successful real connector setup. Treat it as a manual real-reboot acceptance item; the startup/recovery contract is implemented and tested, but preserving the newly established production connector takes priority over destructive proof-by-reboot.

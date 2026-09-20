@@ -232,3 +232,15 @@ translation coverage manifest/contract. These files are release-facing evidence,
 not a second runtime/control authority.
 
 `resource_root()` prefers the source checkout when runtime resources are present and otherwise resolves the installed `sys.prefix/share/webgpt-as-codex` tree. Repository-only artifacts such as stage closures, prompt plans, the complete Skill source and other engineering evidence are not runtime wheel data. Machine-local state, secrets, staged updates, handoff receipts, PID/process evidence and browser/account state remain outside both Git and release artifacts.
+
+## Stage 19 — canonical OAuth Edge recovery
+
+The production public identity is canonical HTTPS on port 443. Tailscale Funnel targets the repository compatibility edge on loopback 9341; the child OAuth proxy remains on 9340 and the Unified Gateway on 9330.
+
+Stage 19 closes a false-green gap: a live 9340 child is not proof that the repository-owned OAuth Edge is ready. `Start All` now evaluates the managed Edge through its 9341 runtime contract instead of preserving a raw child listener as a complete Edge.
+
+A compatible pre-existing 9340 child may be reused only when its listener is the expected local port and its advertised issuer matches the current canonical public base. The 9341 compatibility edge can then recover around it without rotating credentials or changing the public identity. Incompatible or ambiguous generations fail closed.
+
+Windows virtual-environment launcher indirection is also reconciled for the OAuth Edge: the managed receipt may rebind from the launch PID to the real 9341 listener only after process identity plus `edge.json` evidence match. Generation and readiness therefore describe the real listener rather than a wrapper PID.
+
+The repair plane remains independent of the runtime plane. A full local Agent or Remote Desktop Commander may inspect/repair WebGPT while the public WebGPT connector is unavailable; the dead public endpoint is never a prerequisite for repairing itself.

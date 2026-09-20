@@ -172,3 +172,20 @@ Stage closure、cost evidence、handoff prompt 不为“视觉双语”改写；
 
 ### 风险：中文镜像可能漂移
 Stage18 使用 machine-readable coverage + tests 把 mirror existence、legal hash、provenance、package resource 变成 regression gate。后续修改 live source 时必须同步 mirror 或显式更新 disposition。
+
+## Stage 19 — OAuth Edge readiness 决策
+
+### 决策：9340 child liveness 不等于 OAuth Edge readiness
+产品 contract 在 9341 repository compatibility edge 上收口，再进入 9340 child OAuth proxy。因此 9341 缺失时，即使 9340 listener 存活，Start All 也不能报告 fully ready。
+
+### 决策：兼容 child 优先 preserve，不旋转 state
+当现存 9340 child 广播当前 canonical public issuer 时，新 9341 wrapper 可以复用它，避免无意义的 password rotation、OAuth DB churn 与 connector recreation。issuer mismatch 或 listener identity ambiguous 时 fail closed。
+
+### 决策：receipt identity 跟随真实 OAuth Edge listener
+Windows venv launch wrapper 的 launch PID 可能不同于 listener PID。Stage19 把 Manager 的 reconciliation 模式扩展到 OAuth Edge，只在 strict process identity + `edge.json` evidence 成立时 rebind。
+
+### 风险：self-restart 会切断 control plane
+如果 ChatGPT 当前正通过 WebGPT 操作，restart WebGPT 可能切断本轮 tool transport。因此 restart acceptance 由 independent repair plane 执行，恢复后重新获取 session/tool refs。
+
+### 风险：重复 production acceptance 会破坏 known-good connector
+用户确认真实 ChatGPT connector 配置成功后，后续验收冻结 disruptive Connector/Funnel/OAuth mutation。Windows reboot 记录为显式 manual acceptance，而不是 closure 时强制执行。
