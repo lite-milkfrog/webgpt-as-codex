@@ -1,5 +1,7 @@
 # Add MCP Workflow
 
+[**English**](add-mcp.md) | [简体中文](zh-CN/add-mcp.md)
+
 Stage 9 turns Add MCP into a discovery-first onboarding workflow. The workflow is bounded: it learns capabilities, builds operating knowledge and attaches routing/inventory evidence, but it does not acquire arbitrary lifecycle authority.
 
 ## Default contract

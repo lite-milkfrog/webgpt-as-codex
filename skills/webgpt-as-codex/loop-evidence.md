@@ -1,5 +1,7 @@
 # Loop Engineering Evidence Model
 
+[**English**](loop-evidence.md) | [简体中文](zh-CN/loop-evidence.md)
+
 Stage 10 makes Loop Engineering execution evidence durable and machine-recoverable without turning private machine state into repository truth.
 
 ## Durable stage state

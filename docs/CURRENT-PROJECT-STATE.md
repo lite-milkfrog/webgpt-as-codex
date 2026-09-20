@@ -1,9 +1,11 @@
 # Current Project State
 
+[**English**](CURRENT-PROJECT-STATE.md) | [简体中文](zh-CN/CURRENT-PROJECT-STATE.md)
+
 PROJECT = WebGPT-as-Codex
-CURRENT_STAGE = STAGE-18-CHINESE-MIRROR-AND-THIRD-PARTY-NOTICES
-NEXT_STAGE = STAGE-19-END-TO-END-DEPLOYMENT-ACCEPTANCE
-AFTER_NEXT_STAGE = SUPPLEMENTAL-FINAL-ACCEPTANCE
+CURRENT_STAGE = STAGE-19-END-TO-END-DEPLOYMENT-ACCEPTANCE
+NEXT_STAGE = SUPPLEMENTAL-FINAL-ACCEPTANCE
+AFTER_NEXT_STAGE = GLOBAL_LOOP_COMPLETE
 
 Stage 1: CLOSED_LOCAL_VERIFIED
 Stage 2: CLOSED_LOCAL_VERIFIED
@@ -26,7 +28,7 @@ Supplemental chain (user requirements added after the accepted TERMINAL state):
 - Stage 15: CLOSED_LOCAL_VERIFIED
 - Stage 16: CLOSED_LOCAL_VERIFIED
 - Stage 17: CLOSED_LOCAL_VERIFIED
-- Stage 18: PLANNED
+- Stage 18: CLOSED_LOCAL_VERIFIED
 - Stage 19: PLANNED
 - Supplemental Final Acceptance: PLANNED
 
@@ -115,6 +117,19 @@ Post-acceptance Hotfix proof:
 
 Hotfix closure: `docs/STAGE-17-POST-ACCEPTANCE-HOTFIX-CLOSURE.md`.
 
+Stage 18 proof:
+- a deterministic repository-wide mirror contract now covers root entrypoints, current live docs and Product Skill/Guides while preserving protocol identifiers, commands, URLs, schema keys and hashes;
+- `docs/TRANSLATION-COVERAGE.json` classifies 155 Stage18 text-format candidates/dispositions: 21 mirrored current sources, 23 mirror targets, 1 preserved legal original, 15 language-neutral artifacts, 36 preserved historical-evidence artifacts, 58 non-reader executable artifacts and 1 bilingual-inline contract;
+- historical closure/cost/prompt evidence was not rewritten; Chinese readers use `docs/zh-CN/HISTORICAL-EVIDENCE-INDEX.md`;
+- root `LICENSE` remains 11,558 bytes with SHA-256 `1eb85fc97224598dad1852b5d6483bbcf0aa8608790dcc657a5a2a761ae9c8c6`; `LICENSE.zh-CN.md` is explicitly non-binding and defers to the English original;
+- third-party provenance now reconciles all eight `components/*.json` entries plus setuptools/requests/pytest/Ruff from `pyproject.toml`; bilingual notices and machine-readable `docs/THIRD-PARTY-PROVENANCE.json` are public-safe;
+- the wheel now carries a bounded 9-file bilingual release/legal/provenance resource group in addition to the existing component manifests and bilingual Manager static UI;
+- targeted Stage18/12/17/Hotfix gate: 27 PASS; full repository: 191 PASS; Ruff, secret scan and `git diff --check`: PASS;
+- a fresh PEP517 wheel installed outside the source checkout and verified 8 component manifests, 4 Manager static resources, all 9 Stage18 release resources, the original license hash, `load_components()==8` and CLI version 0.1.0;
+- shared Serena 9121 was not switched/restarted; Stage18 changes no closed runtime behavior and claims `LOCAL_IMPLEMENTATION + LOCAL_VERIFIED`, not new real-host/device acceptance.
+
+Stage 18 closure: `docs/STAGE-18-CLOSURE.md`.
+
 Repository: local checkout; use the active project/workspace binding rather than committing a machine-specific absolute path.
 Stage 4 proof: unified Gateway, 4 core MCP backends, 87 tools, safe calls PASS.
 Stage 5 proof: real Tailscale HTTPS edge, DCR + PKCE + token + 401 gate + restart + refresh + authenticated MCP call PASS.
@@ -147,7 +162,6 @@ Cross-stage supplemental contract is active immediately:
 - future verified stages/runs continue collecting stage-cost evidence (implementation/closure effort, retries, tool switches, tests/docs, handoff first-pass success and almost-done incidents) so the heuristic can self-correct without inventing a platform timeout.
 
 Remaining planned roadmap:
-- `STAGE-18-CHINESE-MIRROR-AND-THIRD-PARTY-NOTICES`
 - `STAGE-19-END-TO-END-DEPLOYMENT-ACCEPTANCE`
 - `SUPPLEMENTAL-FINAL-ACCEPTANCE`
 

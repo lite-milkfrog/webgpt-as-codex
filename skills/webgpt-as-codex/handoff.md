@@ -1,5 +1,7 @@
 # Handoff
 
+[**English**](handoff.md) | [简体中文](zh-CN/handoff.md)
+
 A handoff prompt is generated from verified local state after the current stage commit.
 It is never a copy of the previous prompt with only a renamed stage.
 

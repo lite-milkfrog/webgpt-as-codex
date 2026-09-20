@@ -1,5 +1,7 @@
 # Architecture
 
+[**English**](ARCHITECTURE.md) | [简体中文](zh-CN/ARCHITECTURE.md)
+
 ## Planes
 1. Agent plane: reusable Skill, local SoT, stage/handoff rules.
 2. Control plane: bootstrap, component registry, Doctor/Repair, Manager.
@@ -218,8 +220,15 @@ Final handoff receipts are post-commit machine-local evidence so receipt persist
 
 Stage 12 treats an installed wheel as a distinct runtime environment from a source checkout. Runtime code must not assume that repository-root sibling directories survive installation.
 
-The wheel carries only the public runtime resources required by installed commands:
+The wheel carries the public runtime resources required by installed commands:
 - component manifests under `share/webgpt-as-codex/components`;
 - the Manager static UI under `share/webgpt-as-codex/manager/static`.
 
-`resource_root()` prefers the source checkout when those resources are present and otherwise resolves the installed `sys.prefix/share/webgpt-as-codex` tree. Repository-only artifacts such as stage closures, prompt plans, Skill source and public engineering evidence are not runtime wheel data. Machine-local state, secrets, staged updates, handoff receipts, PID/process evidence and browser/account state remain outside both Git and release artifacts.
+Stage 18 adds one bounded public release/legal/provenance resource set under
+`share/webgpt-as-codex/release`: the English/Chinese README, the authoritative
+Apache-2.0 `LICENSE`, its explicitly non-binding Chinese reading translation,
+bilingual third-party notices, machine-readable third-party provenance and the
+translation coverage manifest/contract. These files are release-facing evidence,
+not a second runtime/control authority.
+
+`resource_root()` prefers the source checkout when runtime resources are present and otherwise resolves the installed `sys.prefix/share/webgpt-as-codex` tree. Repository-only artifacts such as stage closures, prompt plans, the complete Skill source and other engineering evidence are not runtime wheel data. Machine-local state, secrets, staged updates, handoff receipts, PID/process evidence and browser/account state remain outside both Git and release artifacts.

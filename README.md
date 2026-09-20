@@ -1,5 +1,7 @@
 # WebGPT-as-Codex
 
+[**English**](README.md) | [简体中文](README.zh-CN.md)
+
 WebGPT-as-Codex is a local-first control plane for using a web AI client as a durable coding/computer agent over MCP. Repository state is the public-safe source of truth; machine-local runtime state, credentials and browser/account state stay outside Git.
 
 ## Architecture
@@ -24,7 +26,7 @@ python -m venv .venv
 .\.venv\Scripts\webgpt-codex.exe --version
 ```
 
-The wheel includes the public component manifests plus English/Chinese Manager HTML and their shared CSS/JavaScript required by installed runtime commands. Machine-local state is created outside the installed package.
+The wheel includes the public component manifests plus English/Chinese Manager HTML and their shared CSS/JavaScript required by installed runtime commands. Stage18 also packages bilingual public release/legal/provenance resources: the English/Chinese README, authoritative Apache-2.0 `LICENSE`, its explicitly non-binding Chinese reading translation, bilingual third-party notices, provenance metadata and the translation coverage manifest. Machine-local state is created outside the installed package.
 
 For development:
 
@@ -75,6 +77,6 @@ Manager local credential controls are loopback/confirmation gated. Normal status
 
 Git and release artifacts must not contain OAuth databases, tokens, passwords, private keys, cookies, browser profiles, pairing data, private machine URLs, local state receipts, generated handoff receipts, PID/process state or machine-specific private paths.
 
-The wheel intentionally carries only runtime Python code plus public component manifests and the Manager static UI. Project documentation, stage evidence and Skill sources remain repository artifacts; machine-local runtime evidence remains outside both.
+The wheel intentionally carries runtime Python code plus public component manifests, the Manager static UI and the bounded Stage18 public release/legal/provenance resources listed above. Project documentation beyond those release resources, stage evidence and Skill sources remain repository artifacts; machine-local runtime evidence remains outside both.
 
 See `docs/ARCHITECTURE.md`, `docs/CURRENT-PROJECT-STATE.md`, `docs/DECISIONS-AND-RISKS.md` and `skills/webgpt-as-codex/SKILL.md`.

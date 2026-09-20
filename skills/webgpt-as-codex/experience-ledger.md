@@ -545,3 +545,49 @@ Protected lesson:
 - Reveal may return plaintext only in the explicit loopback/confirmed response and must not be copied into the activity log;
 - Set and Regenerate should return post-state booleans/restart requirements rather than echoing the value;
 - tests must prove Regenerate changes a disposable value and prove neither old nor new value appears in activity evidence.
+
+## 2026-09-20 — Repository-wide translation needs classification, not extension-based bulk rewriting
+
+Origin:
+- Stage 18 repository-wide Chinese mirror work;
+- the tracked tree contains human documentation, historical closure evidence,
+  protocol/config JSON, source/tests/scripts and shared bilingual Manager code
+  in the same text-like formats.
+
+Protected lesson:
+- audit every text-format candidate, but classify before translating;
+- current reader-facing sources need deterministic mirrors, while protocol
+  identifiers, schema keys, commands, URLs and hashes remain exact;
+- historical closure/prompt/evidence should keep one canonical original and use
+  an explicit translated index/treatment rather than silently rewriting history;
+- turn the classification into a machine-readable regression gate so future
+  additions cannot disappear from the language audit.
+
+## 2026-09-20 — Legal translations must not become a second license authority
+
+Origin:
+- Stage 18 required Chinese access to the Apache-2.0 license while preserving
+  the existing legal file.
+
+Protected lesson:
+- preserve the authoritative license bytes and record a stable digest;
+- put a reading translation in a separate file with an unmistakable
+  non-binding/non-official disclaimer;
+- state that the original language controls every discrepancy;
+- package both only when the installed artifact needs public legal context.
+
+## 2026-09-20 — Third-party provenance is wider than the external-service inventory
+
+Origin:
+- the pre-Stage18 `THIRD_PARTY_NOTICES.md` covered the eight integrated MCP /
+  transport components but did not enumerate the Python build/runtime/dev
+  dependencies declared in `pyproject.toml`.
+
+Protected lesson:
+- reconcile notices from every repository dependency authority relevant to the
+  release, not only the component registry;
+- keep manifest/package declarations machine-readable and test them against the
+  notice/provenance record;
+- never invent or paste an upstream license from memory when repository/upstream
+  metadata can identify the provenance boundary; the redistributed upstream
+  artifact's own license/NOTICE remains authoritative.

@@ -1,5 +1,7 @@
 # Routing
 
+[**English**](routing.md) | [简体中文](zh-CN/routing.md)
+
 Choose the narrowest structured capability closest to the data source.
 
 | Intent | Primary | Fallback |

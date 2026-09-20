@@ -1,5 +1,7 @@
 # Concurrency and Complementary Fallback
 
+[**English**](CONCURRENCY-AND-FALLBACK.md) | [简体中文](zh-CN/CONCURRENCY-AND-FALLBACK.md)
+
 ## Why Serena collides across ChatGPT windows
 
 The currently installed Serena implementation uses one `SerenaAgent` per standard MCP server process and that agent stores a single process-wide `_active_project`.

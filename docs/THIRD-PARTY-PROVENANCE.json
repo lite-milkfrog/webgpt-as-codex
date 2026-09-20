@@ -1,0 +1,119 @@
+{
+  "schema_version": 1,
+  "generated_for": "STAGE-18-CHINESE-MIRROR-AND-THIRD-PARTY-NOTICES",
+  "authority": {
+    "components": "components/*.json",
+    "python_dependencies": "pyproject.toml",
+    "note": "License/provenance labels are metadata references; upstream release license text controls redistribution obligations."
+  },
+  "components": [
+    {
+      "id": "mcpjungle",
+      "source": "components/mcpjungle.json",
+      "upstream": "https://github.com/mcpjungle/MCPJungle",
+      "license_field": "license",
+      "license": "MPL-2.0"
+    },
+    {
+      "id": "mcp-auth-proxy",
+      "source": "components/mcp-auth-proxy.json",
+      "upstream": "https://github.com/sigbit/mcp-auth-proxy",
+      "license_field": "license",
+      "license": "MIT"
+    },
+    {
+      "id": "tailscale",
+      "source": "components/tailscale.json",
+      "upstream": "https://github.com/tailscale/tailscale",
+      "license_field": "license",
+      "license": "BSD-3-Clause core"
+    },
+    {
+      "id": "serena",
+      "source": "components/serena.json",
+      "upstream": "https://github.com/oraios/serena",
+      "license_field": "license_note",
+      "license": "v1.7.0 historical release; upstream main application GPL-3.0-or-later, SolidLSP MIT"
+    },
+    {
+      "id": "coding-tools",
+      "source": "components/coding-tools.json",
+      "upstream": "https://github.com/xyTom/coding-tools-mcp",
+      "license_field": "license",
+      "license": "Apache-2.0"
+    },
+    {
+      "id": "playwright",
+      "source": "components/playwright.json",
+      "upstream": "https://github.com/microsoft/playwright-mcp",
+      "license_field": "license",
+      "license": "Apache-2.0"
+    },
+    {
+      "id": "windows-mcp",
+      "source": "components/windows-mcp.json",
+      "upstream": "https://github.com/CursorTouch/Windows-MCP",
+      "license_field": "license",
+      "license": "MIT"
+    },
+    {
+      "id": "remote-desktop-commander",
+      "source": "components/remote-desktop-commander.json",
+      "upstream": "https://github.com/desktop-commander/remote-desktop-commander",
+      "license_field": "license_note",
+      "license": "hosted relay proprietary; repository docs/manifests only"
+    }
+  ],
+  "python_dependencies": [
+    {
+      "name": "setuptools",
+      "source": "pyproject.toml:[build-system].requires",
+      "constraint": ">=68",
+      "upstream": "https://github.com/pypa/setuptools",
+      "license": "MIT",
+      "scope": "build"
+    },
+    {
+      "name": "requests",
+      "source": "pyproject.toml:[project].dependencies",
+      "constraint": ">=2.32,<3",
+      "upstream": "https://github.com/psf/requests",
+      "license": "Apache-2.0",
+      "scope": "runtime"
+    },
+    {
+      "name": "pytest",
+      "source": "pyproject.toml:[project.optional-dependencies].dev",
+      "constraint": ">=8.0",
+      "upstream": "https://github.com/pytest-dev/pytest",
+      "license": "MIT",
+      "scope": "development"
+    },
+    {
+      "name": "ruff",
+      "source": "pyproject.toml:[project.optional-dependencies].dev",
+      "constraint": ">=0.15",
+      "upstream": "https://github.com/astral-sh/ruff",
+      "license": "MIT",
+      "scope": "development"
+    }
+  ],
+  "observed_local_metadata": {
+    "note": "Evidence only; versions are not release pins.",
+    "requests": {
+      "version": "2.34.2",
+      "license": "Apache-2.0"
+    },
+    "setuptools": {
+      "status": "not-installed-in-development-venv"
+    },
+    "pytest": {
+      "version": "9.1.1",
+      "license": "MIT"
+    },
+    "ruff": {
+      "version": "0.16.8",
+      "license": "MIT"
+    }
+  }
+}

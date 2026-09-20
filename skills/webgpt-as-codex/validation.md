@@ -1,5 +1,7 @@
 # Validation
 
+[**English**](validation.md) | [简体中文](zh-CN/validation.md)
+
 Minimum full-system gates:
 - repository tests and lint;
 - secret scan;

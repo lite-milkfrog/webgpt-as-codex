@@ -1,5 +1,7 @@
 # MCP Operating Guide Contract
 
+[**English**](mcp-operating-guide.md) | [简体中文](zh-CN/mcp-operating-guide.md)
+
 Stage 9 makes MCP operating knowledge a first-class, public-safe artifact.
 
 ## Scope boundary

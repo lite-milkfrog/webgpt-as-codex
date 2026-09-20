@@ -1,5 +1,7 @@
 # Decisions and Risks
 
+[**English**](DECISIONS-AND-RISKS.md) | [简体中文](zh-CN/DECISIONS-AND-RISKS.md)
+
 ## Stage 5 — OAuth/Tailscale edge
 
 ### Decision: one public MCP endpoint
@@ -363,3 +365,64 @@ The current machine's WebGPT production Edge on the dedicated Funnel port passed
 ### Risk: repeated Gateway registration can destroy useful registry continuity
 
 Using `register --force` on every Edge start could churn MCPJungle registry records and any identity-associated state. The implementation therefore queries current registry state and uses force only when a same-name route actually changed.
+
+## Stage 18 — Chinese mirror / third-party provenance
+
+### Decision: translation coverage is an executable repository contract
+
+Stage 18 uses deterministic mirror paths rather than ad-hoc translated copies:
+root entrypoints use sibling `*.zh-CN.md` files, live documentation uses
+`docs/zh-CN/`, and Product Skill/Guide mirrors use
+`skills/webgpt-as-codex/zh-CN/`. The existing Manager keeps its Stage 17
+`index.html` / `index.zh-CN.html` language-shell model over shared
+JavaScript/CSS.
+
+`docs/TRANSLATION-COVERAGE.json` classifies every current tracked/untracked
+text-format candidate instead of treating "not translated" as "not audited".
+Protocol identifiers, commands, URLs, schema keys, hashes, source code and
+machine-readable authority remain exact.
+
+### Decision: canonical historical evidence is indexed, not rewritten
+
+Stage closure records, stage-cost evidence, accumulated incident provenance and
+handoff prompt artifacts are canonical evidence. Rewriting those historical
+files merely to make the tree visually bilingual could create a second timeline
+with subtly different commands, hashes, counts or conclusions. They remain
+unchanged and receive an explicit
+`HISTORICAL_EVIDENCE_PRESERVED_WITH_INDEX` disposition plus
+`docs/zh-CN/HISTORICAL-EVIDENCE-INDEX.md`.
+
+### Decision: the legal original and reading translation have different authority
+
+The root `LICENSE` remains the authoritative Apache License 2.0 text and is
+guarded by its Stage 18 SHA-256
+`1eb85fc97224598dad1852b5d6483bbcf0aa8608790dcc657a5a2a761ae9c8c6`.
+`LICENSE.zh-CN.md` is explicitly non-binding, non-official reading material;
+the English original controls any discrepancy.
+
+### Decision: third-party provenance includes package/build dependencies
+
+The existing notice already named the eight integrated external components, but
+that is not the whole repository dependency surface. Stage 18 reconciles those
+entries against `components/*.json` and also records the `pyproject.toml`
+build/runtime/development dependencies (setuptools, requests, pytest and Ruff)
+in `docs/THIRD-PARTY-PROVENANCE.json` and bilingual notice files. Upstream
+license text is not copied or invented; the exact license/NOTICE shipped by an
+upstream artifact remains authoritative for its redistribution obligations.
+
+### Decision: installed artifacts carry a bounded bilingual release record
+
+The wheel continues to exclude stage closures, prompts, the complete Skill
+source and machine-local evidence. Stage 18 adds only the bilingual README,
+legal/notices, provenance and translation-coverage resources under
+`share/webgpt-as-codex/release`, so an installed artifact retains its public
+license/provenance context without packaging private or machine-specific state.
+
+### Risk: source and mirror can drift after Stage 18
+
+Cross-links alone do not prevent drift. The Stage 18 regression gate therefore
+requires an explicit disposition for every candidate, verifies every
+`MIRRORED_CURRENT` target exists, preserves the legal hash, reconciles
+component provenance against manifests, covers declared Python dependencies and
+checks the release-resource list. A later source change must update its mirror
+or intentionally revise the coverage contract.

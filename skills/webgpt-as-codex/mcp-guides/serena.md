@@ -1,5 +1,7 @@
 # Serena MCP Operating Guide
 
+[**English**](serena.md) | [简体中文](../zh-CN/mcp-guides/serena.md)
+
 Component: `serena`
 
 ## Mental model

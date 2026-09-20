@@ -1,5 +1,7 @@
 # Supplemental Product Goals — 2026-09-20
 
+[**English**](SUPPLEMENTAL-PRODUCT-GOALS-2026-09-20.md) | [简体中文](zh-CN/SUPPLEMENTAL-PRODUCT-GOALS-2026-09-20.md)
+
 This document is the canonical product delta that reopens implementation after the previously accepted TERMINAL state. Stages 1-12 remain closed; this document owns only the new requirements added afterwards.
 
 ## Product outcome

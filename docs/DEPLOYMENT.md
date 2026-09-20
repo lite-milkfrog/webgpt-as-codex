@@ -1,5 +1,7 @@
 # Deployment Contract
 
+[**English**](DEPLOYMENT.md) | [简体中文](zh-CN/DEPLOYMENT.md)
+
 ## Entry point
 
 An Agent or user starts from this repository only. The repository decides the deployment path from discovered machine state.

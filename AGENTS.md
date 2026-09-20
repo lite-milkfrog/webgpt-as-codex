@@ -1,5 +1,7 @@
 # AGENTS.md
 
+[**English**](AGENTS.md) | [简体中文](AGENTS.zh-CN.md)
+
 This repository is the public-safe source of truth for WebGPT-as-Codex.
 
 ## Invariants

@@ -24,6 +24,7 @@ where = ["src"]
 [tool.setuptools.data-files]
 "share/webgpt-as-codex/components" = ["components/*.json"]
 "share/webgpt-as-codex/manager/static" = ["manager/static/index.html", "manager/static/index.zh-CN.html", "manager/static/manager.css", "manager/static/manager.js"]
+"share/webgpt-as-codex/release" = ["README.md", "README.zh-CN.md", "LICENSE", "LICENSE.zh-CN.md", "THIRD_PARTY_NOTICES.md", "THIRD_PARTY_NOTICES.zh-CN.md", "docs/TRANSLATION-COVERAGE.json", "docs/TRANSLATION-COVERAGE.md", "docs/THIRD-PARTY-PROVENANCE.json"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

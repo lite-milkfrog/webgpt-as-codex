@@ -1,0 +1,818 @@
+{
+  "schema_version": 1,
+  "stage": "STAGE-18-CHINESE-MIRROR-AND-THIRD-PARTY-NOTICES",
+  "audit_baseline_head": "f0c70baf2aaedc60e950bbac97a999ea11c80f1f",
+  "product_baseline_head": "310458dfe3cd97720963a08b69a1d82558588e59",
+  "candidate_policy": "All tracked/untracked .md/.json/.toml/.html/.css/.js/.py plus LICENSE/.gitignore during Stage18; every current candidate receives an explicit disposition.",
+  "mirror_convention": {
+    "root": "<name>.zh-CN.md beside the English source",
+    "docs": "docs/zh-CN/<same basename>",
+    "skill": "skills/webgpt-as-codex/zh-CN/<same relative path>",
+    "manager": "index.html + index.zh-CN.html share manager.js and manager.css"
+  },
+  "dynamic_historical_prefixes": [
+    "prompts/"
+  ],
+  "authoritative_legal_file": "LICENSE",
+  "authoritative_legal_sha256": "1eb85fc97224598dad1852b5d6483bbcf0aa8608790dcc657a5a2a761ae9c8c6",
+  "historical_index": "docs/zh-CN/HISTORICAL-EVIDENCE-INDEX.md",
+  "entries": [
+    {
+      "path": ".gitignore",
+      "status": "NOT_HUMAN_READER_CONTENT",
+      "reason": "Repository ignore rules, not reader-facing prose."
+    },
+    {
+      "path": "AGENTS.md",
+      "status": "MIRRORED_CURRENT",
+      "mirror_path": "AGENTS.zh-CN.md",
+      "reason": "Current human-readable source with deterministic Simplified Chinese mirror."
+    },
+    {
+      "path": "AGENTS.zh-CN.md",
+      "status": "MIRROR_TARGET",
+      "reason": "Simplified Chinese mirror/treatment target; identifiers, commands, URLs and hashes preserve source semantics."
+    },
+    {
+      "path": "LICENSE",
+      "status": "LEGAL_ORIGINAL_PRESERVED",
+      "mirror_path": "LICENSE.zh-CN.md",
+      "reason": "Authoritative Apache-2.0 legal text; preserve bytes exactly and provide a non-binding Chinese reading translation."
+    },
+    {
+      "path": "LICENSE.zh-CN.md",
+      "status": "MIRROR_TARGET",
+      "reason": "Simplified Chinese mirror/treatment target; identifiers, commands, URLs and hashes preserve source semantics."
+    },
+    {
+      "path": "README.md",
+      "status": "MIRRORED_CURRENT",
+      "mirror_path": "README.zh-CN.md",
+      "reason": "Current human-readable source with deterministic Simplified Chinese mirror."
+    },
+    {
+      "path": "README.zh-CN.md",
+      "status": "MIRROR_TARGET",
+      "reason": "Simplified Chinese mirror/treatment target; identifiers, commands, URLs and hashes preserve source semantics."
+    },
+    {
+      "path": "THIRD_PARTY_NOTICES.md",
+      "status": "MIRRORED_CURRENT",
+      "mirror_path": "THIRD_PARTY_NOTICES.zh-CN.md",
+      "reason": "Current human-readable source with deterministic Simplified Chinese mirror."
+    },
+    {
+      "path": "THIRD_PARTY_NOTICES.zh-CN.md",
+      "status": "MIRROR_TARGET",
+      "reason": "Simplified Chinese mirror/treatment target; identifiers, commands, URLs and hashes preserve source semantics."
+    },
+    {
+      "path": "components/coding-tools.json",
+      "status": "LANGUAGE_NEUTRAL",
+      "reason": "Authoritative component/protocol/install metadata; JSON keys, commands, URLs, package identities and hashes must remain exact."
+    },
+    {
+      "path": "components/mcp-auth-proxy.json",
+      "status": "LANGUAGE_NEUTRAL",
+      "reason": "Authoritative component/protocol/install metadata; JSON keys, commands, URLs, package identities and hashes must remain exact."
+    },
+    {
+      "path": "components/mcpjungle.json",
+      "status": "LANGUAGE_NEUTRAL",
+      "reason": "Authoritative component/protocol/install metadata; JSON keys, commands, URLs, package identities and hashes must remain exact."
+    },
+    {
+      "path": "components/playwright.json",
+      "status": "LANGUAGE_NEUTRAL",
+      "reason": "Authoritative component/protocol/install metadata; JSON keys, commands, URLs, package identities and hashes must remain exact."
+    },
+    {
+      "path": "components/remote-desktop-commander.json",
+      "status": "LANGUAGE_NEUTRAL",
+      "reason": "Authoritative component/protocol/install metadata; JSON keys, commands, URLs, package identities and hashes must remain exact."
+    },
+    {
+      "path": "components/serena.json",
+      "status": "LANGUAGE_NEUTRAL",
+      "reason": "Authoritative component/protocol/install metadata; JSON keys, commands, URLs, package identities and hashes must remain exact."
+    },
+    {
+      "path": "components/tailscale.json",
+      "status": "LANGUAGE_NEUTRAL",
+      "reason": "Authoritative component/protocol/install metadata; JSON keys, commands, URLs, package identities and hashes must remain exact."
+    },
+    {
+      "path": "components/windows-mcp.json",
+      "status": "LANGUAGE_NEUTRAL",
+      "reason": "Authoritative component/protocol/install metadata; JSON keys, commands, URLs, package identities and hashes must remain exact."
+    },
+    {
+      "path": "docs/ARCHITECTURE.md",
+      "status": "MIRRORED_CURRENT",
+      "mirror_path": "docs/zh-CN/ARCHITECTURE.md",
+      "reason": "Current human-readable source with deterministic Simplified Chinese mirror."
+    },
+    {
+      "path": "docs/CONCURRENCY-AND-FALLBACK.md",
+      "status": "MIRRORED_CURRENT",
+      "mirror_path": "docs/zh-CN/CONCURRENCY-AND-FALLBACK.md",
+      "reason": "Current human-readable source with deterministic Simplified Chinese mirror."
+    },
+    {
+      "path": "docs/CURRENT-PROJECT-STATE.md",
+      "status": "MIRRORED_CURRENT",
+      "mirror_path": "docs/zh-CN/CURRENT-PROJECT-STATE.md",
+      "reason": "Current human-readable source with deterministic Simplified Chinese mirror."
+    },
+    {
+      "path": "docs/DECISIONS-AND-RISKS.md",
+      "status": "MIRRORED_CURRENT",
+      "mirror_path": "docs/zh-CN/DECISIONS-AND-RISKS.md",
+      "reason": "Current human-readable source with deterministic Simplified Chinese mirror."
+    },
+    {
+      "path": "docs/DEPLOYMENT.md",
+      "status": "MIRRORED_CURRENT",
+      "mirror_path": "docs/zh-CN/DEPLOYMENT.md",
+      "reason": "Current human-readable source with deterministic Simplified Chinese mirror."
+    },
+    {
+      "path": "docs/FINAL-OVERALL-ACCEPTANCE-CLOSURE.md",
+      "status": "HISTORICAL_EVIDENCE_PRESERVED_WITH_INDEX",
+      "reason": "Canonical closure evidence remains unchanged; Chinese readers use docs/zh-CN/HISTORICAL-EVIDENCE-INDEX.md and live SoT mirrors."
+    },
+    {
+      "path": "docs/PROJECT-COMPLETE-CLOSURE.md",
+      "status": "HISTORICAL_EVIDENCE_PRESERVED_WITH_INDEX",
+      "reason": "Canonical closure evidence remains unchanged; Chinese readers use docs/zh-CN/HISTORICAL-EVIDENCE-INDEX.md and live SoT mirrors."
+    },
+    {
+      "path": "docs/ROADMAP-2026-09-20.md",
+      "status": "MIRRORED_CURRENT",
+      "mirror_path": "docs/zh-CN/ROADMAP-2026-09-20.md",
+      "reason": "Current human-readable source with deterministic Simplified Chinese mirror."
+    },
+    {
+      "path": "docs/STAGE-1-CLOSURE.md",
+      "status": "HISTORICAL_EVIDENCE_PRESERVED_WITH_INDEX",
+      "reason": "Canonical closure evidence remains unchanged; Chinese readers use docs/zh-CN/HISTORICAL-EVIDENCE-INDEX.md and live SoT mirrors."
+    },
+    {
+      "path": "docs/STAGE-10-CLOSURE.md",
+      "status": "HISTORICAL_EVIDENCE_PRESERVED_WITH_INDEX",
+      "reason": "Canonical closure evidence remains unchanged; Chinese readers use docs/zh-CN/HISTORICAL-EVIDENCE-INDEX.md and live SoT mirrors."
+    },
+    {
+      "path": "docs/STAGE-11-CLOSURE.md",
+      "status": "HISTORICAL_EVIDENCE_PRESERVED_WITH_INDEX",
+      "reason": "Canonical closure evidence remains unchanged; Chinese readers use docs/zh-CN/HISTORICAL-EVIDENCE-INDEX.md and live SoT mirrors."
+    },
+    {
+      "path": "docs/STAGE-12-CLOSURE.md",
+      "status": "HISTORICAL_EVIDENCE_PRESERVED_WITH_INDEX",
+      "reason": "Canonical closure evidence remains unchanged; Chinese readers use docs/zh-CN/HISTORICAL-EVIDENCE-INDEX.md and live SoT mirrors."
+    },
+    {
+      "path": "docs/STAGE-13-CLOSURE.md",
+      "status": "HISTORICAL_EVIDENCE_PRESERVED_WITH_INDEX",
+      "reason": "Canonical closure evidence remains unchanged; Chinese readers use docs/zh-CN/HISTORICAL-EVIDENCE-INDEX.md and live SoT mirrors."
+    },
+    {
+      "path": "docs/STAGE-14-CLOSURE.md",
+      "status": "HISTORICAL_EVIDENCE_PRESERVED_WITH_INDEX",
+      "reason": "Canonical closure evidence remains unchanged; Chinese readers use docs/zh-CN/HISTORICAL-EVIDENCE-INDEX.md and live SoT mirrors."
+    },
+    {
+      "path": "docs/STAGE-15-CLOSURE.md",
+      "status": "HISTORICAL_EVIDENCE_PRESERVED_WITH_INDEX",
+      "reason": "Canonical closure evidence remains unchanged; Chinese readers use docs/zh-CN/HISTORICAL-EVIDENCE-INDEX.md and live SoT mirrors."
+    },
+    {
+      "path": "docs/STAGE-16-CLOSURE.md",
+      "status": "HISTORICAL_EVIDENCE_PRESERVED_WITH_INDEX",
+      "reason": "Canonical closure evidence remains unchanged; Chinese readers use docs/zh-CN/HISTORICAL-EVIDENCE-INDEX.md and live SoT mirrors."
+    },
+    {
+      "path": "docs/STAGE-17-CLOSURE.md",
+      "status": "HISTORICAL_EVIDENCE_PRESERVED_WITH_INDEX",
+      "reason": "Canonical closure evidence remains unchanged; Chinese readers use docs/zh-CN/HISTORICAL-EVIDENCE-INDEX.md and live SoT mirrors."
+    },
+    {
+      "path": "docs/STAGE-17-POST-ACCEPTANCE-HOTFIX-CLOSURE.md",
+      "status": "HISTORICAL_EVIDENCE_PRESERVED_WITH_INDEX",
+      "reason": "Canonical closure evidence remains unchanged; Chinese readers use docs/zh-CN/HISTORICAL-EVIDENCE-INDEX.md and live SoT mirrors."
+    },
+    {
+      "path": "docs/STAGE-18-CLOSURE.md",
+      "status": "HISTORICAL_EVIDENCE_PRESERVED_WITH_INDEX",
+      "reason": "Canonical closure evidence remains unchanged; Chinese readers use docs/zh-CN/HISTORICAL-EVIDENCE-INDEX.md and live SoT mirrors."
+    },
+    {
+      "path": "docs/STAGE-2-CLOSURE.md",
+      "status": "HISTORICAL_EVIDENCE_PRESERVED_WITH_INDEX",
+      "reason": "Canonical closure evidence remains unchanged; Chinese readers use docs/zh-CN/HISTORICAL-EVIDENCE-INDEX.md and live SoT mirrors."
+    },
+    {
+      "path": "docs/STAGE-3-CLOSURE.md",
+      "status": "HISTORICAL_EVIDENCE_PRESERVED_WITH_INDEX",
+      "reason": "Canonical closure evidence remains unchanged; Chinese readers use docs/zh-CN/HISTORICAL-EVIDENCE-INDEX.md and live SoT mirrors."
+    },
+    {
+      "path": "docs/STAGE-4-CLOSURE.md",
+      "status": "HISTORICAL_EVIDENCE_PRESERVED_WITH_INDEX",
+      "reason": "Canonical closure evidence remains unchanged; Chinese readers use docs/zh-CN/HISTORICAL-EVIDENCE-INDEX.md and live SoT mirrors."
+    },
+    {
+      "path": "docs/STAGE-5-CLOSURE.md",
+      "status": "HISTORICAL_EVIDENCE_PRESERVED_WITH_INDEX",
+      "reason": "Canonical closure evidence remains unchanged; Chinese readers use docs/zh-CN/HISTORICAL-EVIDENCE-INDEX.md and live SoT mirrors."
+    },
+    {
+      "path": "docs/STAGE-6-CLOSURE.md",
+      "status": "HISTORICAL_EVIDENCE_PRESERVED_WITH_INDEX",
+      "reason": "Canonical closure evidence remains unchanged; Chinese readers use docs/zh-CN/HISTORICAL-EVIDENCE-INDEX.md and live SoT mirrors."
+    },
+    {
+      "path": "docs/STAGE-7-CLOSURE.md",
+      "status": "HISTORICAL_EVIDENCE_PRESERVED_WITH_INDEX",
+      "reason": "Canonical closure evidence remains unchanged; Chinese readers use docs/zh-CN/HISTORICAL-EVIDENCE-INDEX.md and live SoT mirrors."
+    },
+    {
+      "path": "docs/STAGE-8-CLOSURE.md",
+      "status": "HISTORICAL_EVIDENCE_PRESERVED_WITH_INDEX",
+      "reason": "Canonical closure evidence remains unchanged; Chinese readers use docs/zh-CN/HISTORICAL-EVIDENCE-INDEX.md and live SoT mirrors."
+    },
+    {
+      "path": "docs/STAGE-9-CLOSURE.md",
+      "status": "HISTORICAL_EVIDENCE_PRESERVED_WITH_INDEX",
+      "reason": "Canonical closure evidence remains unchanged; Chinese readers use docs/zh-CN/HISTORICAL-EVIDENCE-INDEX.md and live SoT mirrors."
+    },
+    {
+      "path": "docs/SUPPLEMENTAL-PRODUCT-GOALS-2026-09-20.md",
+      "status": "MIRRORED_CURRENT",
+      "mirror_path": "docs/zh-CN/SUPPLEMENTAL-PRODUCT-GOALS-2026-09-20.md",
+      "reason": "Current human-readable source with deterministic Simplified Chinese mirror."
+    },
+    {
+      "path": "docs/THIRD-PARTY-PROVENANCE.json",
+      "status": "LANGUAGE_NEUTRAL",
+      "reason": "Machine-readable regression/provenance metadata; schema keys and authority values must not be translated."
+    },
+    {
+      "path": "docs/TRANSLATION-COVERAGE.json",
+      "status": "LANGUAGE_NEUTRAL",
+      "reason": "Machine-readable regression/provenance metadata; schema keys and authority values must not be translated."
+    },
+    {
+      "path": "docs/TRANSLATION-COVERAGE.md",
+      "status": "BILINGUAL_INLINE",
+      "reason": "Human-readable bilingual explanation of the translation coverage contract."
+    },
+    {
+      "path": "docs/evidence/STAGE-10-COST.json",
+      "status": "HISTORICAL_EVIDENCE_PRESERVED_WITH_INDEX",
+      "reason": "Machine-readable historical stage-cost evidence; preserve keys/numbers/hashes."
+    },
+    {
+      "path": "docs/evidence/STAGE-11-COST.json",
+      "status": "HISTORICAL_EVIDENCE_PRESERVED_WITH_INDEX",
+      "reason": "Machine-readable historical stage-cost evidence; preserve keys/numbers/hashes."
+    },
+    {
+      "path": "docs/evidence/STAGE-12-COST.json",
+      "status": "HISTORICAL_EVIDENCE_PRESERVED_WITH_INDEX",
+      "reason": "Machine-readable historical stage-cost evidence; preserve keys/numbers/hashes."
+    },
+    {
+      "path": "docs/zh-CN/ARCHITECTURE.md",
+      "status": "MIRROR_TARGET",
+      "reason": "Simplified Chinese mirror/treatment target; identifiers, commands, URLs and hashes preserve source semantics."
+    },
+    {
+      "path": "docs/zh-CN/CONCURRENCY-AND-FALLBACK.md",
+      "status": "MIRROR_TARGET",
+      "reason": "Simplified Chinese mirror/treatment target; identifiers, commands, URLs and hashes preserve source semantics."
+    },
+    {
+      "path": "docs/zh-CN/CURRENT-PROJECT-STATE.md",
+      "status": "MIRROR_TARGET",
+      "reason": "Simplified Chinese mirror/treatment target; identifiers, commands, URLs and hashes preserve source semantics."
+    },
+    {
+      "path": "docs/zh-CN/DECISIONS-AND-RISKS.md",
+      "status": "MIRROR_TARGET",
+      "reason": "Simplified Chinese mirror/treatment target; identifiers, commands, URLs and hashes preserve source semantics."
+    },
+    {
+      "path": "docs/zh-CN/DEPLOYMENT.md",
+      "status": "MIRROR_TARGET",
+      "reason": "Simplified Chinese mirror/treatment target; identifiers, commands, URLs and hashes preserve source semantics."
+    },
+    {
+      "path": "docs/zh-CN/HISTORICAL-EVIDENCE-INDEX.md",
+      "status": "MIRROR_TARGET",
+      "reason": "Simplified Chinese mirror/treatment target; identifiers, commands, URLs and hashes preserve source semantics."
+    },
+    {
+      "path": "docs/zh-CN/ROADMAP-2026-09-20.md",
+      "status": "MIRROR_TARGET",
+      "reason": "Simplified Chinese mirror/treatment target; identifiers, commands, URLs and hashes preserve source semantics."
+    },
+    {
+      "path": "docs/zh-CN/SUPPLEMENTAL-PRODUCT-GOALS-2026-09-20.md",
+      "status": "MIRROR_TARGET",
+      "reason": "Simplified Chinese mirror/treatment target; identifiers, commands, URLs and hashes preserve source semantics."
+    },
+    {
+      "path": "manager/static/index.html",
+      "status": "MIRRORED_CURRENT",
+      "mirror_path": "manager/static/index.zh-CN.html",
+      "reason": "Current human-readable source with deterministic Simplified Chinese mirror."
+    },
+    {
+      "path": "manager/static/index.zh-CN.html",
+      "status": "MIRROR_TARGET",
+      "reason": "Simplified Chinese mirror/treatment target; identifiers, commands, URLs and hashes preserve source semantics."
+    },
+    {
+      "path": "manager/static/manager.css",
+      "status": "LANGUAGE_NEUTRAL",
+      "reason": "Shared functional Manager implementation used by both language shells; duplicating it would create behavior drift."
+    },
+    {
+      "path": "manager/static/manager.js",
+      "status": "LANGUAGE_NEUTRAL",
+      "reason": "Shared functional Manager implementation used by both language shells; duplicating it would create behavior drift."
+    },
+    {
+      "path": "prompts/FINAL-OVERALL-ACCEPTANCE-PLAN.json",
+      "status": "HISTORICAL_EVIDENCE_PRESERVED_WITH_INDEX",
+      "reason": "Committed handoff/plan evidence preserves exact stage pointers, commands and hashes; future prompt artifacts are covered by the dynamic prompts/ rule."
+    },
+    {
+      "path": "prompts/HANDOFF-STABLE-CONTRACT.md",
+      "status": "HISTORICAL_EVIDENCE_PRESERVED_WITH_INDEX",
+      "reason": "Committed handoff/plan evidence preserves exact stage pointers, commands and hashes; future prompt artifacts are covered by the dynamic prompts/ rule."
+    },
+    {
+      "path": "prompts/PROJECT-COMPLETE-PLAN.json",
+      "status": "HISTORICAL_EVIDENCE_PRESERVED_WITH_INDEX",
+      "reason": "Committed handoff/plan evidence preserves exact stage pointers, commands and hashes; future prompt artifacts are covered by the dynamic prompts/ rule."
+    },
+    {
+      "path": "prompts/STAGE-11-PLAN.json",
+      "status": "HISTORICAL_EVIDENCE_PRESERVED_WITH_INDEX",
+      "reason": "Committed handoff/plan evidence preserves exact stage pointers, commands and hashes; future prompt artifacts are covered by the dynamic prompts/ rule."
+    },
+    {
+      "path": "prompts/STAGE-12-PLAN.json",
+      "status": "HISTORICAL_EVIDENCE_PRESERVED_WITH_INDEX",
+      "reason": "Committed handoff/plan evidence preserves exact stage pointers, commands and hashes; future prompt artifacts are covered by the dynamic prompts/ rule."
+    },
+    {
+      "path": "prompts/STAGE-15-NEXT-WINDOW.md",
+      "status": "HISTORICAL_EVIDENCE_PRESERVED_WITH_INDEX",
+      "reason": "Committed handoff/plan evidence preserves exact stage pointers, commands and hashes; future prompt artifacts are covered by the dynamic prompts/ rule."
+    },
+    {
+      "path": "prompts/STAGE-15-PLAN.json",
+      "status": "HISTORICAL_EVIDENCE_PRESERVED_WITH_INDEX",
+      "reason": "Committed handoff/plan evidence preserves exact stage pointers, commands and hashes; future prompt artifacts are covered by the dynamic prompts/ rule."
+    },
+    {
+      "path": "prompts/STAGE-16-NEXT-WINDOW.md",
+      "status": "HISTORICAL_EVIDENCE_PRESERVED_WITH_INDEX",
+      "reason": "Committed handoff/plan evidence preserves exact stage pointers, commands and hashes; future prompt artifacts are covered by the dynamic prompts/ rule."
+    },
+    {
+      "path": "prompts/STAGE-17-NEXT-WINDOW.md",
+      "status": "HISTORICAL_EVIDENCE_PRESERVED_WITH_INDEX",
+      "reason": "Committed handoff/plan evidence preserves exact stage pointers, commands and hashes; future prompt artifacts are covered by the dynamic prompts/ rule."
+    },
+    {
+      "path": "prompts/STAGE-18-NEXT-WINDOW.md",
+      "status": "HISTORICAL_EVIDENCE_PRESERVED_WITH_INDEX",
+      "reason": "Committed handoff/plan evidence preserves exact stage pointers, commands and hashes; future prompt artifacts are covered by the dynamic prompts/ rule."
+    },
+    {
+      "path": "prompts/TERMINAL-PLAN.json",
+      "status": "HISTORICAL_EVIDENCE_PRESERVED_WITH_INDEX",
+      "reason": "Committed handoff/plan evidence preserves exact stage pointers, commands and hashes; future prompt artifacts are covered by the dynamic prompts/ rule."
+    },
+    {
+      "path": "pyproject.toml",
+      "status": "LANGUAGE_NEUTRAL",
+      "reason": "Authoritative build/package schema and dependency declarations; package keys/constraints remain exact."
+    },
+    {
+      "path": "scripts/secret_scan.py",
+      "status": "NOT_HUMAN_READER_CONTENT",
+      "reason": "Executable source/test/script artifact; code identifiers/protocol strings are not documentation translation targets."
+    },
+    {
+      "path": "scripts/stage14_production_edge_e2e.py",
+      "status": "NOT_HUMAN_READER_CONTENT",
+      "reason": "Executable source/test/script artifact; code identifiers/protocol strings are not documentation translation targets."
+    },
+    {
+      "path": "scripts/stage4_gateway_e2e.py",
+      "status": "NOT_HUMAN_READER_CONTENT",
+      "reason": "Executable source/test/script artifact; code identifiers/protocol strings are not documentation translation targets."
+    },
+    {
+      "path": "scripts/stage5_edge_e2e.py",
+      "status": "NOT_HUMAN_READER_CONTENT",
+      "reason": "Executable source/test/script artifact; code identifiers/protocol strings are not documentation translation targets."
+    },
+    {
+      "path": "skills/webgpt-as-codex/SKILL.md",
+      "status": "MIRRORED_CURRENT",
+      "mirror_path": "skills/webgpt-as-codex/zh-CN/SKILL.md",
+      "reason": "Current human-readable source with deterministic Simplified Chinese mirror."
+    },
+    {
+      "path": "skills/webgpt-as-codex/add-mcp.md",
+      "status": "MIRRORED_CURRENT",
+      "mirror_path": "skills/webgpt-as-codex/zh-CN/add-mcp.md",
+      "reason": "Current human-readable source with deterministic Simplified Chinese mirror."
+    },
+    {
+      "path": "skills/webgpt-as-codex/evals/scenarios.json",
+      "status": "LANGUAGE_NEUTRAL",
+      "reason": "Machine-readable Skill metadata/evaluation schema; identifiers and expected values remain exact."
+    },
+    {
+      "path": "skills/webgpt-as-codex/experience-ledger.md",
+      "status": "HISTORICAL_EVIDENCE_PRESERVED_WITH_INDEX",
+      "reason": "Canonical accumulated incident/provenance ledger; current executable rules are mirrored separately and the Chinese historical index explains this boundary."
+    },
+    {
+      "path": "skills/webgpt-as-codex/handoff.md",
+      "status": "MIRRORED_CURRENT",
+      "mirror_path": "skills/webgpt-as-codex/zh-CN/handoff.md",
+      "reason": "Current human-readable source with deterministic Simplified Chinese mirror."
+    },
+    {
+      "path": "skills/webgpt-as-codex/loop-engineering.md",
+      "status": "MIRRORED_CURRENT",
+      "mirror_path": "skills/webgpt-as-codex/zh-CN/loop-engineering.md",
+      "reason": "Current human-readable source with deterministic Simplified Chinese mirror."
+    },
+    {
+      "path": "skills/webgpt-as-codex/loop-evidence.md",
+      "status": "MIRRORED_CURRENT",
+      "mirror_path": "skills/webgpt-as-codex/zh-CN/loop-evidence.md",
+      "reason": "Current human-readable source with deterministic Simplified Chinese mirror."
+    },
+    {
+      "path": "skills/webgpt-as-codex/manifest.json",
+      "status": "LANGUAGE_NEUTRAL",
+      "reason": "Machine-readable Skill metadata/evaluation schema; identifiers and expected values remain exact."
+    },
+    {
+      "path": "skills/webgpt-as-codex/mcp-guides/coding-tools.md",
+      "status": "MIRRORED_CURRENT",
+      "mirror_path": "skills/webgpt-as-codex/zh-CN/mcp-guides/coding-tools.md",
+      "reason": "Current human-readable source with deterministic Simplified Chinese mirror."
+    },
+    {
+      "path": "skills/webgpt-as-codex/mcp-guides/serena.md",
+      "status": "MIRRORED_CURRENT",
+      "mirror_path": "skills/webgpt-as-codex/zh-CN/mcp-guides/serena.md",
+      "reason": "Current human-readable source with deterministic Simplified Chinese mirror."
+    },
+    {
+      "path": "skills/webgpt-as-codex/mcp-operating-guide.md",
+      "status": "MIRRORED_CURRENT",
+      "mirror_path": "skills/webgpt-as-codex/zh-CN/mcp-operating-guide.md",
+      "reason": "Current human-readable source with deterministic Simplified Chinese mirror."
+    },
+    {
+      "path": "skills/webgpt-as-codex/routing.md",
+      "status": "MIRRORED_CURRENT",
+      "mirror_path": "skills/webgpt-as-codex/zh-CN/routing.md",
+      "reason": "Current human-readable source with deterministic Simplified Chinese mirror."
+    },
+    {
+      "path": "skills/webgpt-as-codex/validation.md",
+      "status": "MIRRORED_CURRENT",
+      "mirror_path": "skills/webgpt-as-codex/zh-CN/validation.md",
+      "reason": "Current human-readable source with deterministic Simplified Chinese mirror."
+    },
+    {
+      "path": "skills/webgpt-as-codex/zh-CN/SKILL.md",
+      "status": "MIRROR_TARGET",
+      "reason": "Simplified Chinese mirror/treatment target; identifiers, commands, URLs and hashes preserve source semantics."
+    },
+    {
+      "path": "skills/webgpt-as-codex/zh-CN/add-mcp.md",
+      "status": "MIRROR_TARGET",
+      "reason": "Simplified Chinese mirror/treatment target; identifiers, commands, URLs and hashes preserve source semantics."
+    },
+    {
+      "path": "skills/webgpt-as-codex/zh-CN/handoff.md",
+      "status": "MIRROR_TARGET",
+      "reason": "Simplified Chinese mirror/treatment target; identifiers, commands, URLs and hashes preserve source semantics."
+    },
+    {
+      "path": "skills/webgpt-as-codex/zh-CN/loop-engineering.md",
+      "status": "MIRROR_TARGET",
+      "reason": "Simplified Chinese mirror/treatment target; identifiers, commands, URLs and hashes preserve source semantics."
+    },
+    {
+      "path": "skills/webgpt-as-codex/zh-CN/loop-evidence.md",
+      "status": "MIRROR_TARGET",
+      "reason": "Simplified Chinese mirror/treatment target; identifiers, commands, URLs and hashes preserve source semantics."
+    },
+    {
+      "path": "skills/webgpt-as-codex/zh-CN/mcp-guides/coding-tools.md",
+      "status": "MIRROR_TARGET",
+      "reason": "Simplified Chinese mirror/treatment target; identifiers, commands, URLs and hashes preserve source semantics."
+    },
+    {
+      "path": "skills/webgpt-as-codex/zh-CN/mcp-guides/serena.md",
+      "status": "MIRROR_TARGET",
+      "reason": "Simplified Chinese mirror/treatment target; identifiers, commands, URLs and hashes preserve source semantics."
+    },
+    {
+      "path": "skills/webgpt-as-codex/zh-CN/mcp-operating-guide.md",
+      "status": "MIRROR_TARGET",
+      "reason": "Simplified Chinese mirror/treatment target; identifiers, commands, URLs and hashes preserve source semantics."
+    },
+    {
+      "path": "skills/webgpt-as-codex/zh-CN/routing.md",
+      "status": "MIRROR_TARGET",
+      "reason": "Simplified Chinese mirror/treatment target; identifiers, commands, URLs and hashes preserve source semantics."
+    },
+    {
+      "path": "skills/webgpt-as-codex/zh-CN/validation.md",
+      "status": "MIRROR_TARGET",
+      "reason": "Simplified Chinese mirror/treatment target; identifiers, commands, URLs and hashes preserve source semantics."
+    },
+    {
+      "path": "src/webgpt_as_codex/__init__.py",
+      "status": "NOT_HUMAN_READER_CONTENT",
+      "reason": "Executable source/test/script artifact; code identifiers/protocol strings are not documentation translation targets."
+    },
+    {
+      "path": "src/webgpt_as_codex/__main__.py",
+      "status": "NOT_HUMAN_READER_CONTENT",
+      "reason": "Executable source/test/script artifact; code identifiers/protocol strings are not documentation translation targets."
+    },
+    {
+      "path": "src/webgpt_as_codex/bootstrap.py",
+      "status": "NOT_HUMAN_READER_CONTENT",
+      "reason": "Executable source/test/script artifact; code identifiers/protocol strings are not documentation translation targets."
+    },
+    {
+      "path": "src/webgpt_as_codex/cli.py",
+      "status": "NOT_HUMAN_READER_CONTENT",
+      "reason": "Executable source/test/script artifact; code identifiers/protocol strings are not documentation translation targets."
+    },
+    {
+      "path": "src/webgpt_as_codex/commands.py",
+      "status": "NOT_HUMAN_READER_CONTENT",
+      "reason": "Executable source/test/script artifact; code identifiers/protocol strings are not documentation translation targets."
+    },
+    {
+      "path": "src/webgpt_as_codex/concurrency.py",
+      "status": "NOT_HUMAN_READER_CONTENT",
+      "reason": "Executable source/test/script artifact; code identifiers/protocol strings are not documentation translation targets."
+    },
+    {
+      "path": "src/webgpt_as_codex/discovery.py",
+      "status": "NOT_HUMAN_READER_CONTENT",
+      "reason": "Executable source/test/script artifact; code identifiers/protocol strings are not documentation translation targets."
+    },
+    {
+      "path": "src/webgpt_as_codex/doctor.py",
+      "status": "NOT_HUMAN_READER_CONTENT",
+      "reason": "Executable source/test/script artifact; code identifiers/protocol strings are not documentation translation targets."
+    },
+    {
+      "path": "src/webgpt_as_codex/edge.py",
+      "status": "NOT_HUMAN_READER_CONTENT",
+      "reason": "Executable source/test/script artifact; code identifiers/protocol strings are not documentation translation targets."
+    },
+    {
+      "path": "src/webgpt_as_codex/edge_runtime.py",
+      "status": "NOT_HUMAN_READER_CONTENT",
+      "reason": "Executable source/test/script artifact; code identifiers/protocol strings are not documentation translation targets."
+    },
+    {
+      "path": "src/webgpt_as_codex/gateway.py",
+      "status": "NOT_HUMAN_READER_CONTENT",
+      "reason": "Executable source/test/script artifact; code identifiers/protocol strings are not documentation translation targets."
+    },
+    {
+      "path": "src/webgpt_as_codex/handoff.py",
+      "status": "NOT_HUMAN_READER_CONTENT",
+      "reason": "Executable source/test/script artifact; code identifiers/protocol strings are not documentation translation targets."
+    },
+    {
+      "path": "src/webgpt_as_codex/health.py",
+      "status": "NOT_HUMAN_READER_CONTENT",
+      "reason": "Executable source/test/script artifact; code identifiers/protocol strings are not documentation translation targets."
+    },
+    {
+      "path": "src/webgpt_as_codex/launcher.py",
+      "status": "NOT_HUMAN_READER_CONTENT",
+      "reason": "Executable source/test/script artifact; code identifiers/protocol strings are not documentation translation targets."
+    },
+    {
+      "path": "src/webgpt_as_codex/lifecycle.py",
+      "status": "NOT_HUMAN_READER_CONTENT",
+      "reason": "Executable source/test/script artifact; code identifiers/protocol strings are not documentation translation targets."
+    },
+    {
+      "path": "src/webgpt_as_codex/loop.py",
+      "status": "NOT_HUMAN_READER_CONTENT",
+      "reason": "Executable source/test/script artifact; code identifiers/protocol strings are not documentation translation targets."
+    },
+    {
+      "path": "src/webgpt_as_codex/manager.py",
+      "status": "NOT_HUMAN_READER_CONTENT",
+      "reason": "Executable source/test/script artifact; code identifiers/protocol strings are not documentation translation targets."
+    },
+    {
+      "path": "src/webgpt_as_codex/mcp.py",
+      "status": "NOT_HUMAN_READER_CONTENT",
+      "reason": "Executable source/test/script artifact; code identifiers/protocol strings are not documentation translation targets."
+    },
+    {
+      "path": "src/webgpt_as_codex/oauth.py",
+      "status": "NOT_HUMAN_READER_CONTENT",
+      "reason": "Executable source/test/script artifact; code identifiers/protocol strings are not documentation translation targets."
+    },
+    {
+      "path": "src/webgpt_as_codex/oauth_compat.py",
+      "status": "NOT_HUMAN_READER_CONTENT",
+      "reason": "Executable source/test/script artifact; code identifiers/protocol strings are not documentation translation targets."
+    },
+    {
+      "path": "src/webgpt_as_codex/onboarding.py",
+      "status": "NOT_HUMAN_READER_CONTENT",
+      "reason": "Executable source/test/script artifact; code identifiers/protocol strings are not documentation translation targets."
+    },
+    {
+      "path": "src/webgpt_as_codex/paths.py",
+      "status": "NOT_HUMAN_READER_CONTENT",
+      "reason": "Executable source/test/script artifact; code identifiers/protocol strings are not documentation translation targets."
+    },
+    {
+      "path": "src/webgpt_as_codex/playwright_handoff.py",
+      "status": "NOT_HUMAN_READER_CONTENT",
+      "reason": "Executable source/test/script artifact; code identifiers/protocol strings are not documentation translation targets."
+    },
+    {
+      "path": "src/webgpt_as_codex/prerequisites.py",
+      "status": "NOT_HUMAN_READER_CONTENT",
+      "reason": "Executable source/test/script artifact; code identifiers/protocol strings are not documentation translation targets."
+    },
+    {
+      "path": "src/webgpt_as_codex/provision.py",
+      "status": "NOT_HUMAN_READER_CONTENT",
+      "reason": "Executable source/test/script artifact; code identifiers/protocol strings are not documentation translation targets."
+    },
+    {
+      "path": "src/webgpt_as_codex/recovery.py",
+      "status": "NOT_HUMAN_READER_CONTENT",
+      "reason": "Executable source/test/script artifact; code identifiers/protocol strings are not documentation translation targets."
+    },
+    {
+      "path": "src/webgpt_as_codex/registry.py",
+      "status": "NOT_HUMAN_READER_CONTENT",
+      "reason": "Executable source/test/script artifact; code identifiers/protocol strings are not documentation translation targets."
+    },
+    {
+      "path": "src/webgpt_as_codex/repair.py",
+      "status": "NOT_HUMAN_READER_CONTENT",
+      "reason": "Executable source/test/script artifact; code identifiers/protocol strings are not documentation translation targets."
+    },
+    {
+      "path": "src/webgpt_as_codex/runtime.py",
+      "status": "NOT_HUMAN_READER_CONTENT",
+      "reason": "Executable source/test/script artifact; code identifiers/protocol strings are not documentation translation targets."
+    },
+    {
+      "path": "src/webgpt_as_codex/stateio.py",
+      "status": "NOT_HUMAN_READER_CONTENT",
+      "reason": "Executable source/test/script artifact; code identifiers/protocol strings are not documentation translation targets."
+    },
+    {
+      "path": "src/webgpt_as_codex/update.py",
+      "status": "NOT_HUMAN_READER_CONTENT",
+      "reason": "Executable source/test/script artifact; code identifiers/protocol strings are not documentation translation targets."
+    },
+    {
+      "path": "src/webgpt_as_codex/utf8.py",
+      "status": "NOT_HUMAN_READER_CONTENT",
+      "reason": "Executable source/test/script artifact; code identifiers/protocol strings are not documentation translation targets."
+    },
+    {
+      "path": "tests/test_edge.py",
+      "status": "NOT_HUMAN_READER_CONTENT",
+      "reason": "Executable source/test/script artifact; code identifiers/protocol strings are not documentation translation targets."
+    },
+    {
+      "path": "tests/test_gateway.py",
+      "status": "NOT_HUMAN_READER_CONTENT",
+      "reason": "Executable source/test/script artifact; code identifiers/protocol strings are not documentation translation targets."
+    },
+    {
+      "path": "tests/test_handoff.py",
+      "status": "NOT_HUMAN_READER_CONTENT",
+      "reason": "Executable source/test/script artifact; code identifiers/protocol strings are not documentation translation targets."
+    },
+    {
+      "path": "tests/test_manager.py",
+      "status": "NOT_HUMAN_READER_CONTENT",
+      "reason": "Executable source/test/script artifact; code identifiers/protocol strings are not documentation translation targets."
+    },
+    {
+      "path": "tests/test_playwright_handoff.py",
+      "status": "NOT_HUMAN_READER_CONTENT",
+      "reason": "Executable source/test/script artifact; code identifiers/protocol strings are not documentation translation targets."
+    },
+    {
+      "path": "tests/test_registry.py",
+      "status": "NOT_HUMAN_READER_CONTENT",
+      "reason": "Executable source/test/script artifact; code identifiers/protocol strings are not documentation translation targets."
+    },
+    {
+      "path": "tests/test_scaffold.py",
+      "status": "NOT_HUMAN_READER_CONTENT",
+      "reason": "Executable source/test/script artifact; code identifiers/protocol strings are not documentation translation targets."
+    },
+    {
+      "path": "tests/test_skill_contract.py",
+      "status": "NOT_HUMAN_READER_CONTENT",
+      "reason": "Executable source/test/script artifact; code identifiers/protocol strings are not documentation translation targets."
+    },
+    {
+      "path": "tests/test_stage10.py",
+      "status": "NOT_HUMAN_READER_CONTENT",
+      "reason": "Executable source/test/script artifact; code identifiers/protocol strings are not documentation translation targets."
+    },
+    {
+      "path": "tests/test_stage11.py",
+      "status": "NOT_HUMAN_READER_CONTENT",
+      "reason": "Executable source/test/script artifact; code identifiers/protocol strings are not documentation translation targets."
+    },
+    {
+      "path": "tests/test_stage12.py",
+      "status": "NOT_HUMAN_READER_CONTENT",
+      "reason": "Executable source/test/script artifact; code identifiers/protocol strings are not documentation translation targets."
+    },
+    {
+      "path": "tests/test_stage13.py",
+      "status": "NOT_HUMAN_READER_CONTENT",
+      "reason": "Executable source/test/script artifact; code identifiers/protocol strings are not documentation translation targets."
+    },
+    {
+      "path": "tests/test_stage14.py",
+      "status": "NOT_HUMAN_READER_CONTENT",
+      "reason": "Executable source/test/script artifact; code identifiers/protocol strings are not documentation translation targets."
+    },
+    {
+      "path": "tests/test_stage15.py",
+      "status": "NOT_HUMAN_READER_CONTENT",
+      "reason": "Executable source/test/script artifact; code identifiers/protocol strings are not documentation translation targets."
+    },
+    {
+      "path": "tests/test_stage16.py",
+      "status": "NOT_HUMAN_READER_CONTENT",
+      "reason": "Executable source/test/script artifact; code identifiers/protocol strings are not documentation translation targets."
+    },
+    {
+      "path": "tests/test_stage17.py",
+      "status": "NOT_HUMAN_READER_CONTENT",
+      "reason": "Executable source/test/script artifact; code identifiers/protocol strings are not documentation translation targets."
+    },
+    {
+      "path": "tests/test_stage17_hotfix.py",
+      "status": "NOT_HUMAN_READER_CONTENT",
+      "reason": "Executable source/test/script artifact; code identifiers/protocol strings are not documentation translation targets."
+    },
+    {
+      "path": "tests/test_stage18.py",
+      "status": "NOT_HUMAN_READER_CONTENT",
+      "reason": "Executable source/test/script artifact; code identifiers/protocol strings are not documentation translation targets."
+    },
+    {
+      "path": "tests/test_stage7.py",
+      "status": "NOT_HUMAN_READER_CONTENT",
+      "reason": "Executable source/test/script artifact; code identifiers/protocol strings are not documentation translation targets."
+    },
+    {
+      "path": "tests/test_stage8.py",
+      "status": "NOT_HUMAN_READER_CONTENT",
+      "reason": "Executable source/test/script artifact; code identifiers/protocol strings are not documentation translation targets."
+    },
+    {
+      "path": "tests/test_stage9.py",
+      "status": "NOT_HUMAN_READER_CONTENT",
+      "reason": "Executable source/test/script artifact; code identifiers/protocol strings are not documentation translation targets."
+    }
+  ]
+}

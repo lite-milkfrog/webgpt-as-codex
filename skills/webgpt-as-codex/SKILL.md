@@ -9,6 +9,8 @@ metadata:
 
 # WebGPT-as-Codex Skill
 
+[**English**](SKILL.md) | [简体中文](zh-CN/SKILL.md)
+
 Use this Skill when a web AI session is expected to operate a real computer or codebase through MCP and continue substantial work reliably.
 
 ## Startup contract

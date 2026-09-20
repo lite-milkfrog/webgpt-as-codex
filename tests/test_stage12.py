@@ -20,6 +20,17 @@ def test_release_metadata_declares_runtime_assets() -> None:
         "manager/static/manager.css",
         "manager/static/manager.js",
     ]
+    assert data_files["share/webgpt-as-codex/release"] == [
+        "README.md",
+        "README.zh-CN.md",
+        "LICENSE",
+        "LICENSE.zh-CN.md",
+        "THIRD_PARTY_NOTICES.md",
+        "THIRD_PARTY_NOTICES.zh-CN.md",
+        "docs/TRANSLATION-COVERAGE.json",
+        "docs/TRANSLATION-COVERAGE.md",
+        "docs/THIRD-PARTY-PROVENANCE.json",
+    ]
 
 
 def test_resource_root_falls_back_to_installed_share(

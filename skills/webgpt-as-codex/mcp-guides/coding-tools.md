@@ -1,5 +1,7 @@
 # Coding Tools MCP Operating Guide
 
+[**English**](coding-tools.md) | [简体中文](../zh-CN/mcp-guides/coding-tools.md)
+
 Component: `coding-tools`
 
 ## Mental model
