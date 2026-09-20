@@ -246,6 +246,12 @@ WebGPT may register an existing localhost MCP into MCPJungle without changing th
 
 Neither replaces the other. The Unified Gateway is the structured MCP path; Remote Desktop Commander is an independent host rescue/control path. Agent routing may use one to recover the other only after classifying the failure layer and only through bounded recovery authority.
 
+### Decision: RDC control-plane online is not execution-plane health
+
+Remote Desktop Commander is accepted through four separate states: installation, local process, control plane and execution plane. Device visibility, valid authentication and an `online` control-plane record do not prove the live command path. The Supplemental recovery incident reproduced exactly that split: control-plane presence stayed healthy while `ping` / `get_config` reported no live connection. Recovery verification therefore requires an actual execution probe before routing depends on RDC.
+
+The recovered local 0.2.51 runtime uses a fixed runtime rather than an unbounded `@latest` startup dependency, adds bounded broadcast-capability self-heal after presence is already tracked, and restores a persistable authorized session without recording credentials in Git. These are local-runtime facts; the vendor runtime itself is not vendored into this repository.
+
 ### Decision: one Serena MCP process is not a multi-project parallel slot
 
 Installed Serena source confirms one `SerenaAgent` has one process-wide `_active_project`; activating a different project shuts down the previous active project. Its read-only ProjectServer explicitly protects this process-wide state with an active-project lock. A shared mutable Serena server therefore cannot safely represent different projects for concurrent ChatGPT conversations. Stage 16 owns fixed-project instance pooling/project-slot routing rather than papering over this conflict.

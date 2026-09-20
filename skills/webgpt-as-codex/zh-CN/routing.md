@@ -27,6 +27,7 @@ server/tool name 只是 hint；capability claim 需 initialize/tools/list 或其
 当前 portable Guide：
 - Serena：`mcp-guides/serena.md`
 - Coding Tools：`mcp-guides/coding-tools.md`
+- Remote Desktop Commander：`mcp-guides/remote-desktop-commander.md`
 
 规则：
 - one file one writer；
@@ -37,4 +38,6 @@ server/tool name 只是 hint；capability claim 需 initialize/tools/list 或其
 - 可行时用 Tool Group 降低无关 tool exposure；
 - 宣称 preferred MCP unavailable 前先诊断 workspace/session/auth/schema/harness；
 - Serena config 中 `ready` 不等于 semantic capability proof，必须 exercise intended semantic call；
+- RDC control-plane `online` 不等于 execution proof；必须区分 installation / local process / control plane / execution plane，并在把 RDC 选为 recovery executor 前完成真实 read-only execution probe；
+- complementary recovery 只允许一个 healthy owner，禁止递归互救：healthy WebGPT 可修 unhealthy RDC，healthy RDC 可修 unhealthy WebGPT，unhealthy plane 不得成为 active repair executor；
 - endpoint/binding/availability 属 machine-local inventory，不写 portable routing。

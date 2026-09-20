@@ -75,10 +75,12 @@ B. ChatGPT -> Remote Desktop Commander -> host filesystem/process/terminal/GUI
 
 When A is unavailable or a routed backend is unhealthy while B remains healthy:
 1. classify public-edge vs Gateway vs backend failure;
-2. use Remote Desktop Commander to inspect the local WebGPT/backend process, logs, ports and state;
-3. perform only an allowlisted recovery action or invoke the repository CLI;
-4. verify listener/protocol health;
-5. retry the structured Gateway path.
+2. verify RDC itself at four layers: installation, local process, control plane and execution plane;
+3. require a real execution-plane probe; control-plane `online` alone is not usable evidence;
+4. use Remote Desktop Commander to inspect the local WebGPT/backend process, logs, ports and state;
+5. perform only an allowlisted recovery action or invoke the repository CLI;
+6. verify listener/protocol health;
+7. retry the structured Gateway path.
 
 ### Remote Desktop Commander failure -> Gateway rescue
 
@@ -86,7 +88,23 @@ When B is unavailable while A remains healthy:
 1. use Gateway-routed Windows-MCP/Coding Tools/WebGPT control capability as appropriate;
 2. inspect the Remote Desktop Commander runtime/process;
 3. recover only where lifecycle authority and safety policy permit;
-4. verify Remote Desktop Commander reconnects before depending on it.
+4. verify Remote Desktop Commander reconnects;
+5. require a real RDC execution probe before depending on it again.
+
+### RDC health acceptance
+
+RDC health is not a single boolean:
+
+```text
+installation
+-> local process
+-> control plane
+-> execution plane
+```
+
+A historical Supplemental acceptance incident showed why this distinction matters: the device remained visible/authenticated/online while the live command transport was unusable. The recovered 0.2.51 runtime later passed `list_devices`, `ping`, `get_config` and a read-only host-file probe, with broadcast transport capability present. Only that level of evidence justifies `RDC_EXECUTION_PLANE = VERIFIED`.
+
+The recovery owner rule remains symmetric but non-recursive: a healthy WebGPT plane may attempt bounded repair of unhealthy RDC, and a healthy RDC plane may attempt bounded repair of unhealthy WebGPT. An unhealthy plane is never selected as the active repair executor. If both are down, recovery requires local startup/reboot/human-local action.
 
 ### Hard limitation
 

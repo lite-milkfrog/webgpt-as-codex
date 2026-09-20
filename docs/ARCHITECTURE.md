@@ -46,6 +46,10 @@ If a Gateway backend or local WebGPT runtime fails while Remote Desktop Commande
 
 If Remote Desktop Commander fails while the Unified Gateway remains healthy, Agent routing may use Gateway-routed Windows-MCP/Coding Tools/WebGPT control capability to inspect/recover the Remote Desktop Commander runtime where lifecycle/security policy permits.
 
+Remote Desktop Commander health is a four-layer contract: installation, local process, control plane and execution plane. A device record that is visible, authenticated or marked online is not sufficient execution evidence. Routing may depend on RDC only after a real execution probe such as `ping`, `get_config` or an equivalent read-only host operation succeeds.
+
+The current Supplemental Final Acceptance recovery-plane evidence verified RDC 0.2.51 with an online/authenticated control plane, `transport_broadcast_v1` capability and successful remote execution probes. This verification does not move RDC inside the Gateway, WebGPT READY gate, OAuth lifecycle or Gateway child lifecycle.
+
 The entire public WebGPT endpoint cannot use itself to rescue a transport outage; independent rescue selection therefore belongs partly to the Agent/Skill routing layer. Stage 16 implements this as an attempt-scoped recovery coordinator: every recovery has a correlation/attempt id, visited-path set, bounded hop budget and one mutation owner per component/attempt. A path without lifecycle authority is diagnose-only. Ambiguous mutation timeout/non-zero is resolved from bounded post-state observation before any later mutation is considered.
 
 ## Concurrency model

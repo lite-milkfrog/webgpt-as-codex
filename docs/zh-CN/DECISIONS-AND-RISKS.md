@@ -118,6 +118,8 @@ Stage18 在此基础上只扩展 bounded public release/legal/provenance resourc
 - latest-stable intent 必须经过 compatibility gate，不把 latest 等同可安全 mutation。
 - route ownership 与 lifecycle ownership 分离。
 - RDC 与 Unified Gateway 互补而非替代。
+- RDC control-plane online 不等于 execution-plane healthy。health 必须分 installation / local process / control plane / execution plane；device visible、auth valid、online 都不能代替真实 `ping` / `get_config` / read-only host probe。
+- Supplemental recovery 已把本机 RDC 固定到验证过的 0.2.51 runtime，并增加 presence 已成功但 broadcast capability 未写入时的 bounded self-heal；session 可恢复但 credential 不进入 Git。vendor runtime 不 vendoring 到本 repo。
 - 单 Serena process 不是多项目 parallel slot；Stage16 fixed-project pool。
 - Coding Tools parallelism 由 workspace/write ownership 限制，不是 one-call global mutex；read/process 可重叠，writer worktree 隔离。
 - 风险：自动部署可能重复健康服务，因此 install 前查 listener/protocol/process/install evidence。

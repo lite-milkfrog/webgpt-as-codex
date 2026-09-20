@@ -167,11 +167,13 @@ The Desktop launcher is a user browser entry point, not a Playwright runtime. Wh
 
 ## Phase 9 — final manual actions
 
-Only interactive account/browser authorization remains:
+For a fresh deployment, only interactive account/browser authorization remains:
 
 1. Remote Desktop Commander: install/sign in/pair through the ChatGPT-side integration.
 2. WebGPT Unified Gateway: add the single public MCP URL to ChatGPT and complete the real OAuth browser flow.
 3. If a fresh Tailscale account requires sign-in/permission approval, complete that account action when prompted.
+
+On the currently accepted host, RDC pairing is no longer pending: the recovered fixed 0.2.51 runtime passed connector-side `list_devices`, `ping`, `get_config` and a read-only host probe. Future deployment/Doctor logic must still treat an `online` device record as control-plane evidence only; execution-plane acceptance requires a real command probe.
 
 ## Phase 10 — acceptance
 

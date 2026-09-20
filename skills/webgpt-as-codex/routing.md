@@ -32,6 +32,7 @@ For newly onboarded MCPs, Stage 9 produces a routing recommendation from actual 
 Current portable Guides:
 - Serena: `mcp-guides/serena.md`
 - Coding Tools: `mcp-guides/coding-tools.md`
+- Remote Desktop Commander: `mcp-guides/remote-desktop-commander.md`
 
 Rules:
 - one file has one writer at a time;
@@ -42,4 +43,6 @@ Rules:
 - use Tool Groups to reduce irrelevant tool exposure where possible;
 - diagnose workspace/session/auth/schema/harness state before declaring a preferred MCP unavailable;
 - a configuration summary that says `ready` is not semantic-capability proof; exercise the intended semantic call before relying on Serena;
+- Remote Desktop Commander control-plane `online` is not execution proof; distinguish installation, local process, control plane and execution plane, and require a real read-only execution probe before selecting RDC as a recovery executor;
+- complementary recovery is one-owner and non-recursive: a healthy WebGPT plane may repair unhealthy RDC, or healthy RDC may repair unhealthy WebGPT, but an unhealthy plane is never the active repair executor;
 - local availability, bindings and endpoints belong in machine-local inventory/state, not portable routing rules.

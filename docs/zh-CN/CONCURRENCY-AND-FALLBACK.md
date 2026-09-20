@@ -52,16 +52,34 @@ B. ChatGPT -> Remote Desktop Commander -> host filesystem/process/terminal/GUI
 
 ### A 失败 -> RDC rescue
 1. 分类 public-edge / Gateway / backend failure；
-2. RDC 检查本地 WebGPT/backend process、logs、ports、state；
-3. 只做 allowlisted recovery 或调用 repo CLI；
-4. 验证 listener/protocol；
-5. 重试 structured Gateway。
+2. 先按 installation / local process / control plane / execution plane 四层验证 RDC；
+3. 必须有真实 execution-plane probe，不能只看 control-plane `online`；
+4. RDC 检查本地 WebGPT/backend process、logs、ports、state；
+5. 只做 allowlisted recovery 或调用 repo CLI；
+6. 验证 listener/protocol；
+7. 重试 structured Gateway。
 
 ### B 失败 -> Gateway rescue
 1. 依情况使用 Gateway-routed Windows-MCP/Coding Tools/WebGPT capability；
 2. 检查 RDC runtime/process；
 3. 只有 lifecycle authority + safety policy 允许时恢复；
-4. 验证 RDC reconnect 后再依赖。
+4. 验证 RDC reconnect；
+5. 再做真实 RDC execution probe，通过后才能重新依赖。
+
+### RDC health acceptance
+
+RDC health 不是单个 boolean：
+
+```text
+installation
+-> local process
+-> control plane
+-> execution plane
+```
+
+Supplemental acceptance 的历史事故证明了这一点：device 可见、auth valid、online 时，live command transport 仍可能不可用。恢复后的 0.2.51 runtime 已通过 `list_devices`、`ping`、`get_config` 和 read-only host-file probe，并有 broadcast transport capability；只有这种证据才允许写 `RDC_EXECUTION_PLANE = VERIFIED`。
+
+recovery owner 规则保持对称但不递归：healthy WebGPT 可 bounded repair unhealthy RDC；healthy RDC 可 bounded repair unhealthy WebGPT；unhealthy plane 不能被选为 active repair executor。两者都 down 时必须 local startup/reboot/human-local action。
 
 ### 硬限制
 

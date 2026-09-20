@@ -35,6 +35,10 @@ Deployment controller 分离 upstream/source authority、installation/version au
 
 RDC 与 Unified Gateway 故意独立。Gateway/backend/local WebGPT runtime 失败且 RDC 可用时，Agent 可经 RDC 恢复本地进程后重试 structured MCP；RDC 失败且 Gateway 健康时，可在权限允许范围通过 Gateway-routed Windows-MCP/Coding Tools/WebGPT 能力恢复 RDC。
 
+RDC 健康必须拆成四层：installation、local process、control plane、execution plane。device 可见、auth valid 或 status=online 都不足以证明 execution plane 可用；只有真实 `ping`、`get_config` 或等价 read-only host operation 成功后，routing 才能依赖 RDC。
+
+当前 Supplemental Final Acceptance 的 recovery-plane evidence 已验证 RDC 0.2.51：control plane online/authenticated、`transport_broadcast_v1` capability 存在，并且真实 remote execution probe 成功。该事实不把 RDC 移入 Gateway、WebGPT READY gate、OAuth lifecycle 或 Gateway child lifecycle。
+
 public WebGPT endpoint 整体 transport outage 时不能自救。Stage16 的 attempt-scoped recovery coordinator 使用 correlation/attempt id、visited-path set、bounded hop budget 和每 component/attempt 一个 mutation owner；没有 lifecycle authority 的 path 只能 diagnose；timeout/non-zero mutation 先 bounded post-state。
 
 ## 并发模型

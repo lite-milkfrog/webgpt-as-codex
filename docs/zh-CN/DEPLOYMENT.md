@@ -142,10 +142,12 @@ Desktop launcher 是普通用户浏览入口，不是 Playwright runtime。已�
 
 ## Phase 9 — 最终人工步骤
 
-只剩真正 interactive 的账户/浏览器授权：
+对于 fresh deployment，只剩真正 interactive 的账户/浏览器授权：
 1. Remote Desktop Commander：ChatGPT 侧安装/登录/pair。
 2. Unified Gateway：把唯一 public MCP URL 加到 ChatGPT，并完成真实 OAuth browser flow。
 3. fresh Tailscale account 如需登录/permission approval，按提示完成。
+
+当前已接受主机上，RDC pairing 已不再 pending：恢复后的 fixed 0.2.51 runtime 已通过 connector-side `list_devices`、`ping`、`get_config` 和 read-only host probe。未来 deployment/Doctor 仍只能把 `online` device record 当 control-plane evidence；execution-plane acceptance 必须有真实 command probe。
 
 ## Phase 10 — acceptance
 

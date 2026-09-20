@@ -213,6 +213,11 @@
       "reason": "Canonical closure evidence remains unchanged; Chinese readers use docs/zh-CN/HISTORICAL-EVIDENCE-INDEX.md and live SoT mirrors."
     },
     {
+      "path": "docs/RDC-FINAL-RECOVERY-PLANE-CLOSURE.md",
+      "status": "HISTORICAL_EVIDENCE_PRESERVED_WITH_INDEX",
+      "reason": "Canonical supplemental recovery-plane closure evidence remains unchanged; Chinese readers use the mirrored live SoT and Product Skill guidance."
+    },
+    {
       "path": "docs/STAGE-2-CLOSURE.md",
       "status": "HISTORICAL_EVIDENCE_PRESERVED_WITH_INDEX",
       "reason": "Canonical closure evidence remains unchanged; Chinese readers use docs/zh-CN/HISTORICAL-EVIDENCE-INDEX.md and live SoT mirrors."
@@ -481,6 +486,12 @@
       "reason": "Current human-readable source with deterministic Simplified Chinese mirror."
     },
     {
+      "path": "skills/webgpt-as-codex/mcp-guides/remote-desktop-commander.md",
+      "status": "MIRRORED_CURRENT",
+      "mirror_path": "skills/webgpt-as-codex/zh-CN/mcp-guides/remote-desktop-commander.md",
+      "reason": "Current human-readable source with deterministic Simplified Chinese mirror."
+    },
+    {
       "path": "skills/webgpt-as-codex/mcp-guides/serena.md",
       "status": "MIRRORED_CURRENT",
       "mirror_path": "skills/webgpt-as-codex/zh-CN/mcp-guides/serena.md",
@@ -531,6 +542,11 @@
     },
     {
       "path": "skills/webgpt-as-codex/zh-CN/mcp-guides/coding-tools.md",
+      "status": "MIRROR_TARGET",
+      "reason": "Simplified Chinese mirror/treatment target; identifiers, commands, URLs and hashes preserve source semantics."
+    },
+    {
+      "path": "skills/webgpt-as-codex/zh-CN/mcp-guides/remote-desktop-commander.md",
       "status": "MIRROR_TARGET",
       "reason": "Simplified Chinese mirror/treatment target; identifiers, commands, URLs and hashes preserve source semantics."
     },

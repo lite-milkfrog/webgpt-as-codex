@@ -30,7 +30,7 @@ Supplemental chain (user requirements added after the accepted TERMINAL state):
 - Stage 17: CLOSED_LOCAL_VERIFIED
 - Stage 18: CLOSED_LOCAL_VERIFIED
 - Stage 19: CLOSED_LOCAL_VERIFIED; REAL_HOST_VERIFIED + REAL_CHATGPT_VERIFIED
-- Supplemental Final Acceptance: PLANNED
+- Supplemental Final Acceptance: IN_PROGRESS; RDC recovery-plane reconciliation VERIFIED, desktop-launcher/final reconciliation pending
 
 The supplemental chain does not invalidate the accepted Stage 1-12 evidence. It owns only the later one-repository deployment, production unified Gateway, fresh-machine dependency/bootstrap, complementary Remote Desktop Commander recovery, multi-window concurrency, bilingual Manager/desktop experience and complete Chinese mirror requirements.
 
@@ -186,3 +186,17 @@ Stage 19 proof:
 - a fresh wheel installed into a new external venv and verified 8 component manifests, 4 Manager resources, all 9 release resources, the authoritative LICENSE hash and CLI version 0.1.0.
 
 Stage 19 closure: docs/STAGE-19-CLOSURE.md.
+
+Supplemental RDC recovery-plane proof:
+- Remote Desktop Commander remains an independent complementary full-machine repair/control plane, not a Gateway child, WebGPT READY prerequisite, OAuth/Funnel component or Gateway lifecycle dependency;
+- current recovered RDC runtime is fixed at 0.2.51 instead of resolving `@latest` on each startup;
+- health is now explicitly four-layered: installation, local process, control plane and execution plane;
+- the historical incident demonstrated that device visible/authenticated/online can coexist with an unusable live command transport, so control-plane `online` is never sufficient health proof;
+- local recovery hardened startup/session handling and retries missing broadcast transport capability after presence is already tracked;
+- real connector-side acceptance passed `list_devices`, `ping` -> `pong`, `get_config` and a read-only host file probe, with `transport_broadcast_v1` present;
+- therefore `RDC_INSTALLATION`, `RDC_LOCAL_PROCESS`, `RDC_CONTROL_PLANE`, `RDC_TRANSPORT_BROADCAST_V1` and `RDC_EXECUTION_PLANE` are VERIFIED for this acceptance snapshot;
+- the fallback matrix is non-recursive: healthy WebGPT may repair unhealthy RDC; healthy RDC may repair unhealthy WebGPT; an unhealthy plane is never selected as the active recovery executor; both-down requires local startup/reboot/human-local recovery;
+- RDC and Windows-MCP share physical desktop GUI state, so mouse/keyboard/focus/clipboard/native-dialog mutations remain serialized through the machine GUI lease;
+- this RDC closure did not force a new physical Windows reboot. Process restart/session restore and idempotent local startup are verified; any full-reboot claim must come from separate real reboot evidence.
+
+RDC recovery-plane closure: docs/RDC-FINAL-RECOVERY-PLANE-CLOSURE.md.

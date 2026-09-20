@@ -1,3 +1,17 @@
+## 2026-09-20 — RDC online does not prove a live execution plane
+
+Origin:
+- Supplemental Final Acceptance Remote Desktop Commander recovery-plane incident.
+- The device remained visible, authenticated and online while connector-side `ping` and `get_config` reported no live connection.
+
+Protected lesson:
+- model RDC installation, local process, control plane and execution plane separately;
+- require a real execution probe before routing depends on RDC;
+- if presence is tracked but broadcast transport capability registration failed, retry that capability registration rather than treating presence as sufficient;
+- fixed validated runtime startup avoids `@latest` drift during recovery;
+- keep session/auth secrets machine-local and never copy them into Git evidence;
+- a healthy WebGPT plane may repair unhealthy RDC and healthy RDC may repair unhealthy WebGPT, but recovery has one active mutation owner and never recurses through an unhealthy plane.
+
 ## 2026-09-20 — Installed, latest and compatible are different facts
 
 Origin:

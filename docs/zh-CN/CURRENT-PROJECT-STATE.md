@@ -21,7 +21,7 @@ Stage 1-12、Final Overall Acceptance、Project Complete 均为 `CLOSED_LOCAL_VE
 - Stage 17 post-acceptance Hotfix: `CLOSED_LOCAL_VERIFIED`
 - Stage 18: `CLOSED_LOCAL_VERIFIED`
 - Stage 19: `CLOSED_LOCAL_VERIFIED`；并完成 REAL_HOST_VERIFIED + REAL_CHATGPT_VERIFIED
-- Supplemental Final Acceptance: `PLANNED`
+- Supplemental Final Acceptance: `IN_PROGRESS`；RDC recovery-plane reconciliation 已 VERIFIED，desktop-launcher/final reconciliation 待合并
 
 ## Stage 13 证据
 
@@ -145,3 +145,18 @@ Stage18 完成后，程序状态仍为 `ACTIVE`，必须递归交接 Stage19。
 - fresh wheel 在 repo 外新 venv 安装并验证 8 component manifests、4 Manager resources、9 release resources、LICENSE hash 与 CLI 0.1.0。
 
 Closure: `docs/STAGE-19-CLOSURE.md`。
+
+## Supplemental RDC recovery-plane 证据
+
+- RDC 保持 independent complementary full-machine repair/control plane，不是 Gateway child、WebGPT READY prerequisite、OAuth/Funnel component 或 Gateway lifecycle dependency。
+- 当前恢复后的 RDC runtime 固定为 0.2.51，不再每次 startup 动态解析 `@latest`。
+- health 明确拆为 installation / local process / control plane / execution plane 四层。
+- 历史 incident 已证明 device visible/authenticated/online 时 live command transport 仍可能不可用，因此 control-plane `online` 永远不能单独证明 usable。
+- local recovery 加固 startup/session handling，并在 presence 已 tracked 但 broadcast transport capability 未成功写入时自恢复重试。
+- connector-side 真实通过 `list_devices`、`ping` -> `pong`、`get_config`、read-only host file probe，且 `transport_broadcast_v1` present。
+- 因此当前 acceptance snapshot 的 `RDC_INSTALLATION`、`RDC_LOCAL_PROCESS`、`RDC_CONTROL_PLANE`、`RDC_TRANSPORT_BROADCAST_V1`、`RDC_EXECUTION_PLANE` 均为 VERIFIED。
+- fallback 非递归：healthy WebGPT 可修 unhealthy RDC；healthy RDC 可修 unhealthy WebGPT；unhealthy plane 不得成为 active recovery executor；both-down 需要 local startup/reboot/human-local recovery。
+- RDC 与 Windows-MCP 共用 physical desktop GUI state，mouse/keyboard/focus/clipboard/native dialog mutation 继续由 machine GUI lease 串行。
+- 本 RDC closure 没有强制新的 physical Windows reboot。process restart/session restore 与 idempotent local startup 已验证；full-reboot claim 必须来自独立真实 reboot evidence。
+
+Closure: `docs/RDC-FINAL-RECOVERY-PLANE-CLOSURE.md`。
