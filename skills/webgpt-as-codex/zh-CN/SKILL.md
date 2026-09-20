@@ -2,6 +2,11 @@
 
 [English](../SKILL.md) | **简体中文**
 
+版本：\`1.2.0\`。本 profile 与同级 \`../../computer-agent/\` canonical portable
+core 一起发行；本文件保留 WebGPT-as-Codex 的产品专项知识，不替代、不裁剪
+Computer Agent 的通用 workflow/eval。完整 Experience Ledger 与 canonical
+core 无损同步。
+
 本 Skill 用于：网页 AI 需要通过 MCP 操作真实电脑/代码库，并在长任务中可靠持续工作。
 
 ## 启动契约

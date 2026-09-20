@@ -2,7 +2,7 @@
 name: webgpt-as-codex
 description: Local-first MCP computer/coding agent workflow with durable SoT, Loop Engineering, verified handoff, Doctor/Repair, gateway routing and multi-window continuation.
 metadata:
-  version: 0.6.0
+  version: 1.2.0
   portability: public-safe-local-first
   secrets-policy: no-secrets-in-skill
 ---
@@ -10,6 +10,12 @@ metadata:
 # WebGPT-as-Codex Skill
 
 [**English**](SKILL.md) | [简体中文](zh-CN/SKILL.md)
+
+Version \`1.2.0\` ships together with the canonical sibling
+\`../computer-agent/\` portable core. This file remains the
+WebGPT-as-Codex product specialization; it does not replace or trim the
+general Computer Agent workflows/evals. The Experience Ledger is shared
+losslessly with the canonical core.
 
 Use this Skill when a web AI session is expected to operate a real computer or codebase through MCP and continue substantial work reliably.
 

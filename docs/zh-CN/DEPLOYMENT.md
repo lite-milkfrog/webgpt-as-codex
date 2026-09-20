@@ -140,6 +140,8 @@ Manager liveness 与 generation 分离。活着的 9200 listener/healthz 不证�
 
 Desktop launcher 是普通用户浏览入口，不是 Playwright runtime。已有正常 Edge 时复用 last-used normal profile，否则通过 Windows default URL handler；不创建 temp user-data dir、isolated automation profile 或 InPrivate session。
 
+只属于当前电脑的一键附加能力不得硬编码进 release launcher。手动 Desktop launcher 只识别一个固定本机扩展文件 `%LOCALAPPDATA%\WebGPT-as-Codex\local-launcher-overlay.cmd`，且只在 WebGPT 已经 READY 后调用；fresh install 默认没有该文件，Windows 登录 autostart 不调用它，overlay failure 也不会降级 WebGPT READY。
+
 ## Phase 9 — 最终人工步骤
 
 对于 fresh deployment，只剩真正 interactive 的账户/浏览器授权：

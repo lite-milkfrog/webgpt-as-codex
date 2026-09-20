@@ -287,11 +287,20 @@ def _launcher_content(*, open_browser: bool) -> str:
             "  )\r\n"
             ")\r\n"
         )
+        local_overlay = (
+            'if exist "%LOCALAPPDATA%\\WebGPT-as-Codex\\local-launcher-overlay.cmd" (\r\n'
+            '  call "%LOCALAPPDATA%\\WebGPT-as-Codex\\local-launcher-overlay.cmd"\r\n'
+            "  if errorlevel 1 (\r\n"
+            "    echo Local desktop overlay failed. WebGPT-as-Codex remains READY.\r\n"
+            "  )\r\n"
+            ")\r\n"
+        )
         tail = "  pause\r\n"
     else:
         visible = ""
         success = ""
         remote_desktop_commander = ""
+        local_overlay = ""
         tail = ""
     return (
         "@echo off\r\n"
@@ -309,6 +318,7 @@ def _launcher_content(*, open_browser: bool) -> str:
         + "  exit /b 2\r\n"
         + " )\r\n"
         + success
+        + local_overlay
         + remote_desktop_commander
         + "endlocal\r\n"
     )

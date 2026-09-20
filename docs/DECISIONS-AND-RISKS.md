@@ -290,6 +290,14 @@ The one-click desktop Manager opener is ordinary user browsing, not a Playwright
 
 The real stale 9200 Manager was safely replaced after strict identity/contract proof. `/`, `/en`, `/zh`, `/manager.css`, `/manager.js` and `/api/local-config` then returned the current Stage 17 contract. Two consecutive Desktop launches preserved the same core MCP/Gateway/Manager listeners and the same existing Edge `Default` top-level process, while Windows-MCP observed the complete Manager control tree.
 
+### Supplemental decision: release/local Skill parity uses a portable core plus machine overlay
+
+The released Computer Agent and the machine-local Computer Agent share one portable versioned core (`1.2.0`). Reusable routing, workflows, evals, MCP Guides and the Experience Ledger are release assets and must not drift. Machine-specific environment, inventory, state, secrets and current-host launcher extensions remain local overlays. A local-only integration is not promoted into the release merely because the current host uses it.
+
+### Supplemental decision: desktop local extras are post-READY and non-authoritative
+
+The canonical managed Desktop launcher may call one fixed machine-local overlay file after WebGPT is READY. The release package contains only the extension point, not the local integration content. Overlay failure is diagnostic/local-only and cannot turn a healthy WebGPT launch into failure. Autostart remains overlay-free.
+
 ## Stage 16 — concurrency / session isolation / complementary recovery
 
 ### Decision: concurrency authority is explicit per shared state

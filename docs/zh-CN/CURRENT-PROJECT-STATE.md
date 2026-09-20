@@ -3,8 +3,8 @@
 [English](../CURRENT-PROJECT-STATE.md) | **简体中文**
 
 PROJECT = WebGPT-as-Codex  
-CURRENT_STAGE = SUPPLEMENTAL-FINAL-ACCEPTANCE
-NEXT_STAGE = GLOBAL_LOOP_COMPLETE
+CURRENT_STAGE = GLOBAL_LOOP_COMPLETE
+NEXT_STAGE = TERMINAL
 AFTER_NEXT_STAGE = TERMINAL
 
 ## 已接受主链
@@ -21,7 +21,7 @@ Stage 1-12、Final Overall Acceptance、Project Complete 均为 `CLOSED_LOCAL_VE
 - Stage 17 post-acceptance Hotfix: `CLOSED_LOCAL_VERIFIED`
 - Stage 18: `CLOSED_LOCAL_VERIFIED`
 - Stage 19: `CLOSED_LOCAL_VERIFIED`；并完成 REAL_HOST_VERIFIED + REAL_CHATGPT_VERIFIED
-- Supplemental Final Acceptance: `IN_PROGRESS`；RDC recovery-plane reconciliation 已 VERIFIED，desktop-launcher/final reconciliation 待合并
+- Supplemental Final Acceptance: `CLOSED_LOCAL_VERIFIED + REAL_HOST_VERIFIED`
 
 ## Stage 13 证据
 
@@ -160,3 +160,21 @@ Closure: `docs/STAGE-19-CLOSURE.md`。
 - 本 RDC closure 没有强制新的 physical Windows reboot。process restart/session restore 与 idempotent local startup 已验证；full-reboot claim 必须来自独立真实 reboot evidence。
 
 Closure: `docs/RDC-FINAL-RECOVERY-PLANE-CLOSURE.md`。
+
+## Supplemental Final Acceptance 最终证据
+
+- desktop/reboot recovery 已合并：reboot 后 Edge prerequisite bounded wait、超时 fail-closed、Doctor prerequisite context 均已实现。
+- 真机 Start All 连续两次 `ok=true / fully_ready=true / required_unmanaged_missing=[]`，Manager 37400、OAuth Edge 42036、Gateway 34744 PID 保持，不重复启动健康服务。
+- 真机 Doctor `status=pass`，8 components、required failures/warnings 均为 0，public protected-resource 200、unauthenticated MCP 401 + OAuth challenge 正常。
+- Desktop launcher 与 autostart 均 `installed=true / managed=true / upgradeable=false`；手动 launcher 真实记录 `browser_open_requested=true / browser_open_dispatched=true`，前台 focus 仅 best-effort。
+- manual desktop 只提供固定 post-READY machine-local overlay extension point。当前主机 CloudBase 只存在 local overlay/MCPJungle machine state，明确 NOT release content；autostart 不调用 overlay。
+- RDC final recovery plane 已 VERIFIED，详见 `docs/RDC-FINAL-RECOVERY-PLANE-CLOSURE.md`。
+- Agent Skill 统一为 1.2.0：发行版 `skills/computer-agent/` 为 canonical portable core，`skills/webgpt-as-codex/` 保留产品专项 profile；本机 `.skills/computer-agent/` 使用同一 portable core + environment/inventory/state overlay。
+- 本机 `PORTABLE_SKILL_SYNC_OK`；validator `VALIDATION_OK`，26 required files / 53 scenarios；Computer Agent/WAC Experience Ledger 无损一致。
+- fresh installed wheel 已验证 package 0.1.0、Computer Agent 1.2.0、WAC Skill 1.2.0、53 scenarios、ledger match、RDC Guide、中文 WAC profile。
+- final pre-closure gate：targeted 52 PASS；full repository 225 PASS；Ruff PASS；SECRET_SCAN_PASS；`git diff --check` PASS。
+- terminal fresh wheel SHA-256：`3082f5e1d8db3a5e3dc1565ee4574917b7c5806fb146e840a9e2add6c2b5cd17`（339894 bytes）；repo 外新 venv 再次验证 8 components、4 Manager resources、9 release resources、Skill 1.2.0/1.2.0、53 scenarios 与 ledger match。
+
+Closure: `docs/SUPPLEMENTAL-FINAL-ACCEPTANCE-CLOSURE.md`。
+
+PROGRAM_STATE = GLOBAL_LOOP_COMPLETE

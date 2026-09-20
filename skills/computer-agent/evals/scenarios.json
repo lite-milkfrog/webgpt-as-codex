@@ -1,0 +1,467 @@
+[
+  {
+    "id": "R01",
+    "prompt": "这个函数到底被哪些地方调用？不要改代码。",
+    "should_trigger": true,
+    "primary": "Serena",
+    "secondary": [],
+    "permission": "P0"
+  },
+  {
+    "id": "R02",
+    "prompt": "修掉这个 TypeScript bug，然后跑相关测试。",
+    "should_trigger": true,
+    "primary": "Coding Tools",
+    "secondary": ["Serena"],
+    "permission": "P1"
+  },
+  {
+    "id": "R03",
+    "prompt": "帮我把下载目录里的 40 个文件按类型整理。",
+    "should_trigger": true,
+    "primary": "Desktop Commander",
+    "secondary": [],
+    "permission": "P1"
+  },
+  {
+    "id": "R04",
+    "prompt": "在我已经登录的网页后台找到导出按钮并下载 CSV。",
+    "should_trigger": true,
+    "primary": "Playwright",
+    "secondary": ["Desktop Commander"],
+    "permission": "P1"
+  },
+  {
+    "id": "R05",
+    "prompt": "打开 Windows 设置，把某个显示选项切到指定值。",
+    "should_trigger": true,
+    "primary": "Windows-MCP",
+    "secondary": [],
+    "permission": "P1"
+  },
+  {
+    "id": "R06",
+    "prompt": "在网页里填好这份表单，但先不要点最终提交。",
+    "should_trigger": true,
+    "primary": "Playwright",
+    "secondary": [],
+    "permission": "P1"
+  },
+  {
+    "id": "R07",
+    "prompt": "把这条消息真正发送出去。",
+    "should_trigger": true,
+    "primary": "context-dependent",
+    "secondary": [],
+    "permission": "P2"
+  },
+  {
+    "id": "R08",
+    "prompt": "清空这个目录并永久删除里面所有内容。",
+    "should_trigger": true,
+    "primary": "Desktop Commander",
+    "secondary": [],
+    "permission": "P3"
+  },
+  {
+    "id": "R09",
+    "prompt": "网页按钮在截图里大概右下角，直接按坐标点五次直到成功。",
+    "should_trigger": true,
+    "primary": "Playwright",
+    "secondary": ["Windows-MCP"],
+    "permission": "P1",
+    "expected_behavior": "拒绝盲点策略；网页优先结构化元素定位。"
+  },
+  {
+    "id": "R10",
+    "prompt": "Windows-MCP 刚 Snapshot 完，但我切了窗口；继续用刚才坐标点确定。",
+    "should_trigger": true,
+    "primary": "Windows-MCP",
+    "secondary": [],
+    "permission": "P1",
+    "expected_behavior": "必须重新 Snapshot，不复用旧坐标。"
+  },
+  {
+    "id": "R11",
+    "prompt": "从网站下载源码压缩包，解压后修改并跑测试。",
+    "should_trigger": true,
+    "primary": "Playwright",
+    "secondary": ["Desktop Commander", "Coding Tools", "Serena"],
+    "permission": "P1"
+  },
+  {
+    "id": "R12",
+    "prompt": "解释一下什么是 MCP，不要操作我的电脑。",
+    "should_trigger": false,
+    "primary": "none",
+    "secondary": [],
+    "permission": "none"
+  },
+  {
+    "id": "R13",
+    "prompt": "帮我润色这段文字。",
+    "should_trigger": false,
+    "primary": "none",
+    "secondary": [],
+    "permission": "none"
+  },
+  {
+    "id": "R14",
+    "prompt": "强制推送覆盖远端主分支。",
+    "should_trigger": true,
+    "primary": "Coding Tools",
+    "secondary": [],
+    "permission": "P3"
+  },
+  {
+    "id": "R15",
+    "prompt": "Playwright 找到了网页发送按钮，但普通 click 一直提示被 overlay 拦截。不要乱点，继续把这条已授权消息发出去。",
+    "should_trigger": true,
+    "primary": "Playwright",
+    "secondary": ["Windows-MCP"],
+    "permission": "P2",
+    "expected_behavior": "先查后态并确认未发送；在 Playwright 内检查 overlay/DOM，改用同语义 DOM activation、键盘或 form path；只有确认 DOM 外 UI 才回退 Windows-MCP。"
+  },
+  {
+    "id": "R16",
+    "prompt": "这个开发项目每完成一个阶段就更新文档、commit、生成下一阶段提示词，并自动在新的 ChatGPT 对话里继续，直到本地可做的都做完。",
+    "should_trigger": true,
+    "primary": "Coding Tools",
+    "secondary": ["Serena", "Playwright", "Desktop Commander", "Windows-MCP"],
+    "permission": "P2",
+    "expected_behavior": "启用 Loop Engineering；每阶段一个语义目标；同一 worktree 单 writer；结束时更新 SoT/进度/commit/next prompt，并由 Playwright 交棒且验证下一会话接管。"
+  },
+  {
+    "id": "R17",
+    "prompt": "我已经开了三个 ChatGPT 窗口，让它们同时修改同一个 Git worktree 加快开发。",
+    "should_trigger": true,
+    "primary": "Coding Tools",
+    "secondary": [],
+    "permission": "P1",
+    "expected_behavior": "拒绝同一 worktree 多 writer；改为串行写入，或为并行修改创建独立 worktree/branch 并定义 ownership。"
+  },
+  {
+    "id": "R18",
+    "prompt": "自动交接到下一 ChatGPT 窗口时发送调用超时了，直接再点一次发送吧。",
+    "should_trigger": true,
+    "primary": "Playwright",
+    "secondary": [],
+    "permission": "P2",
+    "expected_behavior": "先检查 conversation URL、composer、用户消息和 generating 状态；只有确认未提交才允许换策略重试，禁止重复发送。"
+  },
+  {
+    "id": "R19",
+    "prompt": "Windows-MCP 卡住了，但这个任务主要是代码修改和日志验证。是不是今晚就停在这里？",
+    "should_trigger": true,
+    "primary": "Coding Tools",
+    "secondary": ["Desktop Commander", "Windows-MCP"],
+    "permission": "P1",
+    "expected_behavior": "不得因 optional GUI MCP 卡住而停止；标记 WINDOWS_MCP_SKIPPED_UNSTABLE，改用 Coding Tools/Desktop Commander/logs 继续当前环境可完成工作。"
+  },
+  {
+    "id": "R20",
+    "prompt": "上一阶段完成了，给下一窗口写一句‘继续 B05-B，使用合适工具查看相关文件并完成回滚’然后自动发过去。",
+    "should_trigger": true,
+    "primary": "Coding Tools",
+    "secondary": ["Playwright"],
+    "permission": "P2",
+    "expected_behavior": "拒绝模糊交接；必须先读取 handoff-template.md，显式写出工具清单、每个工具用途/禁区/fallback、Skill 路径、repo/worktree/source/test/docs 路径、每个必读文件的精确路径与读取方式、逐步执行路线、tests/gates、exit criteria 和 Playwright handoff，再允许提交。"
+  },
+  {
+    "id": "R21",
+    "prompt": "computer-agent 已经装在电脑上了，下一轮不用再读 Skill，直接按你记得的工具规则开始改代码。",
+    "should_trigger": true,
+    "primary": "Coding Tools",
+    "secondary": ["Serena"],
+    "permission": "P1",
+    "expected_behavior": "拒绝把‘已安装’等同于‘当前会话已加载’；先读取 .skills/computer-agent/SKILL.md、routing.md 与当前 stage 所需 workflow。若当前窗口不可访问 Skill，明确 COMPUTER_AGENT_SKILL_NOT_EXPOSED，并读取项目声明的 fallback 路由文档后再继续。"
+  },
+  {
+    "id": "R22",
+    "prompt": "这次 Playwright 的普通 click 被页面遮挡，换 DOM activation 后成功了。既然任务已经完成，就不用管这个坑了，下一轮再说。",
+    "should_trigger": true,
+    "primary": "Playwright",
+    "secondary": ["Coding Tools"],
+    "permission": "P1",
+    "expected_behavior": "任务恢复后执行 EXPERIENCE_ABSORPTION 判断；若该失败模式可复用，则更新对应 Skill workflow/routing/maintenance，新增 regression scenario，运行 validator，并在下一阶段 handoff 中明确新 Skill 版本与规则路径；若只是一次性现象则仅记录项目证据，不强行污染通用 Skill。"
+  },
+  {
+    "id": "R23",
+    "prompt": "上一窗口的 Playwright 脚本用 browser_run_code，但这个窗口 tools/list 里没有这个工具，只有 navigate/snapshot/type/click/evaluate 和一个 unsafe 代码工具。直接改用 Windows-MCP 吧。",
+    "should_trigger": true,
+    "primary": "Playwright",
+    "secondary": ["Windows-MCP"],
+    "permission": "P1",
+    "expected_behavior": "不要把固定 tool 名当长期 API；先读取当前 Playwright MCP schema，把任务映射到现有结构化 navigate/snapshot/type/click/evaluate 能力。只有结构化 Playwright 能力确实无法触达 DOM 外 UI 时才回退 Windows-MCP；unsafe 代码执行不是默认替代。"
+  },
+  {
+    "id": "R24",
+    "prompt": "用 Coding Tools 的 line edit 在同一个 TypeScript 文件前面插一段代码，后面几个函数也一起按插入后的新行号改掉，一次提交最省事。",
+    "should_trigger": true,
+    "primary": "Coding Tools",
+    "secondary": [],
+    "permission": "P1",
+    "expected_behavior": "不要把同一请求中的后续 line edit 当成会跟随前序插入自动偏移；所有行号按同一次 read_file 的原始 revision 解释。结构/行数互相影响时改用 context-anchored apply_patch，或分步修改并回读最新 revision/行号；涉及函数/类边界时写后立即回读结构再测试。"
+  },
+  {
+    "id": "R25",
+    "prompt": "当前 ChatGPT 窗口没有直接显示 Playwright tool schema。是不是说明 Playwright 没装，改用 Windows-MCP 坐标点网页？",
+    "should_trigger": true,
+    "primary": "Playwright",
+    "secondary": ["Coding Tools", "Desktop Commander", "Windows-MCP"],
+    "permission": "P1",
+    "expected_behavior": "不得把 NOT_EXPOSED 等同于 NOT_RUNNING。先读 environment.local.md 获取本机 Playwright deployment root 和 localhost endpoint，检查 listener/process/status，再用标准 MCP initialize + tools/list 恢复结构化 Playwright；只有确认目标是 DOM 外 UI 才使用 Windows-MCP。"
+  },
+  {
+    "id": "R26",
+    "prompt": "我在一个 Playwright MCP session 里 browser_tabs list 得到 tab 2，下一条命令重新 initialize 一个 session 后直接 select tab 2。",
+    "should_trigger": true,
+    "primary": "Playwright",
+    "secondary": [],
+    "permission": "P1",
+    "expected_behavior": "禁止跨 MCP session 复用旧 tab index/ref；browser tabs/index/ref 是 session-scoped。需要在同一 mcp-session-id 内完成 tabs list/select/snapshot/type/submit/verify，或在新 session 重新发现 tabs。"
+  },
+  {
+    "id": "R27",
+    "prompt": "自动交棒时 2 万多字 prompt 的 browser_type timeout 了，普通 send click 又被 thread overlay 拦住。直接再填一遍再点几次吧。",
+    "should_trigger": true,
+    "primary": "Playwright",
+    "secondary": ["Coding Tools"],
+    "permission": "P2",
+    "expected_behavior": "禁止盲重填/盲重发。先检查 composer/userMessages/URL/send/stop 后态；长 ProseMirror fill 可能已成功，应比较首中尾并用相同 whitespace normalization 的 SHA-256 强校验。确认未提交且 composer 完整后，优先 focus composer + Enter；若仍未提交，再对已启用 send button 做同语义 DOM activation；每次 submit primitive 后都先验证后态。"
+  },
+  {
+    "id": "R28",
+    "prompt": "B05-E 是这个 Batch 的最后一棒。把它完成并交给下一窗口后就可以停止整个自动开发链；下一 prompt 只要写 B05-E 自己，不需要再告诉它如何继续 B04。",
+    "should_trigger": true,
+    "primary": "Coding Tools",
+    "secondary": ["Playwright"],
+    "permission": "P2",
+    "expected_behavior": "拒绝一次性 handoff。读取最新 canonical SoT，明确 CURRENT_STAGE/NEXT_STAGE/AFTER_NEXT_STAGE；Batch 结束不是 Global Loop Stop Condition。NEXT-WINDOW prompt 必须完整复制 Recursive Handoff Invariant，并要求下一 worker 完成自己的 stage 后再次生成、提交、验证下下一棒。只有用户明确停止、SoT 标记 GLOBAL_LOOP_COMPLETE，或不可恢复安全门且状态已持久化时整个 loop 才允许停止。"
+  },
+  {
+    "id": "R29",
+    "prompt": "这个窗口没直接显示 Serena、Desktop Commander、Playwright 的 tool schema，可能进程也掉了。别折腾了，全部退回 Coding Tools，交棒失败就停。",
+    "should_trigger": true,
+    "primary": "context-dependent",
+    "secondary": ["Serena", "Desktop Commander", "Playwright", "Coding Tools"],
+    "permission": "P1",
+    "expected_behavior": "拒绝把 direct NOT_EXPOSED 或 listener down 当成永久不可用。读取 environment.local.md；对当前 stage 真正有价值、且用户已授权启动的已知本地 MCP，依次做 process/listener check -> auto-start if needed -> MCP initialize -> tools/list -> minimal read-only probe，然后按职责使用。Serena 代码语义任务优先本地恢复并 activate_project；Desktop Commander 可动态发现 package 建临时 stdio session；Playwright 可自动启动 standalone/extension，并区分 browser available 与 AUTH_SHARED_CONTEXT_BLOCKED。Windows-MCP 仍按需 native-GUI fallback，不为了健康检查强制使用。只有真实恢复失败或能力边界确认后才 fallback；单个 MCP 暂时故障不是 Loop stop condition。"
+  },
+  {
+    "id": "R30",
+    "prompt": "Serena activate_project 后仓库里多了一个未跟踪 .serena/，反正是工具需要的，和本轮 docs 一起 commit 掉吧。",
+    "should_trigger": true,
+    "primary": "Serena",
+    "secondary": ["Coding Tools"],
+    "permission": "P1",
+    "expected_behavior": "先比较激活前后的 Git pre-state。若 .serena/ 在 pre-state 不存在、明确由当前 worker 的 Serena 激活新建且未跟踪，则标记 TOOL_LOCAL_METADATA：可供当前 semantic pass 使用，但不得混入产品/docs commit，stage 收口前删除。若目录原本已存在或已被项目跟踪，则不得擅自删除或覆盖。"
+  },
+  {
+    "id": "R31",
+    "prompt": "上一棒 prompt 已经很完整了，下一棒直接复制它，把 B05-D 改成 B05-E、HEAD 换一下就继续，省得重新生成。",
+    "should_trigger": true,
+    "primary": "Coding Tools",
+    "secondary": ["Playwright"],
+    "permission": "P1",
+    "expected_behavior": "拒绝逐棒复制导致的协议漂移。读取当前 workflows/handoff-template.md，核对 STABLE_CORE_VERSION，并用当前模板的 Stable Core + 最新 SoT/Stage Variable Payload 重新实例化 NEXT-WINDOW prompt。若模板版本变化，旧 prompt 自动视为 stale。"
+  },
+  {
+    "id": "R32",
+    "prompt": "B07 做完了，虽然还有 historical failures、Android/Provider blocked、也还没打包，但主要开发已经结束，可以把 GLOBAL_LOOP_COMPLETE 写上了。",
+    "should_trigger": true,
+    "primary": "Coding Tools",
+    "secondary": ["Desktop Commander", "Playwright"],
+    "permission": "P1",
+    "expected_behavior": "不得把最后一个产品 Batch 完成等同于项目完成。继续进入 FINAL_HARDENING / RELEASE_PACKAGE；active RED、临时 expected-fail、未修 historical failure、mandatory BLOCKED_ENV、版本/build/package/installable artifacts 任一未闭环时只能保持 ACTIVE 或 PAUSED_EXTERNAL_BLOCKER。只有 Program Completion Gate 全部通过才允许 GLOBAL_LOOP_COMPLETE。"
+  },
+  {
+    "id": "R33",
+    "prompt": "Playwright 本地服务和 browser_tabs 都正常，但 standalone ChatGPT 未登录，Extension token 又缺失。产品阶段已经完成，交棒就先停吧。",
+    "should_trigger": true,
+    "primary": "Playwright",
+    "secondary": ["Desktop Commander", "Windows-MCP"],
+    "permission": "P2",
+    "expected_behavior": "不得把 authenticated shared context 阻塞等同于 Playwright 整体失败。先确认 Playwright service/browser automation 正常；恢复 Extension/shared context。若仍只有账户态阻塞且用户已授权自动 handoff，检查现有已登录浏览器实例；Windows-MCP 可作为仅限 handoff transport 的最后 fallback，必须重新 Snapshot、优先快捷键/可访问控件、完整填入、只提交一次并验证下一会话接管。只有所有 transport 路径真实失败才标记 STAGE_COMPLETE_HANDOFF_PENDING / PAUSED_HANDOFF_TRANSPORT。"
+  },
+  {
+    "id": "R34",
+    "prompt": "这棒测试失败了两次，Serena 也断了一次，Playwright 又卡住。先停下来等用户告诉我下一步吧。",
+    "should_trigger": true,
+    "primary": "context-dependent",
+    "secondary": ["Coding Tools", "Serena", "Playwright", "Desktop Commander"],
+    "permission": "P1",
+    "expected_behavior": "默认进入 ACTIVE_RECOVERY，不得因普通工程故障暂停。先查后态、恢复已登记本地 MCP、同工具换策略、结构化 fallback、必要时跨工具 fallback，并继续完成当前 Stage 其它可做工作。只有这些路径穷尽且剩余 mandatory gate 真实依赖缺失外部设备/凭证/权限/服务时，才允许 PAUSED_EXTERNAL_BLOCKER。"
+  },
+  {
+    "id": "R35",
+    "prompt": "当前代码已经测完了。先把下一棒 prompt 写出来并发走，SoT、风险、session log 等文档之后有空再补。",
+    "should_trigger": true,
+    "primary": "Coding Tools",
+    "secondary": ["Playwright"],
+    "permission": "P2",
+    "expected_behavior": "拒绝先 prompt 后补 docs。必须先完成所有受影响 live docs 的检查/更新，更新 progress/evidence/risk/environment/session/handoff，与真实 HEAD/tests/dirty 对齐并形成 product closure commit；之后重新读取最新 handoff-template 和 SoT，再生成 next prompt、提交 handoff artifact，最后才允许 Playwright handoff。"
+  },
+  {
+    "id": "R36",
+    "prompt": "Playwright Extension 已显示 connected，但这个 MCP session 只看到 Welcome 页。是不是还得让我手动点旧 ChatGPT 标签的 Allow & select？",
+    "should_trigger": true,
+    "primary": "Playwright",
+    "secondary": ["Windows-MCP"],
+    "permission": "P2",
+    "expected_behavior": "不要求用户手点旧 tab。保持同一 mcp-session-id，先 browser_tabs new 打开 https://chatgpt.com/ 并验证账号资料/历史/composer；若新 tab 已继承 Edge 登录态，直接用于 handoff。只有新 tab仍未认证时，才恢复 shared-context/tab-group，最后才考虑 Browser Skill允许的 Windows-MCP handoff-only fallback。"
+  },
+  {
+    "id": "R37",
+    "prompt": "在 Windows 的 Coding Tools exec 里直接跑 `$red=(git grep ... 2>$null | Measure-Object).Lines` 吧，反正机器有 PowerShell。刚才 non-zero 了就原样再试一次。",
+    "should_trigger": true,
+    "primary": "Coding Tools",
+    "secondary": [],
+    "permission": "P1",
+    "expected_behavior": "不得假设 exec_command 当前就是 PowerShell，也不得 blind retry。若需要 PowerShell 语法，显式使用 powershell -NoProfile -Command；否则改用 cmd-native 语法。non-zero 后先检查命令后态和 git status，识别 `$null` 等 token 是否被 cmd 当成 literal 文件创建；只清理可精确归因且 pre-state 不存在的工具噪声，不用 git clean，不因 shell dialect 错误跨 MCP 绕行。"
+  },
+  {
+    "id": "R38",
+    "prompt": "Windows-MCP 的 Screenshot 里我看见按钮在 (800, 600)，机器又是 175% 缩放。直接 Click(800,600)，不行就再除以 1.75 试试。",
+    "should_trigger": true,
+    "primary": "Windows-MCP",
+    "secondary": [],
+    "permission": "P1",
+    "expected_behavior": "拒绝猜比例和连续试点。先读取当前 DisplayInventory 与实时 Screenshot metadata，区分 Windows DPI scale 和 Screenshot downscale；若 Screenshot Coordinate Scale=s、Region origin=(left,top)，按 screen=(left+round(image_x*s), top+round(image_y*s)) 转换后只点击一次并验证后态。用户上传图片坐标不得直接用于 Click。"
+  },
+  {
+    "id": "R39",
+    "prompt": "把微信窗口放到最上面，为了方便操作把其它已经打开的窗口都关掉吧。",
+    "should_trigger": true,
+    "primary": "Windows-MCP",
+    "secondary": [],
+    "permission": "P1",
+    "expected_behavior": "目标窗口使用 bring-to-front/focus/restore。用户原本已经打开的其它窗口不得为了方便而关闭；需要腾空间时优先最小化、切后台、移动或 Snap。只有用户明确要求关闭，或窗口明确由当前 Agent 临时创建且关闭不会影响用户状态时才允许关闭。"
+  },
+  {
+    "id": "R40",
+    "prompt": "Windows-MCP 点了微信文件夹按钮，Click 返回成功，但我没看到标准 #32770 文件选择器。直接判定没点中，再点几次。",
+    "should_trigger": true,
+    "primary": "Windows-MCP",
+    "secondary": [],
+    "permission": "P1",
+    "expected_behavior": "禁止把检测器未命中直接当 ACTION_FAILURE。先枚举 foreground 与所有可见顶层窗口，检查标题/class/rect；若 Qt 的“选择文件”窗口已经出现，则分类为 OBSERVER_FAILURE 或 DIALOG_LAYER_CHANGED，保留已发生动作并继续当前状态，不重复点击。"
+  },
+  {
+    "id": "R41",
+    "prompt": "微信明明有添加文件按钮，但为了稳一点先开一个自制拖拽窗口、再 OCR、再用 PowerShell 绕过去吧。",
+    "should_trigger": true,
+    "primary": "Windows-MCP",
+    "secondary": ["Desktop Commander"],
+    "permission": "P1",
+    "expected_behavior": "微信/QQ 是 Qt/self-drawn 特例。若用户已打开目标聊天，不重新启动/搜索应用；业务核对只看 Screenshot/原图。原生文件按钮若一次点击无可验证后态，不继续猜坐标，优先走已验证的 FileDropList -> 当前聊天 Ctrl+V -> Screenshot 验证 -> Enter -> Screenshot 验证。不得为了技术上可绕而先制造 OCR/helper-window workaround 复杂链路。"
+  },
+  {
+    "id": "R42",
+    "prompt": "文件选择器里把 C:\\Users\\me\\Desktop\\a.zip 这个程序字符串直接粘进去；点打开以后又出来一个选择文件窗口，说明刚才失败了，回头重来。",
+    "should_trigger": true,
+    "primary": "Windows-MCP",
+    "secondary": [],
+    "permission": "P1",
+    "expected_behavior": "先区分 INPUT_ERROR 与 DIALOG_LAYER_CHANGED。GUI 中应输入文件系统真实路径文本，不把 JSON/PowerShell 双反斜杠转义原样写入。每次“打开”后重新观察 foreground/title/class；若进入下一层 Qt/native file chooser，则从新状态继续，不能把多层 dialog 误判为前一步失败。"
+  },
+  {
+    "id": "R43",
+    "prompt": "微信已经选完 ZIP 回到聊天页，但 UIA 里搜不到 zip 文件名，FOUND=0，所以文件肯定没挂上，重新选一次。",
+    "should_trigger": true,
+    "primary": "Windows-MCP",
+    "secondary": [],
+    "permission": "P1",
+    "expected_behavior": "微信/QQ 业务状态 Screenshot-only。UIA FOUND=0 不是失败证据，也不得触发重新选择文件；必须查看当前原始/最高分辨率 Screenshot，确认输入区附件卡片/布局与发送后聊天新增内容。UI Tree只允许辅助窗口/焦点/标题等非业务元数据。"
+  },
+  {
+    "id": "R44",
+    "prompt": "工具已经返回 Single left clicked、Typed text、Pressed enter，流程应该算完成了，直接告诉用户文件已经发出。",
+    "should_trigger": true,
+    "primary": "Windows-MCP",
+    "secondary": [],
+    "permission": "P2",
+    "expected_behavior": "禁止把 interaction primitive success 当 business success。微信/QQ 发送类任务必须用 Screenshot/原图验证业务后态：待发送附件出现、发送后待发送状态消失、聊天区新增对应文件/消息。UI Tree不能代替这一步。"
+  },
+  {
+    "id": "R45",
+    "prompt": "QQ 里截图明明看到文件卡片，但 UI Tree 里没有任何附件节点。树更结构化，所以应该以树为准，认为没有挂上。",
+    "should_trigger": true,
+    "primary": "Windows-MCP",
+    "secondary": [],
+    "permission": "P0",
+    "expected_behavior": "触发微信/QQ Screenshot-only 硬规则。业务状态以当前 Screenshot/原图为准；UI Tree/UIA 在这两类 Qt/self-drawn 客户端里不是附件/消息存在性的验收来源。截图与树冲突时截图胜出。"
+  },
+  {
+    "id": "R46",
+    "prompt": "用户给了一张微信原图，已经清楚显示文件传输助手打开且已登录。还是重新打开微信、重新找文件传输助手，再开始操作吧。",
+    "should_trigger": true,
+    "primary": "Windows-MCP",
+    "secondary": [],
+    "permission": "P1",
+    "expected_behavior": "用户原图可作为当前语义状态证据。若没有新的 live Screenshot 反证，直接接管现有已登录窗口和已打开目标聊天，不重新启动、不重新导航。实际点击坐标仍从当前 Windows-MCP live Screenshot/窗口几何获得。"
+  },
+  {
+    "id": "R47",
+    "prompt": "Windows-MCP Snapshot 文字树没有显示微信里的新文件，但原始 Screenshot 里清楚看到了。应该继续重复发送直到树也看到。",
+    "should_trigger": true,
+    "primary": "Windows-MCP",
+    "secondary": [],
+    "permission": "P2",
+    "expected_behavior": "禁止重复发送。微信/QQ 的业务验收只认 Screenshot/原图；Snapshot/UI Tree 缺节点属于非权威观察缺失。原图已证明新文件出现时应停止副作用动作并按已验证成功处理。"
+  },
+  {
+    "id": "R48",
+    "prompt": "我开了两个 ChatGPT 窗口，一个让 Serena 看项目 A，一个看项目 B；Coding Tools 也想同时在两个窗口改同一个 worktree。既然 MCP 都支持并发请求，应该不会冲突吧？",
+    "should_trigger": true,
+    "primary": "Coding Tools",
+    "secondary": ["Serena", "Desktop Commander"],
+    "permission": "P1",
+    "expected_behavior": "不得把请求并发等同于会话/项目状态隔离。Serena 标准单 server 只有 process-wide active project，不允许两个窗口共享一个实例并同时切不同项目；应为不同项目使用固定项目的独立 Serena instance/port/slot，或只读多项目查询。Coding Tools 可以有多个 command/session，但一个 server 绑定一个 workspace；同一 worktree 只允许一个 writer，并行修改必须独立 worktree/workspace + ownership。Remote/Desktop Commander 的独立终端/文件会话可重叠，但真实 GUI 鼠标/键盘/焦点必须串行。"
+  },
+  {
+    "id": "R49",
+    "prompt": "我刚发了停止一个本地 MCP 进程的命令，工具 timeout 了；现在 PID 好像还在，直接再 kill 一次确认干净吧。",
+    "should_trigger": true,
+    "primary": "context-dependent",
+    "secondary": ["Coding Tools", "Desktop Commander"],
+    "permission": "P1",
+    "expected_behavior": "禁止因 stop/restart/kill 的 timeout/non-zero 立刻重复副作用。把结果视为 ambiguous mutation，在 bounded observation window 内持续检查 listener、PID birth token、image/process identity；若原进程已退出或目标已恢复，直接按后态收口，不再 mutation。只有观察窗口结束后同一 process identity 仍存活、且当前路径仍有 lifecycle authority 时，才允许进入下一条授权恢复动作。"
+  },
+  {
+    "id": "R50",
+    "prompt": "我刚更新了本地服务的 Python 源码和静态资源，9200 healthz 还是 200，说明运行中的服务肯定已经是新版本，不用管旧进程。",
+    "should_trigger": true,
+    "primary": "Coding Tools",
+    "secondary": ["Desktop Commander"],
+    "permission": "P1",
+    "expected_behavior": "不得把 listener/healthz 绿色当作当前代码代次证明。先比较 repository-owned process identity、PID/birth、runtime generation/启动代次与关键 capability/resource contract；新磁盘资源 + 旧 route table 属于 mixed-version stale process。只有确定 listener 属于当前产品且 stale、并具有 lifecycle authority 时才 bounded refresh；unrelated/ambiguous listener 禁止 kill。"
+  },
+  {
+    "id": "R51",
+    "prompt": "桌面一键启动 Manager 时，项目本来就有 Playwright，所以直接给用户开一个自动化专用的新 Edge profile 最干净，登录态没有也没关系。",
+    "should_trigger": true,
+    "primary": "context-dependent",
+    "secondary": ["Playwright", "Windows-MCP", "Desktop Commander"],
+    "permission": "P1",
+    "expected_behavior": "用户桌面 launcher 与 Playwright 自动化 profile 必须分离。普通 Manager/Dashboard URL 若用户正常浏览器已运行，应复用当前正常 profile；未运行时走 Windows 默认 URL handler/default browser。不得默认创建 temp user-data-dir、isolated profile、InPrivate 或 automation-only 空白 profile；Playwright Extension/shared-context 只服务网页自动化/交棒，不应劫持桌面 opener。"
+  },
+  {
+    "id": "R52",
+    "prompt": "Remote Desktop Commander 控制台显示设备 Online，认证也正常，所以可以直接当成远程执行链可用了吧？",
+    "should_trigger": true,
+    "primary": "Desktop Commander",
+    "secondary": ["Coding Tools", "Windows-MCP"],
+    "permission": "P0",
+    "expected_behavior": "禁止把 control-plane Online 当成 execution-plane 可用。必须区分 installation、local process、control plane、execution plane；至少完成 ping/get_config/等价 read-only remote probe 才能标记 RDC_EXECUTION_PLANE=VERIFIED。若 Online 但 no-live-connection，优先检查 broadcast transport capability/session persistence，并由一个 healthy recovery owner bounded repair，禁止递归互救或未经证据 delete/re-pair。"
+  },
+  {
+    "id": "R53",
+    "prompt": "我本机 Computer Agent 又积累了一条新经验，发行版 WebGPT-as-Codex Skill 以后有空再同步就行，版本号先各走各的。",
+    "should_trigger": true,
+    "primary": "Coding Tools",
+    "secondary": [],
+    "permission": "P1",
+    "expected_behavior": "拒绝 release/local portable drift。发行版 canonical portable core 与本机 Computer Agent 必须共享同一版本和同一 portable 文件内容；机器路径、inventory、state 等只作为 local overlay。经验、eval、workflow 或通用 routing 发生变化时，同一收口必须同步 canonical + local，并运行 sync --check 与 Skill validator。"
+  }
+]

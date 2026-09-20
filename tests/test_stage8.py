@@ -248,6 +248,8 @@ def test_desktop_launcher_and_autostart_are_reversible_and_credential_free(
     for forbidden in ("password=", "token=", "secret=", "bearer "):
         assert forbidden not in text
         assert forbidden not in auto_text
+    assert "local-launcher-overlay.cmd" in text
+    assert "local-launcher-overlay.cmd" not in auto_text
 
     assert launcher.desktop_launcher("uninstall")["status"] == "uninstalled"
     assert launcher.autostart("uninstall")["status"] == "uninstalled"

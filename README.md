@@ -77,6 +77,6 @@ Manager local credential controls are loopback/confirmation gated. Normal status
 
 Git and release artifacts must not contain OAuth databases, tokens, passwords, private keys, cookies, browser profiles, pairing data, private machine URLs, local state receipts, generated handoff receipts, PID/process state or machine-specific private paths.
 
-The wheel intentionally carries runtime Python code plus public component manifests, the Manager static UI and the bounded Stage18 public release/legal/provenance resources listed above. Project documentation beyond those release resources, stage evidence and Skill sources remain repository artifacts; machine-local runtime evidence remains outside both.
+The wheel intentionally carries runtime Python code, public component manifests, the Manager static UI, the bounded Stage18 public release/legal/provenance resources, and the unified Agent Skill 1.2.0 portable profiles under `share/webgpt-as-codex/skills`. Stage closures/prompts and machine-local runtime evidence remain outside the installed Skill/runtime surface. The local Computer Agent uses the same portable 1.2.0 core plus machine-only environment/inventory/state overlays.
 
 See `docs/ARCHITECTURE.md`, `docs/CURRENT-PROJECT-STATE.md`, `docs/DECISIONS-AND-RISKS.md` and `skills/webgpt-as-codex/SKILL.md`.

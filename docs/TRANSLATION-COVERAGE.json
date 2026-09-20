@@ -13,6 +13,13 @@
   "dynamic_historical_prefixes": [
     "prompts/"
   ],
+  "dynamic_current_prefixes": [
+    {
+      "prefix": "skills/computer-agent/",
+      "status": "LOCALIZED_OPERATIONAL_PROFILE",
+      "reason": "Canonical Computer Agent release tree mirrors the user's portable operational Skill, preserving its Chinese-first/mixed-language working form and exact technical identifiers; machine-local overlay is excluded."
+    }
+  ],
   "authoritative_legal_file": "LICENSE",
   "authoritative_legal_sha256": "1eb85fc97224598dad1852b5d6483bbcf0aa8608790dcc657a5a2a761ae9c8c6",
   "historical_index": "docs/zh-CN/HISTORICAL-EVIDENCE-INDEX.md",
@@ -218,6 +225,11 @@
       "reason": "Canonical supplemental recovery-plane closure evidence remains unchanged; Chinese readers use the mirrored live SoT and Product Skill guidance."
     },
     {
+      "path": "docs/SUPPLEMENTAL-FINAL-ACCEPTANCE-CLOSURE.md",
+      "status": "HISTORICAL_EVIDENCE_PRESERVED_WITH_INDEX",
+      "reason": "Canonical terminal supplemental closure remains unchanged; Chinese readers use the mirrored live SoT and docs/zh-CN/HISTORICAL-EVIDENCE-INDEX.md."
+    },
+    {
       "path": "docs/STAGE-2-CLOSURE.md",
       "status": "HISTORICAL_EVIDENCE_PRESERVED_WITH_INDEX",
       "reason": "Canonical closure evidence remains unchanged; Chinese readers use docs/zh-CN/HISTORICAL-EVIDENCE-INDEX.md and live SoT mirrors."
@@ -416,6 +428,11 @@
     },
     {
       "path": "scripts/secret_scan.py",
+      "status": "NOT_HUMAN_READER_CONTENT",
+      "reason": "Executable source/test/script artifact; code identifiers/protocol strings are not documentation translation targets."
+    },
+    {
+      "path": "scripts/sync_computer_agent_skill.py",
       "status": "NOT_HUMAN_READER_CONTENT",
       "reason": "Executable source/test/script artifact; code identifiers/protocol strings are not documentation translation targets."
     },
@@ -827,6 +844,11 @@
     },
     {
       "path": "tests/test_stage19.py",
+      "status": "NOT_HUMAN_READER_CONTENT",
+      "reason": "Executable source/test/script artifact; code identifiers/protocol strings are not documentation translation targets."
+    },
+    {
+      "path": "tests/test_unified_skill_release.py",
       "status": "NOT_HUMAN_READER_CONTENT",
       "reason": "Executable source/test/script artifact; code identifiers/protocol strings are not documentation translation targets."
     },

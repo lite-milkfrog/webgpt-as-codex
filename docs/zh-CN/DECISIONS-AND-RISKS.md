@@ -132,6 +132,8 @@ Stage18 在此基础上只扩展 bounded public release/legal/provenance resourc
 - Windows venv launch wrapper 可能不是实际 listener；receipt 绑定 real listener PID/birth/image，launcher identity 只做 bounded cleanup。
 - desktop browser continuity 与 Playwright profile lifecycle 分离；复用 normal Edge profile，否则 default URL handler，禁止 temp/InPrivate/automation blank profile。
 - live acceptance：真实 stale 9200 被安全替换后 `/`、`/en`、`/zh`、CSS/JS/local-config 全部当前；连续两次 Desktop launch 保留 core listener 与 Edge `Default` process。
+- Supplemental：发行版 Computer Agent 与本机 Computer Agent 共享同一个 versioned portable core（1.2.0）；routing/workflow/eval/MCP Guide/Experience Ledger 属 release asset，不能漂移。environment/inventory/state/secrets/当前主机 launcher extension 属 machine-local overlay。
+- Supplemental：canonical Desktop launcher 只提供 post-READY 的固定 local overlay extension point，不携带本机 integration 内容；overlay fail 不影响 WebGPT READY，autostart 不执行 overlay。
 
 ## Stage16 — concurrency / recovery
 

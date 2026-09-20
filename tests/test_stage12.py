@@ -55,5 +55,5 @@ def test_skill_manifest_matches_skill_frontmatter() -> None:
     manifest = (root / "manifest.json").read_text(encoding="utf-8")
     skill = (root / "SKILL.md").read_text(encoding="utf-8")
 
-    assert '"version": "0.6.0"' in manifest
-    assert "version: 0.6.0" in skill
+    assert '"version": "1.2.0"' in manifest
+    assert "version: 1.2.0" in skill

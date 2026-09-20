@@ -2,9 +2,9 @@
 
 [**English**](CURRENT-PROJECT-STATE.md) | [简体中文](zh-CN/CURRENT-PROJECT-STATE.md)
 
-PROJECT = WebGPT-as-Codex
-CURRENT_STAGE = SUPPLEMENTAL-FINAL-ACCEPTANCE
-NEXT_STAGE = GLOBAL_LOOP_COMPLETE
+CURRENT_STAGE = GLOBAL_LOOP_COMPLETE
+NEXT_STAGE = TERMINAL
+AFTER_NEXT_STAGE = TERMINAL
 AFTER_NEXT_STAGE = TERMINAL
 
 Stage 1: CLOSED_LOCAL_VERIFIED
@@ -30,7 +30,7 @@ Supplemental chain (user requirements added after the accepted TERMINAL state):
 - Stage 17: CLOSED_LOCAL_VERIFIED
 - Stage 18: CLOSED_LOCAL_VERIFIED
 - Stage 19: CLOSED_LOCAL_VERIFIED; REAL_HOST_VERIFIED + REAL_CHATGPT_VERIFIED
-- Supplemental Final Acceptance: IN_PROGRESS; RDC recovery-plane reconciliation VERIFIED, desktop-launcher/final reconciliation pending
+- Supplemental Final Acceptance: CLOSED_LOCAL_VERIFIED + REAL_HOST_VERIFIED
 
 The supplemental chain does not invalidate the accepted Stage 1-12 evidence. It owns only the later one-repository deployment, production unified Gateway, fresh-machine dependency/bootstrap, complementary Remote Desktop Commander recovery, multi-window concurrency, bilingual Manager/desktop experience and complete Chinese mirror requirements.
 
@@ -200,3 +200,21 @@ Supplemental RDC recovery-plane proof:
 - this RDC closure did not force a new physical Windows reboot. Process restart/session restore and idempotent local startup are verified; any full-reboot claim must come from separate real reboot evidence.
 
 RDC recovery-plane closure: docs/RDC-FINAL-RECOVERY-PLANE-CLOSURE.md.
+
+## Supplemental Final Acceptance proof
+
+- desktop/reboot recovery repair is integrated: Start All waits boundedly for Edge prerequisites after reboot, fail-closes when they remain unavailable, and Doctor exposes prerequisite context instead of reporting a false-ready Edge;
+- real host `Start All` ran twice with `ok=true`, `fully_ready=true`, `required_unmanaged_missing=[]`, preserving Manager PID 37400, OAuth Edge PID 42036 and Gateway PID 34744 rather than duplicating healthy services;
+- real Doctor returned `status=pass`, zero required failures/warnings, eight components, public HTTPS protected-resource 200 and unauthenticated MCP 401 with OAuth challenge;
+- Desktop launcher and Windows-login autostart are both installed/managed with `upgradeable=false`; manual launch dispatches the Manager through the Windows default URL handler and reports `browser_open_requested=true` / `browser_open_dispatched=true`; foreground activation is best-effort only;
+- the manual desktop launcher contains a fixed post-READY machine-local overlay extension point. Current-host CloudBase remains only in that local overlay and MCPJungle machine state; it is explicitly NOT release content and autostart does not invoke it;
+- RDC final recovery plane is VERIFIED per `docs/RDC-FINAL-RECOVERY-PLANE-CLOSURE.md`; WebGPT and RDC remain complementary independent recovery planes;
+- Agent Skill 1.2.0 is unified: `skills/computer-agent/` is the canonical portable core, `skills/webgpt-as-codex/` is the product specialization, and the machine-local `.skills/computer-agent/` uses the same portable core plus local environment/inventory/state overlays;
+- local Skill sync is `PORTABLE_SKILL_SYNC_OK`; validator is `VALIDATION_OK`, 26 required files / 53 scenarios; Experience Ledger is preserved losslessly between canonical Computer Agent and WAC product profile;
+- fresh installed wheel verified package 0.1.0, Computer Agent 1.2.0, WAC Skill 1.2.0, 53 scenarios, matching Experience Ledger, RDC Guide and Chinese WAC profile;
+- final pre-closure repository regression: targeted 52 PASS; full repository 225 PASS; Ruff PASS; SECRET_SCAN_PASS; `git diff --check` PASS.
+- terminal fresh wheel SHA-256: `3082f5e1d8db3a5e3dc1565ee4574917b7c5806fb146e840a9e2add6c2b5cd17` (339894 bytes); external venv install reverified 8 components, 4 Manager resources, 9 release resources, Skill 1.2.0/1.2.0, 53 scenarios and ledger match;
+
+Supplemental Final Acceptance closure: `docs/SUPPLEMENTAL-FINAL-ACCEPTANCE-CLOSURE.md`.
+
+PROGRAM_STATE = GLOBAL_LOOP_COMPLETE

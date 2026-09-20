@@ -158,6 +158,7 @@ MCPJungle 使用 machine-local DB/log/PID/state。Stop/restart 再次验证 owne
 
 Start All 区分 action success 与 full-stack readiness，可能返回 `complete-with-unmanaged-required`。Stage8 不复用 Stage5 E2E OAuth secret 做 production authority。
 
+手动 Desktop launcher 在 WebGPT 自身已经 READY 后，可以调用一个固定 machine-local extension point：`%LOCALAPPDATA%\WebGPT-as-Codex\local-launcher-overlay.cmd`。发行包不携带该文件内容，也不知道其中的具体本机组件。overlay failure 不会降级 WebGPT READY；Windows 登录 autostart 不执行这个手动 desktop overlay。这样本机附加能力与 canonical managed launcher 分离，同时仍保留一个一键入口。
 Windows launcher 是 control surface，不是 process-parent contract；可退出而 runtime 继续。Desktop/Startup `.cmd` transparent/reversible/credential-free，拒绝覆盖 user-owned 文件。Stage17 只有完整历史 managed structure 匹配才能 in-place upgrade。
 
 ## Generic MCP onboarding / Guide plane
@@ -180,7 +181,9 @@ Handoff 因果分离：committed plan 不冻结 `SOURCE_HEAD`；closure commit �
 ## Release packaging boundary
 
 Stage12 规定 installed wheel 与 source checkout 是不同环境。原边界为 Python runtime + `share/webgpt-as-codex/components` + `share/webgpt-as-codex/manager/static`。
+Stage18 在不改变 runtime authority 的前提下增加一个**有界公开 release resource 集**：双语 README、原始 `LICENSE`、非约束中文阅读译本、双语 third-party notices、provenance JSON、translation coverage manifest/docs，安装到 `share/webgpt-as-codex/release`。
 
+Supplemental Final Acceptance 再把统一 Agent Skill 1.2.0 portable profiles 安装到 `share/webgpt-as-codex/skills`：`computer-agent` canonical portable core + `webgpt-as-codex` 产品专项 profile，并包含 reusable workflows/evals/MCP Guides 与无损共享的 Experience Ledger。machine-local `environment.local`、MCP inventory、state/secrets/local desktop overlay 仍不进入发行包。
 Stage18 在不改变 runtime authority 的前提下增加一个**有界公开 release resource 集**：双语 README、原始 `LICENSE`、非约束中文阅读译本、双语 third-party notices、provenance JSON、translation coverage manifest/docs，安装到 `share/webgpt-as-codex/release`。Stage closure、prompt、完整 Skill source、machine-local state/secrets/update/handoff/PID/browser-account evidence 仍不进入 wheel。
 
 ## Stage 19 — canonical OAuth Edge 恢复

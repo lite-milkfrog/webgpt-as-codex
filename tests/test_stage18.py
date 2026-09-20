@@ -38,6 +38,9 @@ def test_every_text_candidate_has_translation_disposition() -> None:
     entries = {row["path"]: row for row in coverage["entries"]}
     assert len(entries) == len(coverage["entries"])
     dynamic_prefixes = tuple(coverage["dynamic_historical_prefixes"])
+    dynamic_prefixes += tuple(
+        row["prefix"] for row in coverage.get("dynamic_current_prefixes", [])
+    )
     missing = sorted(
         path
         for path in _candidate_paths()

@@ -21,11 +21,12 @@
 - `LEGAL_ORIGINAL_PRESERVED`：法律原文必须逐字节保留，并通过独立非约束译本提供中文阅读。
 - `HISTORICAL_EVIDENCE_PRESERVED_WITH_INDEX`：历史证据原样保留，并由中文索引解释其用途/边界。
 - `NOT_HUMAN_READER_CONTENT`：虽然格式是文本，但它不是面向读者的自然语言文档。
+- `LOCALIZED_OPERATIONAL_PROFILE`：当前 portable operational Skill 保留其已验证的中文优先/中英混合工作形态；技术 identifier 精确保留，machine-local overlay 不进入发行版。该状态用于 canonical `skills/computer-agent/` release tree。
 
 ## Regression gate / 回归门禁
 
 `tests/test_stage18.py` 检查：
-1. 每一个 tracked/untracked 候选文本文件都有显式 disposition 或受声明的动态 evidence 规则覆盖；
+1. 每一个 tracked/untracked 候选文本文件都有显式 disposition，或受声明的 dynamic historical/current Skill 规则覆盖；
 2. `MIRRORED_CURRENT` 的 mirror 路径真实存在；
 3. 原始 `LICENSE` SHA-256 保持 Stage18 基线值；
 4. component manifests 与第三方 provenance 一致；

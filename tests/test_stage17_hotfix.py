@@ -242,3 +242,9 @@ def test_launcher_never_requests_isolated_browser_profile() -> None:
     assert "--user-data-dir" not in source
     assert "--inprivate" not in source.lower()
     assert "tempfile" not in source
+
+
+def test_release_launcher_contains_no_machine_specific_cloudbase_logic() -> None:
+    source = Path(launcher.__file__).read_text(encoding="utf-8").lower()
+    assert "cloudbase" not in source
+    assert "local-launcher-overlay.cmd" in source

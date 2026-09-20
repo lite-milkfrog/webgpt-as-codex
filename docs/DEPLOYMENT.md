@@ -165,6 +165,8 @@ Manager liveness and Manager generation are separate facts. A live 9200 listener
 
 The Desktop launcher is a user browser entry point, not a Playwright runtime. When the user's normal Microsoft Edge session is already running, the launcher reuses its last-used normal profile; otherwise it dispatches through the Windows default URL handler. It never intentionally creates a temporary user-data directory, isolated automation profile or InPrivate session for Manager opening.
 
+Machine-only one-click additions must not be embedded in the release launcher. The manual Desktop launcher recognizes one fixed local extension file, `%LOCALAPPDATA%\WebGPT-as-Codex\local-launcher-overlay.cmd`, and invokes it only after WebGPT is already READY. The overlay is absent from fresh installs, is never invoked by Windows-login autostart, and its failure does not downgrade WebGPT READY. This is the supported boundary for current-host-only additions.
+
 ## Phase 9 — final manual actions
 
 For a fresh deployment, only interactive account/browser authorization remains:

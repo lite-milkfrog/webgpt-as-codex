@@ -77,6 +77,6 @@ Manager 的本地凭据控制受 loopback/confirmation 约束。普通 status �
 
 Git 与发布 artifact 不得包含 OAuth 数据库、token、password、private key、cookie、browser profile、pairing data、私有机器 URL、本地状态 receipt、handoff receipt、PID/process state 或机器特定私有路径。
 
-wheel 有意只携带运行时 Python 代码、公共 component manifests、Manager 静态 UI，以及双语 README、Apache-2.0 原始 `LICENSE`、非约束性中文阅读译本、第三方 notices/provenance 与翻译覆盖 manifest。Stage closure、prompt、完整 Skill source 和机器本地运行证据不进入 wheel。
+wheel 有意携带运行时 Python 代码、公共 component manifests、Manager 静态 UI、Stage18 的双语/legal/provenance release resources，以及安装到 `share/webgpt-as-codex/skills` 的统一 Agent Skill 1.2.0 portable profiles。Stage closure/prompt 与机器本地运行证据不进入 installed Skill/runtime surface。本机 Computer Agent 与发行版共享同一 portable 1.2.0 core，只额外叠加 environment/inventory/state 等 machine-local overlay。
 
 参见 [中文架构](docs/zh-CN/ARCHITECTURE.md)、[中文当前状态](docs/zh-CN/CURRENT-PROJECT-STATE.md)、[中文决策与风险](docs/zh-CN/DECISIONS-AND-RISKS.md) 和 [中文 Skill](skills/webgpt-as-codex/zh-CN/SKILL.md)。
