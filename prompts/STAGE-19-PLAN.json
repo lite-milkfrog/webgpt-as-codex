@@ -1,0 +1,34 @@
+{
+  "current_stage": "STAGE-19-END-TO-END-DEPLOYMENT-ACCEPTANCE",
+  "next_stage": "SUPPLEMENTAL-FINAL-ACCEPTANCE",
+  "after_next_stage": "GLOBAL_LOOP_COMPLETE",
+  "stage_objective": "Perform the final supplemental end-to-end deployment acceptance from the committed Stage18 product truth: prove clean/fresh build-install-runtime behavior and existing-machine preservation, exercise component lifecycle/version adapters, Gateway safe calls, OAuth 2.1 DCR/PKCE/authorization-code/refresh/401/authenticated MCP, configured Tailscale HTTPS/public /mcp, ChatGPT browser OAuth when the interactive surface exists, complementary fallback drills, multi-window concurrency/session isolation, Desktop Manager/launcher behavior, and full repository/package gates; fix only directly owned root-cause defects found by this acceptance, then hand off a committed evidence state to Supplemental Final Acceptance.",
+  "required_outputs": [
+    "re-probe Git and MCP/tool reality from SOURCE_HEAD, preserving single-writer discipline and not force-switching a shared/reserved Serena 9121 context",
+    "build a fresh wheel from committed source, install outside the checkout, verify CLI/version/resource resolution, all component manifests, Manager assets and Stage18 bilingual release/legal/provenance resources, and confirm repository-only/private machine state is not packaged",
+    "exercise clean bootstrap/doctor/repair with isolated non-destructive roots plus existing-machine preservation: deterministic paths, idempotency, valid config/custom MCP preservation, duplicate-prevention, managed-vs-unmanaged ownership, rollback/atomic-state behavior and no destructive takeover of external services",
+    "verify component installed-version detection, install/upgrade/already-current behavior, source/digest/runtime-identity boundaries and failure rollback on representative owned component classes",
+    "verify Unified Gateway listener/schema with real MCP handshake and minimal safe calls; distinguish Gateway transport from downstream failure; verify malformed/unauthorized inputs fail closed without leaking credentials",
+    "prove OAuth 2.1 DCR, PKCE, auth-code exchange, refresh-token, 401 recovery and authenticated MCP as far as the safe configured environment supports; store secrets only in machine-local authority and classify any true external-only gap as BLOCKED_ENV without stopping unrelated acceptance",
+    "verify the configured Tailscale/Funnel HTTPS public /mcp path and authenticated/unauthenticated boundary when available without rotating account configuration; verify ChatGPT browser OAuth/connected state in the authenticated normal browser context when the surface is available",
+    "run representative fallback drills and multi-window/session-isolation tests, including direct-missing -> local MCP reconnect, Playwright for DOM, Windows-MCP only for browser chrome/system dialogs, host tools for process/outside-workspace evidence, and no stale tab refs or double repo writers",
+    "verify Desktop Manager/launcher opens in the normal browser profile/default handler, not an isolated Playwright profile, remains responsive, preserves bounded action contracts and creates no duplicate launcher/autostart artifacts",
+    "if acceptance finds an owned defect, add the minimum regression evidence and root-cause fix, rerun the affected end-to-end path, then run full pytest, Ruff, secret scan, git diff check, wheel build and isolated installed-artifact smoke",
+    "update all affected live English/Chinese SoT mirrors, deployment/concurrency/decision-risk/experience docs, write docs/STAGE-19-CLOSURE.md with LOCAL_IMPLEMENTATION/LOCAL_VERIFIED/REAL_HOST_OR_DEVICE_VERIFIED/BLOCKED_ENV distinctions, commit Stage19 product/docs first, then generate/validate/hash/commit and exactly-once Playwright-submit prompts/SUPPLEMENTAL-FINAL-ACCEPTANCE-NEXT-WINDOW.md from the real Stage19 closure HEAD"
+  ],
+  "do_not_redo": [
+    "Stages 1-18, original FINAL-OVERALL-ACCEPTANCE, original PROJECT-COMPLETE or the Stage17 post-acceptance hotfix unless Stage19 produces direct contradictory evidence at the minimum affected owner boundary",
+    "Stage18 Chinese mirror/legal/provenance work except keeping live mirror-required docs synchronized when Stage19 changes those live docs",
+    "broad feature development or refactors unrelated to a defect directly exposed by end-to-end acceptance",
+    "reset/clean/force-push/push, destructive deletion of real user state, secret/token copying into Git, or takeover/reconfiguration of external/Tailscale/Serena services merely to make acceptance green",
+    "Supplemental Final Acceptance itself; Stage19 must finish, commit and hand off that separate final reconciliation window"
+  ],
+  "known_risks": [
+    "Direct ChatGPT connector schemas can disappear while the local MCP service remains healthy; direct absence is not proof of service failure. Known verified locators: Coding Tools 127.0.0.1:8766/mcp, Playwright 127.0.0.1:8931/mcp, Windows-MCP 127.0.0.1:8001, Unified Gateway 127.0.0.1:9330, Serena 127.0.0.1:9121. Re-probe rather than assume.",
+    "Shared Serena may be reserved by another worker. If reserved, do not activate/switch/restart it; Coding Tools search/read is the fallback.",
+    "Existing-machine acceptance is safety-sensitive: snapshot non-secret state, prefer isolated/dry-run/read-only paths, and prove preservation instead of destructively recreating the user's environment.",
+    "OAuth/Tailscale/browser acceptance contains external state. Distinguish server correctness, public transport, authenticated browser/account state and optional interactive availability; do not conflate one unavailable layer with total failure.",
+    "Browser and handoff actions are side-effecting. Keep one Playwright mcp-session-id for tabs/new/select/snapshot/fill/submit/verify, use the real visible composer, hash-check long prompts when needed, submit exactly once and inspect post-state before any retry.",
+    "The Stage19 source truth is product/docs commit 5f4eb7c48e0a3f7abad0c816a40c3525d20f9df7; the later Stage19 handoff-prompt commit is metadata only and must not replace PRODUCT_HEAD."
+  ]
+}
