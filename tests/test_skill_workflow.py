@@ -365,3 +365,63 @@ def test_run_rejects_transition_of_non_current_stage(tmp_path: Path) -> None:
     run = control.start_run("demo", {"qa_needed": True})
     with pytest.raises(ValueError, match="current stage"):
         control.transition_run(run["run_id"], "qa", "passed")
+
+
+def test_duplicate_skill_slugs_are_root_local_and_require_stable_ids(
+    tmp_path: Path,
+) -> None:
+    root_a = tmp_path / "root-a"
+    root_b = tmp_path / "root-b"
+    write(
+        root_a / "category-web-ui" / "SKILL.md",
+        "---\nname: web-ui\n---\n# Web UI\n",
+    )
+    write(
+        root_a / "category-web-ui" / "references" / "routes.md",
+        "- shared-copy -> ../../shared-copy/REFERENCE.md\n",
+    )
+    write(root_a / "shared-copy" / "REFERENCE.md", "# Shared Copy\n")
+    write(root_b / "shared-copy" / "REFERENCE.md", "# Other Copy\n")
+    registry = tmp_path / "workflow-registry.json"
+    registry.write_text(
+        json.dumps(
+            {
+                "schema_version": 1,
+                "workflows": [
+                    {
+                        "id": "noop",
+                        "title": "Noop",
+                        "stages": [
+                            {
+                                "id": "noop",
+                                "title": "Noop",
+                                "skills": [],
+                            }
+                        ],
+                    }
+                ],
+            }
+        ),
+        encoding="utf-8",
+    )
+    control = SkillWorkflowControlPlane(
+        skill_roots=[root_a, root_b],
+        workflow_registry_path=registry,
+        local_state_dir=tmp_path / "state" / "skills",
+    )
+
+    copies = [
+        row
+        for row in control.skill_snapshot()["skills"]
+        if row["slug"] == "shared-copy"
+    ]
+    assert len(copies) == 2
+    assert all("@" in row["id"] for row in copies)
+    by_path = {Path(row["path"]).parent.parent.name: row for row in copies}
+    assert by_path["root-a"]["category"] == "web-ui"
+    assert by_path["root-b"]["category"] == "unclassified"
+    with pytest.raises(ValueError, match="ambiguous"):
+        control._require_skill("shared-copy")
+
+    selected = copies[0]
+    assert control._require_skill(selected["id"])["path"] == selected["path"]
