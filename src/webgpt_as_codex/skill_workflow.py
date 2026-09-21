@@ -345,8 +345,6 @@ class SkillWorkflowControlPlane:
                 if not isinstance(assignment, dict):
                     assignment = {}
                 explicit_category = assignment.get("category")
-                if explicit_category == "unclassified":
-                    explicit_category = None
                 routed = skill.get("router_categories") or []
                 if explicit_category:
                     category = explicit_category
@@ -417,7 +415,7 @@ class SkillWorkflowControlPlane:
         position: int | None = None,
     ) -> dict[str, Any]:
         category = str(category or "").strip().lower()
-        if category != "unclassified" and not _CATEGORY_RE.fullmatch(category):
+        if category != "inherit" and not _CATEGORY_RE.fullmatch(category):
             raise ValueError("invalid category")
         if position is not None and (
             not isinstance(position, int) or position < 0 or position > 100000
@@ -427,18 +425,24 @@ class SkillWorkflowControlPlane:
             skill = self._require_skill(skill_id)
             overlay = self._load_overlay()
             assignments = overlay.setdefault("assignments", {})
-            assignments[skill["id"]] = {
-                "category": category,
-                "position": position,
-            }
+            if category == "inherit":
+                assignments.pop(skill["id"], None)
+                effective_category = None
+            else:
+                assignments[skill["id"]] = {
+                    "category": category,
+                    "position": position,
+                }
+                effective_category = category
             self._write_overlay(overlay)
             return {
                 "ok": True,
                 "skill_id": skill["id"],
-                "category": category,
-                "position": position,
+                "category": effective_category,
+                "position": None if category == "inherit" else position,
                 "move_kind": "logical-category",
                 "filesystem_changed": False,
+                "inherit_router_category": category == "inherit",
             }
 
     def open_skill_location(self, skill_id: str) -> dict[str, Any]:
