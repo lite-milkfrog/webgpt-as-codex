@@ -111,6 +111,25 @@ def test_skill_snapshot_uses_router_membership_and_persists_logical_move(
     overlay = json.loads((state_dir / "control-plane.json").read_text(encoding="utf-8"))
     assert overlay["assignments"][frontend["id"]]["category"] == "favorites"
 
+    control.move_skill(frontend["id"], "unclassified")
+    explicitly_unclassified = next(
+        row
+        for row in control.skill_snapshot()["skills"]
+        if row["slug"] == "frontend-design"
+    )
+    assert explicitly_unclassified["category"] == "unclassified"
+    assert explicitly_unclassified["category_source"] == "machine-overlay"
+
+    reset = control.move_skill(frontend["id"], "inherit")
+    assert reset["inherit_router_category"] is True
+    inherited = next(
+        row
+        for row in control.skill_snapshot()["skills"]
+        if row["slug"] == "frontend-design"
+    )
+    assert inherited["category"] == "web-ui"
+    assert inherited["category_source"] == "category-router"
+
 
 def test_workflow_planner_resolves_required_optional_and_conditional_skills(
     tmp_path: Path,
