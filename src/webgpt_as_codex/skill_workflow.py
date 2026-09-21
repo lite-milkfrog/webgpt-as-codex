@@ -292,6 +292,18 @@ class SkillWorkflowControlPlane:
                     )
 
             skills = list(aggregated.values())
+            slug_counts: dict[str, int] = {}
+            for skill in skills:
+                slug_counts[skill["slug"]] = slug_counts.get(skill["slug"], 0) + 1
+            for skill in skills:
+                if slug_counts.get(skill["slug"], 0) > 1:
+                    primary_root = (
+                        skill["locations"][0].get("root_id")
+                        if skill.get("locations")
+                        else "unknown"
+                    )
+                    skill["id"] = f"{skill['slug']}@{primary_root}"
+
             usage: dict[str, list[dict[str, Any]]] = {}
             catalog = self.workflow_catalog()
             for workflow in catalog.get("workflows", []):
