@@ -401,6 +401,122 @@ class SkillWorkflowControlPlane:
             "skill_id": skill["id"],
         }
 
+    @staticmethod
+    def _validate_condition(condition: Any, path: str) -> list[str]:
+        if condition in (None, "", []):
+            return []
+        if isinstance(condition, str):
+            return [] if _CATEGORY_RE.fullmatch(condition) else [f"{path}: invalid flag"]
+        if not isinstance(condition, dict):
+            return [f"{path}: condition must be a flag or object"]
+        errors: list[str] = []
+        unknown = sorted(set(condition) - {"all", "any", "none"})
+        if unknown:
+            errors.append(f"{path}: unsupported condition keys {unknown}")
+        for key in ("all", "any", "none"):
+            value = condition.get(key)
+            if value is None:
+                continue
+            if not isinstance(value, list) or not all(
+                isinstance(flag, str) and _CATEGORY_RE.fullmatch(flag)
+                for flag in value
+            ):
+                errors.append(f"{path}.{key}: expected flag list")
+        return errors
+
+    @classmethod
+    def _validate_workflow_registry(cls, raw: Any) -> list[str]:
+        if not isinstance(raw, dict):
+            return ["registry: expected object"]
+        errors: list[str] = []
+        if raw.get("schema_version") != 1:
+            errors.append("registry.schema_version: expected 1")
+        workflows = raw.get("workflows")
+        if not isinstance(workflows, list):
+            return errors + ["registry.workflows: expected array"]
+        seen_workflows: set[str] = set()
+        for wi, workflow in enumerate(workflows):
+            base = f"workflows[{wi}]"
+            if not isinstance(workflow, dict):
+                errors.append(f"{base}: expected object")
+                continue
+            workflow_id = workflow.get("id")
+            if not isinstance(workflow_id, str) or not _CATEGORY_RE.fullmatch(workflow_id):
+                errors.append(f"{base}.id: invalid workflow id")
+            elif workflow_id in seen_workflows:
+                errors.append(f"{base}.id: duplicate workflow id")
+            else:
+                seen_workflows.add(workflow_id)
+            if not isinstance(workflow.get("title"), str) or not workflow.get("title"):
+                errors.append(f"{base}.title: required")
+            stages = workflow.get("stages")
+            if not isinstance(stages, list) or not stages:
+                errors.append(f"{base}.stages: non-empty array required")
+                continue
+            seen_stages: set[str] = set()
+            for si, stage in enumerate(stages):
+                stage_path = f"{base}.stages[{si}]"
+                if not isinstance(stage, dict):
+                    errors.append(f"{stage_path}: expected object")
+                    continue
+                stage_id = stage.get("id")
+                if not isinstance(stage_id, str) or not _CATEGORY_RE.fullmatch(stage_id):
+                    errors.append(f"{stage_path}.id: invalid stage id")
+                elif stage_id in seen_stages:
+                    errors.append(f"{stage_path}.id: duplicate stage id")
+                else:
+                    seen_stages.add(stage_id)
+                if not isinstance(stage.get("title"), str) or not stage.get("title"):
+                    errors.append(f"{stage_path}.title: required")
+                errors.extend(
+                    cls._validate_condition(stage.get("when"), f"{stage_path}.when")
+                )
+                selectors = stage.get("skills", [])
+                if not isinstance(selectors, list):
+                    errors.append(f"{stage_path}.skills: expected array")
+                    continue
+                for ki, selector in enumerate(selectors):
+                    selector_path = f"{stage_path}.skills[{ki}]"
+                    if isinstance(selector, str):
+                        if not _CATEGORY_RE.fullmatch(selector):
+                            errors.append(f"{selector_path}: invalid Skill slug")
+                        continue
+                    if not isinstance(selector, dict):
+                        errors.append(f"{selector_path}: expected string or object")
+                        continue
+                    name = selector.get("name")
+                    if not isinstance(name, str) or not _CATEGORY_RE.fullmatch(name):
+                        errors.append(f"{selector_path}.name: invalid Skill slug")
+                    required = selector.get("required", True)
+                    if not isinstance(required, bool):
+                        errors.append(f"{selector_path}.required: expected boolean")
+                    unknown = sorted(set(selector) - {"name", "required", "when"})
+                    if unknown:
+                        errors.append(f"{selector_path}: unsupported keys {unknown}")
+                    errors.extend(
+                        cls._validate_condition(
+                            selector.get("when"),
+                            f"{selector_path}.when",
+                        )
+                    )
+                gate = stage.get("gate")
+                if gate is not None:
+                    if not isinstance(gate, dict):
+                        errors.append(f"{stage_path}.gate: expected object")
+                    else:
+                        gate_type = gate.get("type")
+                        requires = gate.get("requires")
+                        if not isinstance(gate_type, str) or not gate_type:
+                            errors.append(f"{stage_path}.gate.type: required")
+                        if not isinstance(requires, list) or not all(
+                            isinstance(item, str) and item.strip()
+                            for item in requires
+                        ):
+                            errors.append(
+                                f"{stage_path}.gate.requires: expected non-empty strings"
+                            )
+        return errors
+
     def workflow_catalog(self) -> dict[str, Any]:
         try:
             raw = json.loads(
@@ -418,11 +534,13 @@ class SkillWorkflowControlPlane:
                 "workflows": [],
                 "error": "workflow-registry-invalid",
             }
-        if not isinstance(raw, dict) or not isinstance(raw.get("workflows"), list):
+        errors = self._validate_workflow_registry(raw)
+        if errors:
             return {
                 "schema_version": 1,
                 "workflows": [],
                 "error": "workflow-registry-invalid",
+                "validation_errors": errors,
             }
         return raw
 
