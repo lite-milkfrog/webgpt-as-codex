@@ -203,3 +203,76 @@ def test_unknown_skill_id_cannot_be_used_as_arbitrary_path(tmp_path: Path) -> No
 
     with pytest.raises(KeyError):
         control.open_skill_location(str(tmp_path / "outside"))
+
+
+def test_run_blocks_only_when_blocked_stage_becomes_current(tmp_path: Path) -> None:
+    root = tmp_path / "skills"
+    write(root / "frontend-design" / "REFERENCE.md", "# Frontend Design\n")
+    registry = tmp_path / "workflow-registry.json"
+    registry.write_text(
+        json.dumps(
+            {
+                "schema_version": 1,
+                "workflows": [
+                    {
+                        "id": "later-blocked",
+                        "title": "Later Blocked",
+                        "stages": [
+                            {
+                                "id": "build",
+                                "title": "Build",
+                                "skills": [
+                                    {"name": "frontend-design", "required": True}
+                                ],
+                            },
+                            {
+                                "id": "qa",
+                                "title": "QA",
+                                "skills": [
+                                    {"name": "webapp-testing", "required": True}
+                                ],
+                            },
+                        ],
+                    }
+                ],
+            }
+        ),
+        encoding="utf-8",
+    )
+    control = SkillWorkflowControlPlane(
+        skill_roots=[root],
+        workflow_registry_path=registry,
+        local_state_dir=tmp_path / "state" / "skills",
+    )
+
+    run = control.start_run("later-blocked")
+    assert run["status"] == "active"
+    assert run["current_stage"] == "build"
+    assert run["stages"][0]["status"] == "in_progress"
+    assert run["stages"][1]["planner_status"] == "blocked"
+    assert run["stages"][1]["status"] == "pending"
+
+    advanced = control.transition_run(run["run_id"], "build", "passed")
+    assert advanced["status"] == "blocked"
+    assert advanced["current_stage"] == "qa"
+    assert advanced["stages"][1]["status"] == "blocked"
+
+
+def test_run_starts_blocked_when_first_stage_required_skill_is_missing(
+    tmp_path: Path,
+) -> None:
+    root = tmp_path / "skills"
+    root.mkdir()
+    registry = tmp_path / "workflow-registry.json"
+    make_registry(registry)
+    control = SkillWorkflowControlPlane(
+        skill_roots=[root],
+        workflow_registry_path=registry,
+        local_state_dir=tmp_path / "state" / "skills",
+    )
+
+    run = control.start_run("demo", {"qa_needed": False})
+    assert run["status"] == "blocked"
+    assert run["current_stage"] == "design"
+    assert run["stages"][0]["planner_status"] == "blocked"
+    assert run["stages"][0]["status"] == "blocked"
