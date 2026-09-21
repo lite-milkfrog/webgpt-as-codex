@@ -18,6 +18,12 @@ ChatGPT itself still follows the limits of your current plan and client. In prac
 
 WebGPT-as-Codex is not another MCP server. It is the control, routing, recovery and deployment layer you start needing once several MCPs must work together reliably: who owns code semantics, who writes files, how OAuth stays stable, what happens after reboot, how concurrent sessions avoid shared-state collisions, and how a long task hands itself to the next conversation without losing truth.
 
+One thing became obvious after using it on real work: **giving an agent tools only solves whether it can touch the computer. What decides whether it can keep working is whether it has a durable way to work.**
+
+> **MCP gives it hands. The Skill teaches it how to work. SoT keeps the project from forgetting. Loop Engineering keeps it moving across conversation windows.**
+
+That is why `skills/webgpt-as-codex/` is not a thin “use Playwright for websites” prompt. It is an execution system: tool routing, permission boundaries, recovery, single-writer discipline, concurrency isolation, validation, the Experience Ledger, regression evals, cross-conversation handoff and Loop Engineering. Machine-specific ports, paths, live health and handoff receipts stay in the machine-local overlay instead of being pushed into the public repository.
+
 ## Fastest path: give the repository to an AI agent
 
 Copy [`prompts/ONE-CLICK-AGENT-DEPLOY.md`](prompts/ONE-CLICK-AGENT-DEPLOY.md) to an agent that can operate the target Windows machine.
@@ -33,6 +39,94 @@ The prompt tells it to actually deploy—not just explain how—to:
 - run Doctor, Gateway, OAuth, startup-idempotence and release acceptance;
 - stop only for account/login/OAuth consent that genuinely requires a human.
 
+## After the first setup, daily use is one click
+
+The first deployment has real setup work—OAuth, Tailscale, MCPs, the Skill and account consent—but **that is not something you are supposed to rebuild every morning**.
+
+The normal path is:
+
+1. Once, give this repository and [`prompts/ONE-CLICK-AGENT-DEPLOY.md`](prompts/ONE-CLICK-AGENT-DEPLOY.md) to an agent that can operate the Windows machine;
+2. complete the required account login, OAuth consent and ChatGPT MCP connection;
+3. on later boots, **double-click the WebGPT-as-Codex desktop one-click launcher**;
+4. the launcher runs the machine-local prestart for approved external MCP backends, then starts or recovers the Gateway, OAuth Edge, Manager and the rest of the WebGPT runtime, followed by layered READY checks;
+5. healthy services are preserved instead of duplicated, so clicking Start All again is safe and idempotent;
+6. once READY, open ChatGPT and start asking it to work. Under normal conditions there is no need to re-enter the MCP URL or redeploy the stack.
+
+In other words, the everyday experience should not be “open five terminals and remember which command starts which daemon.” It should look like this:
+
+```text
+boot Windows
+  ↓
+double-click one launcher
+  ↓
+recover missing services / preserve healthy ones
+  ↓
+READY
+  ↓
+open ChatGPT and work
+```
+
+If Windows-login autostart is enabled, much of the stack may already be recovering before you click anything. The desktop Start All path is still idempotent, so it can be used as the single visible readiness check.
+
+## The Skill is more than an MCP router
+
+A real long-running task follows a durable chain instead of trusting chat memory:
+
+```text
+Stage N
+  ↓
+read real repository SoT / Git HEAD
+  ↓
+execute + validate
+  ↓
+update SoT / decisions / risks
+  ↓
+commit
+  ↓
+generate + validate the Stage N+1 prompt
+  ↓
+Playwright submits it into a new ChatGPT conversation
+  ↓
+verify that the next window actually took over
+  ↓
+persist a machine-local handoff receipt
+```
+
+The state model deliberately keeps two layers separate:
+
+- **Repository SoT** is the durable project truth and remains authoritative after any chat window disappears;
+- **machine-local durable state** keeps CURRENT/NEXT/AFTER_NEXT, source HEAD, closure phase, prompt hash, handoff result and recovery evidence for restart/context recovery without replacing repository truth.
+
+Loop Engineering also turns reusable failure into reusable engineering knowledge:
+
+```text
+RECOVER → DISTILL → GENERALIZE → PATCH → EVAL → VALIDATE → PROPAGATE
+```
+
+So the agent is not supposed to merely “find a workaround and forget it.” Reusable failure modes are distilled into the Skill, MCP Guides or regression scenarios and propagated forward. This is not model-weight self-training; it is **engineering experience becoming explicit, testable execution rules**.
+
+## WAC × RDC: two independent control planes that can rescue each other
+
+WebGPT-as-Codex and Remote Desktop Commander are intentionally not a parent process and a child plugin.
+
+```text
+WebGPT-as-Codex
+= primary structured execution plane
+= code / Git / browser / Windows GUI / Gateway / OAuth
+
+Remote Desktop Commander
+= independent full-machine repair / control plane
+= files / terminal / processes / logs / host recovery
+```
+
+Keeping them independent is what makes mutual recovery useful:
+
+- **WAC healthy, RDC unhealthy**: use WAC-side Coding Tools / Windows-MCP / approved local control to inspect and recover RDC;
+- **RDC healthy, WAC unhealthy**: use RDC to inspect Gateway, Coding Tools, OAuth Edge, Tailscale/Funnel, Manager, Playwright/Windows-MCP relays and startup scripts, then recover WAC;
+- **both healthy**: route normal structured work through WAC and keep RDC outside it as a full-machine recovery plane;
+- **both unhealthy**: fall back to local desktop bootstrap, startup/reboot recovery or human-local repair.
+
+An unhealthy plane is never chosen to repair itself, and recovery is not allowed to recurse into a WAC → RDC → WAC loop. RDC is still not a Gateway child or a WAC READY prerequisite; on a configured machine, the desktop bootstrap can use the machine-local prestart hook to bring up approved external backends such as RDC alongside the rest of the one-click startup.
 ## What you get
 
 | Capability | What WebGPT-as-Codex does |
