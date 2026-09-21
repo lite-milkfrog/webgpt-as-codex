@@ -16,6 +16,7 @@ from .paths import resource_root, state_root, user_home
 _CATEGORY_RE = re.compile(r"^[a-z0-9][a-z0-9._-]{0,63}$")
 _ROUTE_RE = re.compile(r"\.\./\.\./([^/\\\s]+)/REFERENCE\.md")
 _RUN_STATUSES = {"pending", "in_progress", "passed", "failed", "blocked", "skipped"}
+_RUN_TRANSITION_STATUSES = {"in_progress", "passed", "failed", "blocked", "skipped"}
 
 
 def _utc_now() -> str:
@@ -807,6 +808,79 @@ class SkillWorkflowControlPlane:
                 break
         return rows
 
+    def refresh_run(self, run_id: str) -> dict[str, Any]:
+        with self._lock:
+            path = self._run_path(run_id)
+            data = json.loads(path.read_text(encoding="utf-8"))
+            plan = self.plan_workflow(
+                str(data.get("workflow_id") or ""),
+                data.get("context") or {},
+            )
+            planned_by_id = {
+                row.get("id"): row
+                for row in plan.get("stages", [])
+                if isinstance(row, dict)
+            }
+            current_stage = data.get("current_stage")
+            for row in data.get("stages") or []:
+                stage_id = row.get("id")
+                planned = planned_by_id.get(stage_id)
+                if not planned:
+                    continue
+                row["planner_status"] = planned.get("status")
+                row["skills"] = planned.get("skills") or []
+                row["gate"] = planned.get("gate")
+                if row.get("status") in {"passed", "failed", "skipped"}:
+                    continue
+                if planned.get("status") == "skipped":
+                    row["status"] = "skipped"
+                    continue
+                if stage_id == current_stage:
+                    row["status"] = (
+                        "blocked"
+                        if planned.get("status") == "blocked"
+                        else "in_progress"
+                    )
+                elif row.get("status") == "blocked":
+                    row["status"] = "pending"
+
+            active = next(
+                (
+                    row
+                    for row in data.get("stages") or []
+                    if row.get("id") == current_stage
+                ),
+                None,
+            )
+            if active is None or active.get("status") in {"passed", "skipped"}:
+                current_stage = None
+                for row in data.get("stages") or []:
+                    if row.get("status") == "pending":
+                        current_stage = row.get("id")
+                        row["status"] = (
+                            "blocked"
+                            if row.get("planner_status") == "blocked"
+                            else "in_progress"
+                        )
+                        break
+            data["current_stage"] = current_stage
+            if current_stage is None:
+                data["status"] = "complete"
+            else:
+                current = next(
+                    row
+                    for row in data.get("stages") or []
+                    if row.get("id") == current_stage
+                )
+                data["status"] = (
+                    "blocked"
+                    if current.get("status") == "blocked"
+                    else "active"
+                )
+            data["updated_at"] = _utc_now()
+            self._write_run(data)
+            return data
+
     def transition_run(
         self,
         run_id: str,
@@ -814,11 +888,13 @@ class SkillWorkflowControlPlane:
         status: str,
         evidence: str | None = None,
     ) -> dict[str, Any]:
-        if status not in _RUN_STATUSES:
-            raise ValueError("invalid run status")
+        if status not in _RUN_TRANSITION_STATUSES:
+            raise ValueError("invalid run transition status")
         with self._lock:
             path = self._run_path(run_id)
             data = json.loads(path.read_text(encoding="utf-8"))
+            if data.get("current_stage") != stage_id:
+                raise ValueError("only the current stage can transition")
             stages = data.get("stages") or []
             index = next(
                 (
@@ -902,12 +978,15 @@ def cli_skill_workflow(argv: list[str]) -> int:
     run_list = sub.add_parser("run-list")
     run_list.add_argument("--limit", type=int, default=50)
 
+    refresh = sub.add_parser("run-refresh")
+    refresh.add_argument("run_id")
+
     transition = sub.add_parser("run-transition")
     transition.add_argument("run_id")
     transition.add_argument("stage_id")
     transition.add_argument(
         "status",
-        choices=sorted(_RUN_STATUSES),
+        choices=sorted(_RUN_TRANSITION_STATUSES),
     )
     transition.add_argument("--evidence")
 
@@ -939,6 +1018,8 @@ def cli_skill_workflow(argv: list[str]) -> int:
             )
         elif args.action == "run-list":
             result = {"runs": control.list_runs(limit=args.limit)}
+        elif args.action == "run-refresh":
+            result = control.refresh_run(args.run_id)
         elif args.action == "run-transition":
             result = control.transition_run(
                 args.run_id,
