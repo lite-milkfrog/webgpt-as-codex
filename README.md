@@ -4,7 +4,7 @@
 
 > **Turn ChatGPT on the web into a durable local coding and computer agent.**
 >
-> One OAuth-protected public MCP endpoint, multiple local specialist MCPs, one canonical Agent Skill, reboot recovery, and Loop Engineering for work that must survive long sessions.
+> One OAuth-protected public MCP endpoint, multiple local specialist MCPs, one canonical Agent Skill, reboot recovery, and Loop Engineering—a staged execution and automatic handoff system for work that must survive beyond one chat window.
 
 **Deploy once · one MCP URL · one-click start · self-recovery · local-first.**
 
@@ -20,13 +20,28 @@ WebGPT-as-Codex is not another MCP server. It is the control, routing, recovery 
 
 One thing became obvious after using it on real work: **giving an agent tools only solves whether it can touch the computer. What decides whether it can keep working is whether it has a durable way to work.**
 
-> **MCP gives it hands. The Skill teaches it how to work. SoT keeps the project from forgetting. Loop Engineering keeps it moving across conversation windows.**
+> **MCP gives it hands. The Skill teaches it how to work. SoT (Source of Truth—the authoritative record of the project's real state) keeps the project from forgetting. Loop Engineering (staged execution + validation + persistence + automatic handoff) keeps it moving across conversation windows.**
 
 That is why `skills/webgpt-as-codex/` is not a thin “use Playwright for websites” prompt. It is an execution system: tool routing, permission boundaries, recovery, single-writer discipline, concurrency isolation, validation, the Experience Ledger, regression evals, cross-conversation handoff and Loop Engineering. Machine-specific ports, paths, live health and handoff receipts stay in the machine-local overlay instead of being pushed into the public repository.
 
+### A few terms in plain English
+
+- **MCP (Model Context Protocol)**: the common “socket” that lets an AI call external tools. With MCP, ChatGPT can use code, browser, filesystem and Windows-control tools instead of only returning text.
+- **Skill**: not another tool, but the agent's operating manual + accumulated working rules. It decides which tool to use, how to recover from failure, what must be verified and which actions require stronger authorization.
+- **SoT (Source of Truth)**: the project's real ledger. Progress, Git HEAD, validation state and known risks come from durable repository evidence—not from whatever one chat window happens to remember.
+- **Loop Engineering**: the system for work that does not fit in one conversation. A large task is split into Stages; each Stage executes, validates, updates SoT, commits, generates the next prompt and hands it to a new ChatGPT conversation.
+- **Automatic long-task handoff**: the practical result of Loop Engineering. The current window does not merely say “continue”; it passes verified code state, test results, Git HEAD, next-stage objective, tool locations and recovery rules, then verifies that the next window actually took over.
+- **Handoff**: the controlled transfer from one agent/conversation to the next. It passes verified project state and an execution contract instead of relying on copied chat history.
+- **Machine-local durable state**: restart/recovery evidence stored only on the local machine, such as CURRENT/NEXT/AFTER_NEXT, prompt hash and handoff receipts. It helps recover from disconnects and context loss, but it never replaces repository SoT.
+- **Gateway**: the single entry point that aggregates multiple MCP servers so ChatGPT does not have to manage several public endpoints separately.
+- **READY**: not merely “a port is open.” The relevant process, MCP, OAuth and HTTPS layers must pass their checks before the stack is treated as usable.
+- **Start All / one-click startup**: the startup path that recovers missing services and preserves already healthy ones instead of blindly launching duplicates.
+
 ## Fastest path: give the repository to an AI agent
 
-Copy [`prompts/ONE-CLICK-AGENT-DEPLOY.md`](prompts/ONE-CLICK-AGENT-DEPLOY.md) to an agent that can operate the target Windows machine.
+Repository: **[https://github.com/liusiong/webgpt-as-codex](https://github.com/liusiong/webgpt-as-codex)**
+
+Give the agent both the **repository link** and [`prompts/ONE-CLICK-AGENT-DEPLOY.md`](prompts/ONE-CLICK-AGENT-DEPLOY.md). The repository tells it where the real project is; the deployment prompt tells it how to inspect the machine, install/recover the stack, verify it and close the setup correctly.
 
 The prompt tells it to actually deploy—not just explain how—to:
 
@@ -45,10 +60,10 @@ The first deployment has real setup work—OAuth, Tailscale, MCPs, the Skill and
 
 The normal path is:
 
-1. Once, give this repository and [`prompts/ONE-CLICK-AGENT-DEPLOY.md`](prompts/ONE-CLICK-AGENT-DEPLOY.md) to an agent that can operate the Windows machine;
+1. Once, give the agent the repository URL **https://github.com/liusiong/webgpt-as-codex** together with [`prompts/ONE-CLICK-AGENT-DEPLOY.md`](prompts/ONE-CLICK-AGENT-DEPLOY.md), so it works from the real repository instead of from copied instructions;
 2. complete the required account login, OAuth consent and ChatGPT MCP connection;
 3. on later boots, **double-click the WebGPT-as-Codex desktop one-click launcher**;
-4. the launcher runs the machine-local prestart for approved external MCP backends, then starts or recovers the Gateway, OAuth Edge, Manager and the rest of the WebGPT runtime, followed by layered READY checks;
+4. the launcher runs the **machine-local prestart (a local-only startup hook)** for approved external MCP backends, then starts or recovers the **Gateway (the unified MCP entry point)**, **OAuth Edge (the public authorization/HTTPS edge)**, Manager and the rest of the WebGPT runtime, followed by layered **READY (the whole chain is actually usable)** checks;
 5. healthy services are preserved instead of duplicated, so clicking Start All again is safe and idempotent;
 6. once READY, open ChatGPT and start asking it to work. Under normal conditions there is no need to re-enter the MCP URL or redeploy the stack.
 
@@ -70,7 +85,7 @@ If Windows-login autostart is enabled, much of the stack may already be recoveri
 
 ## The Skill is more than an MCP router
 
-A real long-running task follows a durable chain instead of trusting chat memory:
+A real long-running task follows a durable chain instead of trusting chat memory. A **Stage** is one bounded piece of work with one objective, explicit validation and an exit condition:
 
 ```text
 Stage N
@@ -94,10 +109,10 @@ persist a machine-local handoff receipt
 
 The state model deliberately keeps two layers separate:
 
-- **Repository SoT** is the durable project truth and remains authoritative after any chat window disappears;
-- **machine-local durable state** keeps CURRENT/NEXT/AFTER_NEXT, source HEAD, closure phase, prompt hash, handoff result and recovery evidence for restart/context recovery without replacing repository truth.
+- **Repository SoT (the repository's authoritative project truth)** remains valid after any chat window disappears;
+- **machine-local durable state (local restart/recovery evidence)** keeps CURRENT/NEXT/AFTER_NEXT (current / next / after-next Stage), source HEAD (the Git commit this Stage is based on), closure phase, prompt hash, handoff result and recovery evidence without replacing repository truth.
 
-Loop Engineering also turns reusable failure into reusable engineering knowledge:
+**Loop Engineering (staged long-task execution with automatic cross-conversation handoff)** also turns reusable failure into reusable engineering knowledge:
 
 ```text
 RECOVER → DISTILL → GENERALIZE → PATCH → EVAL → VALIDATE → PROPAGATE
@@ -107,7 +122,7 @@ So the agent is not supposed to merely “find a workaround and forget it.” Re
 
 ## WAC × RDC: two independent control planes that can rescue each other
 
-WebGPT-as-Codex and Remote Desktop Commander are intentionally not a parent process and a child plugin.
+WebGPT-as-Codex (WAC, the primary structured execution plane) and Remote Desktop Commander (RDC, the independent full-machine control/recovery plane) are intentionally not a parent process and a child plugin.
 
 ```text
 WebGPT-as-Codex
@@ -133,9 +148,9 @@ An unhealthy plane is never chosen to repair itself, and recovery is not allowed
 |---|---|
 | **One endpoint** | Your web AI talks to one OAuth-protected MCP Gateway instead of several public MCP registrations |
 | **Correct routing** | Serena for semantics, Coding Tools for edits/tests/Git, Playwright for the web, Windows-MCP for native GUI |
-| **One-click startup** | Desktop and Windows-login launchers recover local backends, then start Gateway/OAuth/Manager and verify real readiness |
+| **One-click startup** | Desktop and Windows-login launchers recover local backends, then start Gateway/OAuth/Manager and verify real READY state instead of trusting a live port |
 | **Recovery with evidence** | Process, listener, MCP, OAuth and public-edge health are separate states; a live port is never called “healthy” by itself |
-| **Durable long tasks** | Loop Engineering persists SoT, validation, commits and verified next-conversation handoff |
+| **Durable long tasks** | Loop Engineering (staged execution + automatic handoff) persists SoT (project truth), validation, commits and verified next-conversation handoff |
 | **Concurrency boundaries** | Explicit isolation for Serena project state, Git worktree writers and shared physical GUI state |
 | **Independent repair plane** | Remote Desktop Commander stays separate from the Gateway as a full-machine recovery/control plane |
 | **Local-first security** | Secrets, OAuth databases, browser account state and machine-local runtime evidence stay off Git |
