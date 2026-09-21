@@ -59,6 +59,7 @@ Gateway/OAuth、Manager、Bootstrap/Doctor/Repair、Runtime Supervisor 与发布
 28. **MCP 并发必须按状态模型判断**：不能把“支持多个请求”误写成“支持多个会话并行修改任意项目”。当前 Serena 标准 MCP 单进程有 process-wide active project；不同 ChatGPT 窗口并行切不同项目会互相影响，必须改用固定项目的独立 Serena 实例/slot，或只读多项目查询路径。Coding Tools 可以并行存在独立 command/session，但单 server 仍绑定一个 workspace；并行 writer 必须独立 worktree/workspace + ownership。Remote/Desktop Commander 的独立终端/文件操作可并行，真实 GUI 鼠标/键盘/焦点必须视为单机共享资源并串行。
 29. **listener 活着不等于运行的是当前代码**：长期 Python/Node 服务在 source/static 更新后可能继续以旧 route table/旧模块驻留，形成“新磁盘资源 + 旧进程逻辑”的 mixed-version 状态。对 repository-owned 服务应同时校验 ownership、process identity、runtime generation/版本与关键 capability contract；确认 stale 且有 lifecycle authority 才刷新。未知/歧义 listener 即使端口正确也禁止 kill。
 30. **用户桌面 launcher 与浏览器自动化 profile 分离**：用户双击桌面 launcher 打开的本地 Manager/控制页，应优先复用用户已经运行的正常浏览器 profile；浏览器未运行时走 Windows 正常 URL handler/default browser。不得因为项目也使用 Playwright 就让桌面 launcher 创建 temp user-data-dir、isolated profile、InPrivate 或 automation-only 空白 profile。Playwright 的 Extension/shared-context 生命周期与桌面 URL opener 是两个独立职责。
+31. **复杂任务先选 Workflow，再选 Stage Skills**：多阶段交付或需要多个 Skills 协作时，先读取 `workflow-registry.json`，按 `Task -> Workflow -> Stage -> Skill selectors -> MCP routing -> gate` 执行。只加载当前 Stage 需要的 Skills；required Skill 缺失时阻塞该 Stage，optional Skill 缺失只能降级。Manager 的分类/拖动只改变 machine-local 组织视图，不能偷偷改写 repository-owned Workflow 语义。Workflow 运行态和证据必须写 machine-local durable state，网页 UI 只读取/操作这套真值，不能成为新的 SoT。
 
 ## 首选路由
 
@@ -127,7 +128,7 @@ Serena / Desktop Commander：
 - 桌面应用自动化：Desktop Commander 先检查是否有 CLI/API → 无结构化入口再 Windows-MCP。
 - Web 后台操作：优先 Playwright；只有浏览器 chrome、系统弹窗或不可访问区域才 Windows-MCP。
 
-复杂场景读取 `workflows/` 对应文件。
+复杂场景先读取 `workflow-registry.json` 判断是否存在 canonical Workflow，再读取当前 Stage 需要的 `workflows/` 与 leaf Skills。没有匹配 Workflow 的简单任务继续直接路由，不强行编排。
 
 ## 失败与回退
 
@@ -155,6 +156,7 @@ Serena / Desktop Commander：
 
 仅按需要读取：
 
+- 多阶段 Skill 编排 / Workflow 匹配 → `workflow-registry.json`
 - 路由冲突/工具选择 → `routing.md`
 - 权限/确认 → `permissions.md`
 - 当前机器特性 → `environment.local.md`
