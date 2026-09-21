@@ -462,8 +462,29 @@ class ManagerRequestHandler(BaseHTTPRequestHandler):
             if self.path == "/api/skills":
                 self._require_fields(
                     payload,
-                    {"operation", "confirm", "id", "category", "position"},
+                    {
+                        "operation",
+                        "confirm",
+                        "id",
+                        "category",
+                        "position",
+                        "target_root_id",
+                    },
                 )
+                operation = payload.get("operation")
+                if operation == "relocation-plan":
+                    result = self.server.skill_workflow.plan_relocation(
+                        str(payload.get("id") or ""),
+                        str(payload.get("target_root_id") or ""),
+                    )
+                    self.server.record_activity(
+                        "skills.relocation-plan",
+                        "success" if result.get("ok") else "blocked",
+                        detail=str(result.get("skill_id") or ""),
+                    )
+                    status = HTTPStatus.OK if result.get("ok") else HTTPStatus.CONFLICT
+                    self._local_json(result, status)
+                    return True
                 if payload.get("confirm") is not True:
                     self.server.record_activity(
                         "skills",
@@ -475,7 +496,6 @@ class ManagerRequestHandler(BaseHTTPRequestHandler):
                         HTTPStatus.CONFLICT,
                     )
                     return True
-                operation = payload.get("operation")
                 if operation == "move":
                     result = self.server.skill_workflow.move_skill(
                         str(payload.get("id") or ""),
@@ -488,6 +508,19 @@ class ManagerRequestHandler(BaseHTTPRequestHandler):
                         detail=str(result.get("skill_id") or ""),
                     )
                     self._local_json(result)
+                    return True
+                if operation == "relocate":
+                    result = self.server.skill_workflow.relocate_skill(
+                        str(payload.get("id") or ""),
+                        str(payload.get("target_root_id") or ""),
+                    )
+                    self.server.record_activity(
+                        "skills.relocate",
+                        "success" if result.get("ok") else "blocked",
+                        detail=str(result.get("skill_id") or ""),
+                    )
+                    status = HTTPStatus.OK if result.get("ok") else HTTPStatus.CONFLICT
+                    self._local_json(result, status)
                     return True
                 if operation == "open":
                     result = self.server.skill_workflow.open_skill_location(
