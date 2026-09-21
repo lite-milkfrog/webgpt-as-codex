@@ -196,3 +196,23 @@ OAuth Edge READY 现在必须同时满足：
 如果运行期间 443 被其它脚本改到别的 target，Edge 必须退出 READY，而不是继续保持“本地端口正常”的假绿状态。
 
 Windows 登录恢复时，launcher 允许在有界时间内等待 required unmanaged backend 被 `local-prestart.cmd` 拉起；超时后仍按真实 missing backend fail closed。
+
+
+## 2026-09-21 重启恢复 Hotfix
+
+一次真实 Windows 重启暴露了 launcher 日志句柄继承问题：本机 `local-prestart.cmd` 在 stdout/stderr 重定向到 WAC launcher 日志时启动长期外部 MCP 子孙进程，这些进程可能继续持有该日志句柄，导致后续 WebGPT 再次打开同一日志时触发 Windows 文件共享冲突，从而让 Gateway/OAuth Edge 根本没有获得启动机会。
+
+修复后的合同：
+- prestart 的 stdout/stderr 与 WAC launcher 主日志完全隔离；
+- prestart 返回后只写一条完成/失败摘要；
+- launcher 诊断日志迁移到 generation-specific 的 `desktop-launcher-v2.log` / `autostart-v2.log`；
+- Windows 登录 Autostart 使用最多 300 秒的 boot-recovery 窗口，等待外部 backend、Windows 网络、Tailscale、Funnel 与 OAuth Edge 收敛；
+- 手动 Desktop launcher 使用最多 180 秒的恢复窗口；
+- 开机阶段只要尚未 `fully_ready`，在有界窗口内可继续重试；超时后仍 fail closed，不能假报 READY；
+- Serena 全局 Doctor 不再调用 `get_current_config` 作为健康探针，因为该调用需要 active project；没有 active project 时工具报错并不代表 Serena MCP 故障。
+
+真实主机上已做无整机重启的冷启动恢复模拟：只停止 WAC 自己拥有的 Manager/Gateway/OAuth 组件，保留外部 MCP。随后执行已安装 Windows Startup launcher，9200/9330/9340/9341 全部自动恢复，`fully_ready=true`，外部 MCP PID 保持不变，公网 protected-resource / 未认证 MCP 仍分别为 200 / 401 + OAuth challenge。
+
+### 破坏性操作授权硬门禁
+
+reboot、shutdown、sign-out、sleep/hibernate、断开/重启网卡、Tailscale logout/reset，以及任何可能切断当前远程控制链的动作，都必须获得**当前轮次针对该动作本身的明确授权**。“继续”“完成剩余任务”“自动收口”“一直做完”等一般执行指令永远不构成这类授权。若目标机重启后需要人在本地手动恢复网络，远程 Agent 不得主动触发重启，除非用户明确授权且本地恢复路径已经确认。

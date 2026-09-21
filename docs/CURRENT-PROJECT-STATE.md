@@ -229,7 +229,7 @@ Current accepted truth:
 - canonical release Skill: `skills/webgpt-as-codex/`, version `1.3.0`;
 - machine-local workspace Skill: `.skills/webgpt-as-codex/` using the same portable core plus local environment/inventory/state overlays;
 - user shared Skill source and Codex/Claude junctions now use `webgpt-as-codex`; the old active `computer-agent` 1.0.0-local-candidate source/junctions are retired and backed up outside active Skill roots;
-- the former Computer Agent Experience Ledger, MCP Guides, GUI/Playwright workflows, Loop Engineering rules and all original 53 regression scenarios are preserved inside the single WAC Skill; three legacy contract aliases (`serena-down`, `handoff`, `parallel-edit`) are also restored, for 56 scenarios total;
+- the former Computer Agent Experience Ledger, MCP Guides, GUI/Playwright workflows, Loop Engineering rules and all original 53 regression scenarios are preserved inside the single WAC Skill; three legacy contract aliases (`serena-down`, `handoff`, `parallel-edit`) plus R54 destructive-action authorization bring the current total to 57 scenarios;
 - release packaging now declares only `share/webgpt-as-codex/skills/webgpt-as-codex/**`; there is no second Computer Agent release entry point;
 - canonical Skill sync command is `scripts/sync_webgpt_skill.py`; the obsolete root `scripts/sync_computer_agent_skill.py` has been retired.
 
@@ -262,15 +262,43 @@ Release/readme reconciliation:
 
 ### 2026-09-21 maintenance final acceptance
 
-- full repository regression after the consolidation: **228 PASS**;
+- full repository regression after the consolidation: **232 PASS**;
 - Ruff: **PASS**;
 - repository secret scan: **SECRET_SCAN_PASS**;
 - `git diff --check`: **PASS**;
-- canonical/source Skill validator: **VALIDATION_OK**, 27 required files / **56 scenarios**;
-- workspace-local and user shared Skill copies were resynchronized and both validate at WebGPT-as-Codex Skill `1.3.0` / 56 scenarios;
+- canonical/source Skill validator: **VALIDATION_OK**, 27 required files / **57 scenarios**;
+- workspace-local and user shared Skill copies were resynchronized and both validate at WebGPT-as-Codex Skill `1.3.0` / 57 scenarios;
 - current Desktop launcher and Windows Autostart were upgraded through the managed previous-generation matcher and now report `installed=true / managed=true / upgradeable=false`;
 - post-upgrade Autostart real-host execution completed with `fully_ready=true`, `required_unmanaged_missing=[]`; the final observed OAuth Edge was `preserved-owned` and canonical Tailscale Funnel HTTPS 443 still targeted `http://127.0.0.1:9341`;
-- final PEP517 wheel was built from the fixed source state, installed into a new external venv and reverified: package `0.1.0`, Skill `webgpt-as-codex` `1.3.0`, 56 scenarios, 9 workflows, product contract present, 8 component manifests, 4 Manager static resources, 9 release resources, and **no installed `computer-agent` Skill tree**;
-- final wheel SHA-256: `548ac770149ddadb1bde04081ffc5b79845589babbd2e804c60c63dd5e21e789`;
-- final wheel size: `302996` bytes;
+- final PEP517 wheel was built from the fixed source state, installed into a new external venv and reverified: package `0.1.0`, Skill `webgpt-as-codex` `1.3.0`, 57 scenarios, 9 workflows, product contract present, 8 component manifests, 4 Manager static resources, 9 release resources, and **no installed `computer-agent` Skill tree**;
+- final wheel SHA-256: `33a5f11fd03cd81a79ac9040fb1f911f25f7c6037a09f317d426f612a0aeeb72`;
+- final wheel size: `305169` bytes;
 - full physical Windows cold reboot remains intentionally unforced. Startup recovery is implemented and repeatedly real-host exercised through the installed Windows Autostart path, but a separate reboot observation is still required for a literal cold-reboot acceptance claim.
+
+
+## 2026-09-21 reboot-recovery maintenance hotfix
+
+This maintenance hotfix was triggered by a real Windows reboot that interrupted the remote control path and exposed a boot recovery defect. The reboot itself occurred before the hotfix and is incident evidence, not proof of the repaired post-reboot path.
+
+Root cause and repair:
+- the previous machine-local prestart call redirected into the same launcher log later reopened by WebGPT;
+- long-lived external MCP descendants could inherit that Windows file handle and keep it locked;
+- the repaired launcher isolates prestart stdout/stderr, records only a post-return summary, and migrated diagnostics to `desktop-launcher-v2.log` / `autostart-v2.log`;
+- Windows-login Autostart now uses bounded boot recovery (300 seconds) and retries transient not-ready states covering external backends, networking, Tailscale/Funnel and OAuth Edge;
+- the manual Desktop launcher uses a 180-second bounded recovery window;
+- success still requires layered `fully_ready=true`; timeout remains fail-closed;
+- Serena's manifest no longer declares `get_current_config` as a global safe probe because no-active-project is a legitimate state, not a server failure.
+
+Real-host verification after the repair:
+- installed Desktop launcher and Windows Autostart are `installed=true / managed=true / upgradeable=false`;
+- a real Windows Startup run no longer hits the launcher-log sharing violation and records a complete `fully_ready=true` result;
+- a controlled recovery simulation stopped only WebGPT-owned Manager/Gateway/OAuth runtimes while preserving Coding Tools, Playwright, Windows-MCP, Serena and RDC;
+- the same installed Startup launcher restored 9200/9330/9340/9341 automatically and preserved the external MCP PIDs;
+- current Doctor = `pass`, `required_failures=[]`, `warnings=[]`;
+- current public protected-resource metadata = 200; unauthenticated public `/mcp` = 401 with OAuth Bearer challenge;
+- the repaired code has **not** been validated by another full physical Windows reboot, because real reboot/shutdown/network interruption is now an explicit-action gate and cannot be inferred from generic continuation instructions.
+
+Authorization hardening:
+- reboot/shutdown/sign-out/sleep/hibernate/network interruption/Tailscale logout-reset require explicit same-turn approval for that exact action;
+- "continue", "finish remaining work", "auto-close", and equivalent general execution language do not authorize those actions;
+- if local human interaction is required to restore networking after reboot, a remote Agent must not initiate reboot without explicit approval and a confirmed local recovery path.

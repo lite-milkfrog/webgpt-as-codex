@@ -19,9 +19,14 @@ from .runtime import RuntimeSupervisor
 _MARKER = "REM WebGPT-as-Codex managed launcher"
 _DESKTOP_NAME = "WebGPT-as-Codex.cmd"
 _AUTOSTART_NAME = "WebGPT-as-Codex-Autostart.cmd"
+_LAUNCH_LOG_GENERATION = "v2"
 _EXTERNAL_BACKEND_WAIT_ENV = "WEBGPT_CODEX_EXTERNAL_BACKEND_WAIT_SECONDS"
+_BOOT_RECOVERY_ENV = "WEBGPT_CODEX_BOOT_RECOVERY"
 _EXTERNAL_BACKEND_WAIT_DEFAULT = 60.0
 _EXTERNAL_BACKEND_POLL = 2.0
+_BOOT_RECOVERY_POLL = 10.0
+_DESKTOP_RECOVERY_SECONDS = 180
+_AUTOSTART_RECOVERY_SECONDS = 300
 
 
 def _expand_shell_value(value: str) -> Path:
@@ -267,14 +272,37 @@ def _launcher_log_dir() -> Path:
     return state_root() / "logs" / "launcher"
 
 
+def _launcher_log_path(*, open_browser: bool) -> Path:
+    stem = "desktop-launcher" if open_browser else "autostart"
+    return _launcher_log_dir() / f"{stem}-{_LAUNCH_LOG_GENERATION}.log"
+
+
+def _legacy_launcher_log_path(*, open_browser: bool) -> Path:
+    return _launcher_log_dir() / (
+        "desktop-launcher.log" if open_browser else "autostart.log"
+    )
+
+
 def _local_prestart_content(log_path: Path) -> str:
+    """Run the machine-local bootstrap without leaking launcher log handles.
+
+    Legacy backend bootstrap scripts may spawn long-lived grandchildren. Redirecting
+    the CALL itself into the launcher log lets those descendants inherit the file
+    handle on Windows, which can make the following WebGPT launcher redirection fail
+    with ERROR_SHARING_VIOLATION. Send bootstrap output to NUL and write only the
+    bootstrap outcome to the launcher log after CALL returns.
+    """
     return (
         'if exist "%LOCALAPPDATA%\\WebGPT-as-Codex\\local-prestart.cmd" (\r\n'
-        '  call "%LOCALAPPDATA%\\WebGPT-as-Codex\\local-prestart.cmd" >> "'
-        + str(log_path)
-        + '" 2>&1\r\n'
+        '  call "%LOCALAPPDATA%\\WebGPT-as-Codex\\local-prestart.cmd" >nul 2>&1\r\n'
         "  if errorlevel 1 (\r\n"
-        "    echo Local prestart hook reported a failure; readiness checks will decide final status.\r\n"
+        '    echo Local prestart hook reported a failure; readiness checks will decide final status. >> "'
+        + str(log_path)
+        + '"\r\n'
+        "  ) else (\r\n"
+        '    echo Local prestart hook completed. >> "'
+        + str(log_path)
+        + '"\r\n'
         "  )\r\n"
         ")\r\n"
     )
@@ -297,7 +325,7 @@ def _launcher_content(*, open_browser: bool) -> str:
     flag = "--open" if open_browser else "--no-open"
     python = str(Path(sys.executable))
     log_root = _launcher_log_dir()
-    log_path = log_root / ("desktop-launcher.log" if open_browser else "autostart.log")
+    log_path = _launcher_log_path(open_browser=open_browser)
     prestart = _local_prestart_content(log_path)
     if open_browser:
         visible = (
@@ -333,11 +361,17 @@ def _launcher_content(*, open_browser: bool) -> str:
         remote_desktop_commander = ""
         local_overlay = ""
         tail = ""
+    recovery_seconds = (
+        _DESKTOP_RECOVERY_SECONDS if open_browser else _AUTOSTART_RECOVERY_SECONDS
+    )
+    boot_recovery = 'set "WEBGPT_CODEX_BOOT_RECOVERY=1"\r\n' if not open_browser else ""
     return (
         "@echo off\r\n"
         f"{_MARKER}\r\n"
         "setlocal\r\n"
         'set "WEBGPT_CODEX_UI_LANG=zh-CN"\r\n'
+        + f'set "WEBGPT_CODEX_EXTERNAL_BACKEND_WAIT_SECONDS={recovery_seconds}"\r\n'
+        + boot_recovery
         + visible
         + f'if not exist "{log_root}" mkdir "{log_root}"\r\n'
         + _python_runtime_guard_content(python, log_path, pause=open_browser)
@@ -358,11 +392,60 @@ def _launcher_content(*, open_browser: bool) -> str:
     )
 
 
+def _log_redirecting_prestart_generation_content(log_path: Path) -> str:
+    """Exact prestart block shipped immediately before handle-isolation hardening."""
+    return (
+        'if exist "%LOCALAPPDATA%\\WebGPT-as-Codex\\local-prestart.cmd" (\r\n'
+        '  call "%LOCALAPPDATA%\\WebGPT-as-Codex\\local-prestart.cmd" >> "'
+        + str(log_path)
+        + '" 2>&1\r\n'
+        "  if errorlevel 1 (\r\n"
+        "    echo Local prestart hook reported a failure; readiness checks will decide final status.\r\n"
+        "  )\r\n"
+        ")\r\n"
+    )
+
+
+def _legacy_log_path_generation_matches(content: str, *, open_browser: bool) -> bool:
+    """Recognize the handle-isolated generation installed before the v2 log migration."""
+    current_log = _launcher_log_path(open_browser=open_browser)
+    legacy_log = _legacy_launcher_log_path(open_browser=open_browser)
+    expected = _launcher_content(open_browser=open_browser).replace(
+        str(current_log),
+        str(legacy_log),
+    )
+    return content.replace("\r\n", "\n") == expected.replace("\r\n", "\n")
+
+
+def _pre_boot_recovery_generation_matches(content: str, *, open_browser: bool) -> bool:
+    """Recognize the committed launcher immediately before boot-recovery hardening."""
+    current_log = _launcher_log_path(open_browser=open_browser)
+    legacy_log = _legacy_launcher_log_path(open_browser=open_browser)
+    recovery_seconds = (
+        _DESKTOP_RECOVERY_SECONDS if open_browser else _AUTOSTART_RECOVERY_SECONDS
+    )
+    expected = _launcher_content(open_browser=open_browser).replace(
+        str(current_log),
+        str(legacy_log),
+    )
+    expected = expected.replace(
+        f'set "WEBGPT_CODEX_EXTERNAL_BACKEND_WAIT_SECONDS={recovery_seconds}"\r\n',
+        "",
+        1,
+    )
+    if not open_browser:
+        expected = expected.replace('set "WEBGPT_CODEX_BOOT_RECOVERY=1"\r\n', "", 1)
+    expected = expected.replace(
+        _local_prestart_content(legacy_log),
+        _log_redirecting_prestart_generation_content(legacy_log),
+        1,
+    )
+    return content.replace("\r\n", "\n") == expected.replace("\r\n", "\n")
+
+
 def _pre_guard_generation_matches(content: str, *, open_browser: bool) -> bool:
     python = str(Path(sys.executable))
-    log_path = _launcher_log_dir() / (
-        "desktop-launcher.log" if open_browser else "autostart.log"
-    )
+    log_path = _launcher_log_path(open_browser=open_browser)
     expected = _launcher_content(open_browser=open_browser).replace(
         _python_runtime_guard_content(python, log_path, pause=open_browser),
         "",
@@ -374,9 +457,7 @@ def _pre_guard_generation_matches(content: str, *, open_browser: bool) -> bool:
 def _prestartless_generation_matches(content: str, *, open_browser: bool) -> bool:
     flag = "--open" if open_browser else "--no-open"
     python = str(Path(sys.executable))
-    log_path = _launcher_log_dir() / (
-        "desktop-launcher.log" if open_browser else "autostart.log"
-    )
+    log_path = _launcher_log_path(open_browser=open_browser)
     expected = _launcher_content(open_browser=open_browser)
     expected = expected.replace(
         _python_runtime_guard_content(python, log_path, pause=open_browser),
@@ -610,7 +691,9 @@ def desktop_launcher(action: str) -> dict[str, Any]:
     path = desktop_dir() / _DESKTOP_NAME
     expected = _launcher_content(open_browser=True)
     legacy_matcher = lambda content: (
-        _pre_guard_generation_matches(content, open_browser=True)
+        _legacy_log_path_generation_matches(content, open_browser=True)
+        or _pre_boot_recovery_generation_matches(content, open_browser=True)
+        or _pre_guard_generation_matches(content, open_browser=True)
         or _prestartless_generation_matches(content, open_browser=True)
         or _legacy_launcher_matches(content, open_browser=True)
         or _previous_launcher_matches(content, open_browser=True)
@@ -635,7 +718,9 @@ def autostart(action: str) -> dict[str, Any]:
     path = startup_dir() / _AUTOSTART_NAME
     expected = _launcher_content(open_browser=False)
     legacy_matcher = lambda content: (
-        _pre_guard_generation_matches(content, open_browser=False)
+        _legacy_log_path_generation_matches(content, open_browser=False)
+        or _pre_boot_recovery_generation_matches(content, open_browser=False)
+        or _pre_guard_generation_matches(content, open_browser=False)
         or _prestartless_generation_matches(content, open_browser=False)
         or _legacy_launcher_matches(content, open_browser=False)
         or _previous_launcher_matches(content, open_browser=False)
@@ -664,27 +749,44 @@ def _external_backend_wait_seconds() -> float:
         return _EXTERNAL_BACKEND_WAIT_DEFAULT
 
 
+def _boot_recovery_enabled() -> bool:
+    return os.getenv(_BOOT_RECOVERY_ENV, "").strip().lower() in {"1", "true", "yes", "on"}
+
+
+def _retryable_start_result(result: dict[str, Any], *, boot_recovery: bool) -> bool:
+    if result.get("fully_ready"):
+        return False
+    if boot_recovery:
+        # At logon the local services can be healthy before Windows networking,
+        # Tailscale, Funnel and the OAuth edge settle. Treat not-ready as transient
+        # for the bounded boot-recovery window.
+        return True
+    missing = result.get("required_unmanaged_missing")
+    return isinstance(missing, list) and bool(missing)
+
+
 def _start_all_until_ready(supervisor: RuntimeSupervisor) -> dict[str, Any]:
     result = supervisor.start_all(include_manager=False)
     if result.get("fully_ready"):
         return result
-    missing = result.get("required_unmanaged_missing")
-    if not isinstance(missing, list) or not missing:
+
+    boot_recovery = _boot_recovery_enabled()
+    if not _retryable_start_result(result, boot_recovery=boot_recovery):
         return result
+
     wait_seconds = _external_backend_wait_seconds()
     deadline = time.monotonic() + wait_seconds
     attempts = 1
+    poll = _BOOT_RECOVERY_POLL if boot_recovery else _EXTERNAL_BACKEND_POLL
     while time.monotonic() < deadline:
-        time.sleep(min(_EXTERNAL_BACKEND_POLL, max(0.0, deadline - time.monotonic())))
+        time.sleep(min(poll, max(0.0, deadline - time.monotonic())))
         attempts += 1
         result = supervisor.start_all(include_manager=False, edge_prereq_wait=15.0)
-        if result.get("fully_ready"):
-            break
-        missing = result.get("required_unmanaged_missing")
-        if not isinstance(missing, list) or not missing:
+        if not _retryable_start_result(result, boot_recovery=boot_recovery):
             break
     result["launcher_backend_wait_attempts"] = attempts
     result["launcher_backend_wait_budget_seconds"] = wait_seconds
+    result["launcher_boot_recovery"] = boot_recovery
     return result
 
 

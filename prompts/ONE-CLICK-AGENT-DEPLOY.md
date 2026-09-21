@@ -18,6 +18,9 @@ CANONICAL_SKILL = skills/webgpt-as-codex/
 - Token、OAuth password、cookie、private key、浏览器登录态、公网私有机器身份不得写进 Git/Prompt/日志。
 - listener/process 存活不等于 MCP/OAuth/公网健康；必须分层验证。
 - 遇到普通失败先诊断、恢复、换同工具策略，再 fallback；不要把一次失败当作停工理由。
+- **禁止把“继续 / 完成剩余任务 / 自动收口 / 一直做完”解释成 reboot、shutdown、sign-out、断网、重启网卡、Tailscale logout/reset 的授权。** 这些动作必须获得当前轮次针对动作本身的明确人工授权。
+- 为验证 reboot recovery，默认使用服务级 stop/start、真实 Autostart 实跑、故障注入和 post-state 验证；没有同轮明确授权时，不得为了验收真实重启电脑。
+- 如果目标机重启后需要人工恢复网络，远程 Agent 不得主动触发重启，除非用户明确授权且有人能在本地恢复网络。
 - 任何外部账号登录、Tailscale 登录或 ChatGPT OAuth consent 需要人确认时，只暂停该交互点，其余可执行工作继续完成。
 
 ## 1. 必读顺序

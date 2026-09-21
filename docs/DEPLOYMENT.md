@@ -165,7 +165,9 @@ Manager liveness and Manager generation are separate facts. A live 9200 listener
 
 The Desktop launcher is a user browser entry point, not a Playwright runtime. When the user's normal Microsoft Edge session is already running, the launcher reuses its last-used normal profile; otherwise it dispatches through the Windows default URL handler. It never intentionally creates a temporary user-data directory, isolated automation profile or InPrivate session for Manager opening.
 
-Machine-only one-click additions must not be embedded in the release launcher. Two fixed machine-local extension points are supported: `%LOCALAPPDATA%\WebGPT-as-Codex\local-prestart.cmd` may run before Start All from both Desktop and Windows-login launchers to recover already-approved external MCP backends, while `%LOCALAPPDATA%\WebGPT-as-Codex\local-launcher-overlay.cmd` remains a manual-Desktop-only post-READY extension. The prestart hook must be credential-free, may only invoke verified local backend launchers, and must never claim or rewrite the canonical WebGPT public HTTPS 443 route. Its exit status is diagnostic only: the subsequent layered readiness checks decide success. Both hooks are absent from fresh installs unless deployment discovers a justified machine-local need.
+Machine-only one-click additions must not be embedded in the release launcher. Two fixed machine-local extension points are supported: `%LOCALAPPDATA%\WebGPT-as-Codex\local-prestart.cmd` may run before Start All from both Desktop and Windows-login launchers to recover already-approved external MCP backends, while `%LOCALAPPDATA%\WebGPT-as-Codex\local-launcher-overlay.cmd` remains a manual-Desktop-only post-READY extension. The prestart hook must be credential-free, may only invoke verified local backend launchers, and must never claim or rewrite the canonical WebGPT public HTTPS 443 route. Its stdout/stderr is isolated from the WebGPT launcher log so long-lived backend grandchildren cannot inherit and lock the launcher log handle on Windows. Only the prestart completion/failure summary is written afterward. Its exit status remains diagnostic only: the subsequent layered readiness checks decide success. Both hooks are absent from fresh installs unless deployment discovers a justified machine-local need.
+
+Windows-login Autostart uses a bounded boot-recovery mode: it gives external backends plus Windows networking/Tailscale/Funnel/OAuth Edge up to 300 seconds to converge, retrying a not-yet-`fully_ready` state rather than only retrying missing unmanaged backends. The manual Desktop launcher uses a 180-second bounded wait. Both fail closed after their budget; neither may print READY unless the launcher command returns success with layered readiness satisfied. Launcher diagnostics use generation-specific files (`autostart-v2.log` / `desktop-launcher-v2.log`) so already-running legacy processes that inherited an old log handle cannot block a repaired launcher.
 
 ## Phase 9 — final manual actions
 
@@ -201,3 +203,23 @@ If a matching 9340 OAuth child survives while the 9341 wrapper is absent, WebGPT
 Stage 19 real-host acceptance proved local 9341 metadata 200, public `/mcp` 401, current OAuth metadata, DCR + PKCE, authenticated MCP, refresh continuity and the same 87-tool surface across an Edge restart. After the user confirmed the ChatGPT connector was configured successfully, the production Connector/Funnel/OAuth state was frozen against further disruptive acceptance in this stage.
 
 A full Windows reboot was deliberately not forced after that successful real connector setup. Treat it as a manual real-reboot acceptance item; the startup/recovery contract is implemented and tested, but preserving the newly established production connector takes priority over destructive proof-by-reboot.
+
+
+## 2026-09-21 reboot-recovery hotfix
+
+A real Windows reboot incident exposed a launcher-log handle inheritance bug: a machine-local prestart script could spawn long-lived external MCP grandchildren while its stdout/stderr was redirected into the same launcher log later reopened by WebGPT. On Windows those descendants could retain the handle, causing the next launcher redirection to fail with a sharing violation before Gateway/Edge startup.
+
+The repaired contract is:
+- prestart stdout/stderr is isolated from the WebGPT launcher log;
+- only a post-return prestart outcome line is written to the launcher log;
+- launcher diagnostics use generation-specific `desktop-launcher-v2.log` / `autostart-v2.log`;
+- Windows-login Autostart gets a bounded 300-second boot-recovery window for external backends, networking, Tailscale, Funnel and OAuth Edge convergence;
+- the manual Desktop launcher gets a bounded 180-second recovery window;
+- a not-yet-`fully_ready` boot state is retryable inside the bound, but success remains fail-closed after the budget;
+- Serena global Doctor health does not call `get_current_config`, because that call requires an active project and may correctly return an application-level error while the MCP server itself is healthy.
+
+A controlled real-host recovery simulation stopped only WebGPT-owned Manager/Gateway/OAuth components while preserving external MCPs. The installed Windows Startup launcher restored 9200/9330/9340/9341, returned `fully_ready=true`, preserved the external MCP PIDs, and public protected-resource / unauthenticated MCP checks remained 200 / 401 + OAuth challenge.
+
+### Destructive-action authorization gate
+
+Reboot, shutdown, sign-out, sleep/hibernate, network-adapter interruption, Tailscale logout/reset, or any action likely to sever the current remote-control path requires explicit same-turn approval for that exact action. Generic instructions such as "continue", "finish the remaining work", "auto-close", or "keep going until done" never constitute that approval. When a host needs local human interaction to restore networking after reboot, a remote Agent must not initiate the reboot without explicit approval plus a confirmed local recovery path.

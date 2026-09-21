@@ -222,15 +222,43 @@ README / 发布层：
 
 ### 2026-09-21 维护最终验收
 
-- 单 Skill 收口后的全仓回归：**228 PASS**；
+- 单 Skill 收口后的全仓回归：**232 PASS**；
 - Ruff：**PASS**；
 - 仓库 secret scan：**SECRET_SCAN_PASS**；
 - `git diff --check`：**PASS**；
-- canonical/source Skill validator：**VALIDATION_OK**，27 个 required files / **56 scenarios**；
-- workspace 本机 Skill 与用户级 shared Skill 已再次同步，两者均为 WebGPT-as-Codex Skill `1.3.0` / 56 scenarios 并验证通过；
+- canonical/source Skill validator：**VALIDATION_OK**，27 个 required files / **57 scenarios**；
+- workspace 本机 Skill 与用户级 shared Skill 已再次同步，两者均为 WebGPT-as-Codex Skill `1.3.0` / 57 scenarios 并验证通过；
 - 当前 Desktop launcher 与 Windows Autostart 已通过受控旧 generation matcher 升级到最新版本，状态均为 `installed=true / managed=true / upgradeable=false`；
 - 升级后的真实 Autostart 再次执行成功：`fully_ready=true`、`required_unmanaged_missing=[]`；最终观察到 OAuth Edge 为 `preserved-owned`，canonical Tailscale Funnel HTTPS 443 仍指向 `http://127.0.0.1:9341`；
-- 从最终源码状态重新构建 PEP517 wheel，并在新的外部 venv 安装验收：package `0.1.0`、Skill `webgpt-as-codex` `1.3.0`、56 scenarios、9 workflows、product contract 存在、8 component manifests、4 Manager static resources、9 release resources，并确认**安装布局中不存在 `computer-agent` Skill tree**；
-- 最终 wheel SHA-256：`548ac770149ddadb1bde04081ffc5b79845589babbd2e804c60c63dd5e21e789`；
-- 最终 wheel 大小：`302996` bytes；
+- 从最终源码状态重新构建 PEP517 wheel，并在新的外部 venv 安装验收：package `0.1.0`、Skill `webgpt-as-codex` `1.3.0`、57 scenarios、9 workflows、product contract 存在、8 component manifests、4 Manager static resources、9 release resources，并确认**安装布局中不存在 `computer-agent` Skill tree**；
+- 最终 wheel SHA-256：`33a5f11fd03cd81a79ac9040fb1f911f25f7c6037a09f317d426f612a0aeeb72`；
+- 最终 wheel 大小：`305169` bytes；
 - 本次仍未强制物理 Windows cold reboot。Windows Autostart 路径已经多次在真实主机执行并通过，但“冷启动后仍完全恢复”的字面验收仍需单独真实重启后才能宣称完成。
+
+
+## 2026-09-21 重启恢复维护 Hotfix
+
+本次维护由一次真实 Windows 重启事故触发。该重启打断了远程控制链，并暴露开机恢复缺陷；它发生在修复之前，因此只能作为事故证据，不能被当作修复后重启恢复已经验收的证据。
+
+根因与修复：
+- 旧版 machine-local prestart 把输出重定向到 WAC 后续还要再次打开的同一个 launcher 日志；
+- 长期外部 MCP 子孙进程可能继承 Windows 文件句柄并持续锁住日志；
+- 修复后 prestart stdout/stderr 与 launcher 主日志隔离，只在返回后写完成/失败摘要，并迁移到 `desktop-launcher-v2.log` / `autostart-v2.log`；
+- Windows 登录 Autostart 使用 300 秒有界 boot recovery，同时覆盖外部 backend、网络、Tailscale/Funnel 与 OAuth Edge 的暂态未就绪；
+- 手动 Desktop launcher 使用 180 秒有界恢复；
+- 成功仍必须真实达到 `fully_ready=true`，超时后 fail closed；
+- Serena manifest 不再把 `get_current_config` 作为全局 safe probe，因为没有 active project 是合法状态，不代表 MCP server 故障。
+
+修复后的真实主机证据：
+- Desktop launcher 与 Windows Autostart 均为 `installed=true / managed=true / upgradeable=false`；
+- 真实 Windows Startup 执行不再出现 launcher 日志共享冲突，并得到完整 `fully_ready=true`；
+- 进行了一次不重启整机的受控恢复模拟：只停止 WAC-owned Manager/Gateway/OAuth runtime，保留 Coding Tools、Playwright、Windows-MCP、Serena、RDC；
+- 同一已安装 Startup launcher 自动恢复 9200/9330/9340/9341，外部 MCP PID 保持不变；
+- 当前 Doctor = `pass`，`required_failures=[]`，`warnings=[]`；
+- 当前公网 protected-resource metadata = 200；未认证 public `/mcp` = 401，并包含 OAuth Bearer challenge；
+- 修复后的代码**没有再次执行整机 Windows 重启验收**。reboot/shutdown/断网现在属于必须单独明确授权的动作，不能从一般“继续”指令中推断。
+
+授权规则已经收紧：
+- reboot/shutdown/sign-out/sleep/hibernate/断网/Tailscale logout-reset 必须获得当前轮次、针对该动作本身的明确授权；
+- “继续”“完成剩余任务”“自动收口”等一般执行语句都不构成授权；
+- 若机器重启后需要人在本地手动恢复网络，远程 Agent 不得主动发起重启，除非用户明确授权且本地恢复路径已确认。

@@ -286,6 +286,17 @@ def test_desktop_launcher_content_reports_ready_and_failure_paths() -> None:
     assert "--no-open --start-all" in autostart
     assert "local-prestart.cmd" in desktop
     assert "local-prestart.cmd" in autostart
+    assert 'local-prestart.cmd" >nul 2>&1' in desktop
+    assert 'local-prestart.cmd" >nul 2>&1' in autostart
+    assert 'local-prestart.cmd" >> "' not in desktop
+    assert 'local-prestart.cmd" >> "' not in autostart
+    assert "Local prestart hook completed." in desktop
+    assert 'WEBGPT_CODEX_EXTERNAL_BACKEND_WAIT_SECONDS=180' in desktop
+    assert 'WEBGPT_CODEX_EXTERNAL_BACKEND_WAIT_SECONDS=300' in autostart
+    assert 'WEBGPT_CODEX_BOOT_RECOVERY=1' not in desktop
+    assert 'WEBGPT_CODEX_BOOT_RECOVERY=1' in autostart
+    assert "desktop-launcher-v2.log" in desktop
+    assert "autostart-v2.log" in autostart
     assert "Python runtime not found" in desktop
     assert "Remote Desktop Commander" not in autostart
     assert desktop.index("Python runtime not found") < desktop.index("local-prestart.cmd")
@@ -293,6 +304,85 @@ def test_desktop_launcher_content_reports_ready_and_failure_paths() -> None:
     assert desktop.index("WebGPT-as-Codex is READY") < desktop.index(
         "Remote Desktop Commander start requested successfully."
     )
+
+
+def test_immediately_previous_prestart_generation_is_upgradeable(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    desktop = tmp_path / "Desktop"
+    startup = tmp_path / "Startup"
+    logs = tmp_path / "logs"
+    monkeypatch.setenv("WEBGPT_CODEX_DESKTOP_DIR", str(desktop))
+    monkeypatch.setenv("WEBGPT_CODEX_STARTUP_DIR", str(startup))
+    monkeypatch.setenv("WEBGPT_CODEX_LAUNCH_LOG_DIR", str(logs))
+
+    for open_browser, path in (
+        (True, desktop / "WebGPT-as-Codex.cmd"),
+        (False, startup / "WebGPT-as-Codex-Autostart.cmd"),
+    ):
+        current = launcher._launcher_content(open_browser=open_browser)
+        current_log = launcher._launcher_log_path(open_browser=open_browser)
+        legacy_log = launcher._legacy_launcher_log_path(open_browser=open_browser)
+        recovery_seconds = (
+            launcher._DESKTOP_RECOVERY_SECONDS
+            if open_browser
+            else launcher._AUTOSTART_RECOVERY_SECONDS
+        )
+        previous = current.replace(str(current_log), str(legacy_log))
+        previous = previous.replace(
+            f'set "WEBGPT_CODEX_EXTERNAL_BACKEND_WAIT_SECONDS={recovery_seconds}"\r\n',
+            "",
+            1,
+        )
+        if not open_browser:
+            previous = previous.replace('set "WEBGPT_CODEX_BOOT_RECOVERY=1"\r\n', "", 1)
+        previous = previous.replace(
+            launcher._local_prestart_content(legacy_log),
+            launcher._log_redirecting_prestart_generation_content(legacy_log),
+            1,
+        )
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(previous, encoding="utf-8", newline="")
+
+    before_desktop = launcher.desktop_launcher("status")
+    before_auto = launcher.autostart("status")
+    assert before_desktop["managed"] is False and before_desktop["upgradeable"] is True
+    assert before_auto["managed"] is False and before_auto["upgradeable"] is True
+
+    assert launcher.desktop_launcher("install")["status"] == "updated"
+    assert launcher.autostart("install")["status"] == "updated"
+    assert launcher.desktop_launcher("status")["managed"] is True
+    assert launcher.autostart("status")["managed"] is True
+
+
+def test_handle_isolated_legacy_log_generation_is_upgradeable(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    desktop = tmp_path / "Desktop"
+    startup = tmp_path / "Startup"
+    logs = tmp_path / "logs"
+    monkeypatch.setenv("WEBGPT_CODEX_DESKTOP_DIR", str(desktop))
+    monkeypatch.setenv("WEBGPT_CODEX_STARTUP_DIR", str(startup))
+    monkeypatch.setenv("WEBGPT_CODEX_LAUNCH_LOG_DIR", str(logs))
+
+    for open_browser, path in (
+        (True, desktop / "WebGPT-as-Codex.cmd"),
+        (False, startup / "WebGPT-as-Codex-Autostart.cmd"),
+    ):
+        current = launcher._launcher_content(open_browser=open_browser)
+        previous = current.replace(
+            str(launcher._launcher_log_path(open_browser=open_browser)),
+            str(launcher._legacy_launcher_log_path(open_browser=open_browser)),
+        )
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(previous, encoding="utf-8", newline="")
+
+    assert launcher.desktop_launcher("status")["upgradeable"] is True
+    assert launcher.autostart("status")["upgradeable"] is True
+    assert launcher.desktop_launcher("install")["status"] == "updated"
+    assert launcher.autostart("install")["status"] == "updated"
 
 
 def test_launcher_waits_for_unmanaged_backends_during_boot(
@@ -325,6 +415,48 @@ def test_launcher_waits_for_unmanaged_backends_during_boot(
 
     assert result["fully_ready"] is True
     assert result["launcher_backend_wait_attempts"] == 2
+    assert supervisor.calls == 2
+
+
+def test_boot_recovery_retries_edge_not_ready_without_missing_backends(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    class FakeSupervisor:
+        calls = 0
+
+        def start_all(self, **_kwargs: object) -> dict:
+            self.calls += 1
+            if self.calls == 1:
+                return {
+                    "ok": False,
+                    "fully_ready": False,
+                    "required_unmanaged_missing": [],
+                    "results": [
+                        {
+                            "component_id": "mcp-auth-proxy",
+                            "ok": False,
+                            "status": "edge-prerequisite-timeout",
+                        }
+                    ],
+                }
+            return {
+                "ok": True,
+                "fully_ready": True,
+                "required_unmanaged_missing": [],
+            }
+
+    supervisor = FakeSupervisor()
+    monkeypatch.setenv("WEBGPT_CODEX_BOOT_RECOVERY", "1")
+    monkeypatch.setenv("WEBGPT_CODEX_EXTERNAL_BACKEND_WAIT_SECONDS", "30")
+    ticks = iter([0.0, 0.1, 0.2])
+    monkeypatch.setattr(launcher.time, "monotonic", lambda: next(ticks))
+    monkeypatch.setattr(launcher.time, "sleep", lambda _seconds: None)
+
+    result = launcher._start_all_until_ready(supervisor)  # type: ignore[arg-type]
+
+    assert result["fully_ready"] is True
+    assert result["launcher_backend_wait_attempts"] == 2
+    assert result["launcher_boot_recovery"] is True
     assert supervisor.calls == 2
 
 

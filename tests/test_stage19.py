@@ -195,7 +195,7 @@ def test_failed_desktop_batch_exposes_error_and_keeps_diagnostics(
     )
     assert result.returncode == 2
     assert "WebGPT launcher failed" in result.stdout
-    assert (tmp_path / "diagnostics" / "desktop-launcher.log").is_file()
+    assert (tmp_path / "diagnostics" / "desktop-launcher-v2.log").is_file()
 
 
 def test_start_all_does_not_false_green_on_raw_auth_listener(

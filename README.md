@@ -89,7 +89,7 @@ See [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md) for the complete deployment contr
 - Start All is idempotent and preserves healthy unmanaged services instead of duplicating them;
 - OAuth Edge readiness verifies the real Funnel 443 target, not only local 9340/9341 listeners;
 - desktop launcher and autostart are reversible, credential-free and structurally upgradeable;
-- the only canonical Skill is `skills/webgpt-as-codex/`, preserving the full Experience Ledger, 53 original regression scenarios plus 3 legacy compatibility aliases (56 total), and MCP Guides;
+- the only canonical Skill is `skills/webgpt-as-codex/`, preserving the full Experience Ledger, 53 original regression scenarios plus 3 legacy compatibility aliases and the R54 destructive-action authorization regression (57 total), and MCP Guides;
 - the bilingual Manager exposes Doctor/Repair and environment/Gateway/OAuth/HTTPS state without returning secrets in normal status.
 
 ## CLI and safety boundary

@@ -18,6 +18,6 @@
     "requirements": ["uv"],
     "compatibility": {"min_version": "1.7.0", "max_version_exclusive": "2.0.0"}
   },
-  "safe_tool": "get_current_config",
+  "safe_tool": null,
   "operating_guide": "skills/webgpt-as-codex/mcp-guides/serena.md"
 }
