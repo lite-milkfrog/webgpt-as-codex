@@ -25,6 +25,12 @@ def _path_key(path: Path) -> str:
     return os.path.normcase(str(path.resolve(strict=False)))
 
 
+def _is_link_like(path: Path) -> bool:
+    raw = os.path.normcase(str(path.absolute()))
+    resolved = os.path.normcase(str(path.resolve(strict=False)))
+    return path.is_symlink() or raw != resolved
+
+
 def _read_text(path: Path, *, limit: int = 65536) -> str:
     try:
         with path.open("r", encoding="utf-8") as handle:
@@ -257,7 +263,7 @@ class SkillWorkflowControlPlane:
                             "entrypoint": entry.name,
                             "path": str(child),
                             "resolved_path": str(resolved),
-                            "is_link": child.is_symlink() or _path_key(child) != identity,
+                            "is_link": _is_link_like(child),
                             "locations": [],
                             "router_categories": sorted(
                                 memberships.get(child.name, set())
@@ -583,6 +589,7 @@ class SkillWorkflowControlPlane:
             )
             stages = []
             current_stage = None
+            run_status = "active"
             for planned in plan["stages"]:
                 status = (
                     "skipped"
@@ -590,8 +597,12 @@ class SkillWorkflowControlPlane:
                     else "pending"
                 )
                 if current_stage is None and status == "pending":
-                    status = "in_progress"
                     current_stage = planned["id"]
+                    if planned["status"] == "blocked":
+                        status = "blocked"
+                        run_status = "blocked"
+                    else:
+                        status = "in_progress"
                 stages.append(
                     {
                         "id": planned["id"],
@@ -603,6 +614,8 @@ class SkillWorkflowControlPlane:
                         "evidence": [],
                     }
                 )
+            if current_stage is None:
+                run_status = "complete"
             payload = {
                 "schema_version": 1,
                 "run_id": run_id,
@@ -611,7 +624,7 @@ class SkillWorkflowControlPlane:
                 "created_at": _utc_now(),
                 "updated_at": _utc_now(),
                 "current_stage": current_stage,
-                "status": "blocked" if plan["blocked"] else "active",
+                "status": run_status,
                 "context": plan["context"],
                 "stages": stages,
             }
@@ -677,8 +690,12 @@ class SkillWorkflowControlPlane:
                 current_stage = None
                 for next_row in stages[index + 1 :]:
                     if next_row.get("status") == "pending":
-                        next_row["status"] = "in_progress"
                         current_stage = next_row.get("id")
+                        if next_row.get("planner_status") == "blocked":
+                            next_row["status"] = "blocked"
+                            run_status = "blocked"
+                        else:
+                            next_row["status"] = "in_progress"
                         break
                 if current_stage is None:
                     run_status = "complete"
