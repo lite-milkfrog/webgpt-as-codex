@@ -50,16 +50,16 @@ Loop Engineering 不是后台监控器，也不是无限自主权限。它是一
 
 任何 stage 碰产品代码前先完成：
 
-1. 读取 `.skills/computer-agent/SKILL.md`；
-2. 读取 `.skills/computer-agent/routing.md`；
-3. 读取 `.skills/computer-agent/workflows/loop-engineering.md`；
-4. 代码阶段读取 `.skills/computer-agent/workflows/coding.md`；
-5. 多工具阶段读取 `.skills/computer-agent/workflows/cross-tool.md`；
-6. 交棒前读取 `.skills/computer-agent/workflows/browser.md`；
-7. 生成下一 prompt 前读取 `.skills/computer-agent/workflows/handoff-template.md`；
-8. 权限不明确时读取 `.skills/computer-agent/permissions.md`；
+1. 读取 `.skills/webgpt-as-codex/SKILL.md`；
+2. 读取 `.skills/webgpt-as-codex/routing.md`；
+3. 读取 `.skills/webgpt-as-codex/workflows/loop-engineering.md`；
+4. 代码阶段读取 `.skills/webgpt-as-codex/workflows/coding.md`；
+5. 多工具阶段读取 `.skills/webgpt-as-codex/workflows/cross-tool.md`；
+6. 交棒前读取 `.skills/webgpt-as-codex/workflows/browser.md`；
+7. 生成下一 prompt 前读取 `.skills/webgpt-as-codex/workflows/handoff-template.md`；
+8. 权限不明确时读取 `.skills/webgpt-as-codex/permissions.md`；
 9. 检查当前会话真正暴露的 MCP/tools。
-10. 读取 `.skills/computer-agent/environment.local.md`，记录本 stage 真正需要的 MCP locator；direct schema 未暴露时先判断 local service 是否在线，禁止把 `NOT_EXPOSED` 直接等同于 `NOT_RUNNING`。
+10. 读取 `.skills/webgpt-as-codex/environment.local.md`，记录本 stage 真正需要的 MCP locator；direct schema 未暴露时先判断 local service 是否在线，禁止把 `NOT_EXPOSED` 直接等同于 `NOT_RUNNING`。
 11. 对本 stage 真正有用、且 `environment.local.md` 已登记的本地 MCP 执行自恢复：listener/process 缺失时在既有用户授权范围内启动；随后做标准 MCP `initialize -> tools/list` 与一个最小只读实调。未经过这一步，不得仅因 direct schema 未暴露就宣布 Serena / Desktop Commander / Playwright 不可用。
 12. Windows-MCP 仍按需启用：当前 stage 不涉及 native GUI 时可标记 `NOT_NEEDED`，无需为了“全 MCP 健康检查”强行调用。
 13. 在 Serena/IDE 类工具激活项目前，先记录 Git status/pre-state；若工具本轮新生成未跟踪 `.serena/`/cache/local metadata，标记 `TOOL_LOCAL_METADATA`，不得进入产品/docs commit，收口前只清理由当前 worker 新建且 pre-state 不存在的那一份。
@@ -241,7 +241,7 @@ Web 不应默认切 Windows-MCP 坐标操作。
 如果本 stage 出现了 Skill/路由中尚未覆盖、但具有复用价值的新失败模式：
 
 1. 先完成当前 stage 的恢复，不中断主线；
-2. 读取 `.skills/computer-agent/maintenance.md`；
+2. 读取 `.skills/webgpt-as-codex/maintenance.md`；
 3. 判断该经验应进入通用 Skill 还是仅进入当前项目文档；
 4. 若进入 Skill，修改最小相关规则文件；
 5. 在 `evals/scenarios.json` 增加 regression scenario；

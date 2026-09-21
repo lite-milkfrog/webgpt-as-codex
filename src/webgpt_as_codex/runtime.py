@@ -20,6 +20,7 @@ from pathlib import Path
 from typing import Any
 
 from .discovery import discover_all, process_health, process_snapshot
+from .edge import funnel_proxy_for_port
 from .gateway import mcpjungle_binary
 from .paths import ensure_state_dirs, resource_root, state_root
 from .registry import load_components
@@ -33,6 +34,15 @@ ContractProbe = Callable[[], bool]
 EDGE_PREREQ_WAIT_ENV = "WEBGPT_CODEX_EDGE_PREREQ_WAIT_SECONDS"
 EDGE_PREREQ_WAIT_DEFAULT = 180.0
 EDGE_PREREQ_POLL_INTERVAL = 3.0
+
+
+def _auth_edge_public_route_ready() -> bool:
+    """Require canonical public HTTPS 443 to terminate at the managed 9341 edge."""
+    try:
+        target = funnel_proxy_for_port(443)
+    except (OSError, RuntimeError, ValueError, subprocess.SubprocessError):
+        return False
+    return isinstance(target, str) and target.rstrip("/") == "http://127.0.0.1:9341"
 
 
 @dataclass(frozen=True)
@@ -93,6 +103,8 @@ def _auth_edge_contract_ready() -> bool:
         or state.get("status") != "running"
         or state.get("public_port") != 443
     ):
+        return False
+    if not _auth_edge_public_route_ready():
         return False
     receipt = _load_pid_record("mcp-auth-proxy")
     if not receipt or state.get("edge_pid") != receipt.get("pid"):

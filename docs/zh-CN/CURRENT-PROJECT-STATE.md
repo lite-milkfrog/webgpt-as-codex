@@ -178,3 +178,59 @@ Closure: `docs/RDC-FINAL-RECOVERY-PLANE-CLOSURE.md`。
 Closure: `docs/SUPPLEMENTAL-FINAL-ACCEPTANCE-CLOSURE.md`。
 
 PROGRAM_STATE = GLOBAL_LOOP_COMPLETE
+
+
+## 完成后的维护收口 — 2026-09-21
+
+`PROGRAM_STATE` 仍为 `GLOBAL_LOOP_COMPLETE`。本次维护不重开已经关闭的 Stage 1-19，只更新 Supplemental Final Acceptance 之后发生变化的当前部署、Skill 与启动事实。
+
+当前有效事实：
+- 产品名与唯一正式 Agent Skill 都是 **WebGPT-as-Codex**；
+- 唯一发行版 Skill：`skills/webgpt-as-codex/`，版本 `1.3.0`；
+- 本机 workspace Skill：`.skills/webgpt-as-codex/`，portable core 与发行版一致，只额外保留 environment/inventory/state 本机 overlay；
+- 用户级 shared Skill source、Codex junction、Claude junction 均已迁移到 `webgpt-as-codex`；旧的 active `computer-agent` 1.0.0-local-candidate source/junction 已退出 active Skill roots 并在外部状态目录备份；
+- 原 Computer Agent 的 Experience Ledger、MCP Guides、GUI/Playwright 工作流、Loop Engineering 规则以及 53 个 regression scenarios 全部保留在唯一 WAC Skill 中；
+- release packaging 只发布 `share/webgpt-as-codex/skills/webgpt-as-codex/**`，不再有第二套 Computer Agent 发行入口；
+- canonical Skill 同步入口改为 `scripts/sync_webgpt_skill.py`，旧根脚本 `scripts/sync_computer_agent_skill.py` 已退休。
+
+启动 / OAuth 修正：
+- Windows Startup 当前只保留一个 active WebGPT 启动入口：`WebGPT-as-Codex-Autostart.cmd`；
+- `%LOCALAPPDATA%\WebGPT-as-Codex\local-prestart.cmd` 用于在 Start All 前恢复已经批准的外部 MCP backend，只保存无秘密的本机启动逻辑，不得占用公网 HTTPS 443；
+- 旧的重复 Local Remote MCP / 独立 Serena 自启动在新 WAC launcher 验证成功后已禁用；
+- 旧 `remote-mcp-unified` Manager 的 9199 进程已停止，WebGPT Manager 继续使用 9200；
+- OAuth Edge READY 现在除 9341/9340 本地 identity/generation/issuer 外，还必须验证真实 Tailscale Funnel 443 -> `http://127.0.0.1:9341`；
+- Edge 运行中会周期检查 443，如果被其它脚本改走，会退出 READY，避免本地假绿；
+- Windows 登录启动增加 required unmanaged backend 的 bounded wait。
+
+本次维护的真实主机启动证据：
+- 直接执行已安装 Windows Autostart 两次，均 exit code 0；
+- 第一次达到 `fully_ready=true`、`required_unmanaged_missing=[]`，并按当前代码 generation 刷新 OAuth Edge；
+- 第二次再次达到 `fully_ready=true`、`required_unmanaged_missing=[]`，Manager/Gateway/OAuth Edge 均为 preserve，没有重复实例；
+- 启动后真实 Funnel 继续保持 canonical HTTPS 443 -> `http://127.0.0.1:9341`；
+- 本次没有强制执行物理 Windows reboot，因此 cold reboot 仍需另一次真实重启观察后才能宣称完成。
+
+Agent 原生部署：
+- `prompts/ONE-CLICK-AGENT-DEPLOY.md` 是当前正式“大模型一键部署”提示词；
+- 覆盖环境发现、preserve/install 判断、MCP/Gateway/OAuth/Tailscale、单 Skill 迁移、桌面/开机启动、分层验收以及最后只能由人完成的账号/OAuth consent。
+
+README / 发布层：
+- 中英文 README 第一屏已改为产品价值、单入口架构和 Agent-native 部署入口；
+- `pyproject.toml` 简介改为一个 OAuth-protected MCP Gateway 驱动本地 coding/computer agent；
+- `docs/DEPLOYMENT.md` 已记录 local prestart hook 与更严格的真实 Funnel READY 条件；
+- `docs/TRANSLATION-COVERAGE.*` 当前只把 `skills/webgpt-as-codex/` 作为 operational Skill tree。
+
+
+### 2026-09-21 维护最终验收
+
+- 单 Skill 收口后的全仓回归：**228 PASS**；
+- Ruff：**PASS**；
+- 仓库 secret scan：**SECRET_SCAN_PASS**；
+- `git diff --check`：**PASS**；
+- canonical/source Skill validator：**VALIDATION_OK**，27 个 required files / **56 scenarios**；
+- workspace 本机 Skill 与用户级 shared Skill 已再次同步，两者均为 WebGPT-as-Codex Skill `1.3.0` / 56 scenarios 并验证通过；
+- 当前 Desktop launcher 与 Windows Autostart 已通过受控旧 generation matcher 升级到最新版本，状态均为 `installed=true / managed=true / upgradeable=false`；
+- 升级后的真实 Autostart 再次执行成功：`fully_ready=true`、`required_unmanaged_missing=[]`；最终观察到 OAuth Edge 为 `preserved-owned`，canonical Tailscale Funnel HTTPS 443 仍指向 `http://127.0.0.1:9341`；
+- 从最终源码状态重新构建 PEP517 wheel，并在新的外部 venv 安装验收：package `0.1.0`、Skill `webgpt-as-codex` `1.3.0`、56 scenarios、9 workflows、product contract 存在、8 component manifests、4 Manager static resources、9 release resources，并确认**安装布局中不存在 `computer-agent` Skill tree**；
+- 最终 wheel SHA-256：`548ac770149ddadb1bde04081ffc5b79845589babbd2e804c60c63dd5e21e789`；
+- 最终 wheel 大小：`302996` bytes；
+- 本次仍未强制物理 Windows cold reboot。Windows Autostart 路径已经多次在真实主机执行并通过，但“冷启动后仍完全恢复”的字面验收仍需单独真实重启后才能宣称完成。

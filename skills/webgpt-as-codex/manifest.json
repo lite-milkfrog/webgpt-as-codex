@@ -1,15 +1,115 @@
 {
   "name": "webgpt-as-codex",
-  "version": "1.2.0",
-  "unified_portable_core": "../computer-agent",
-  "roles": ["local-sot", "mcp-routing", "mcp-operating-guides", "loop-engineering", "doctor-repair", "handoff"],
+  "version": "1.3.0",
+  "design": "direct-mcp-with-soft-routing",
+  "roles": {
+    "code_semantics": {
+      "primary": "Serena",
+      "fallback": [
+        "Coding Tools"
+      ],
+      "permission_default": "P0"
+    },
+    "code_execution": {
+      "primary": "Coding Tools",
+      "fallback": [
+        "Desktop Commander"
+      ],
+      "permission_default": "P1"
+    },
+    "filesystem_terminal": {
+      "primary": "Desktop Commander",
+      "fallback": [],
+      "permission_default": "P1"
+    },
+    "browser_webapp": {
+      "primary": "Playwright",
+      "fallback": [
+        "Windows-MCP"
+      ],
+      "permission_default": "P1"
+    },
+    "windows_gui": {
+      "primary": "Windows-MCP",
+      "fallback": [
+        "Desktop Commander"
+      ],
+      "permission_default": "P1"
+    },
+    "remote_git_platform": {
+      "primary": "GitHub MCP",
+      "fallback": [
+        "Coding Tools",
+        "Playwright"
+      ],
+      "permission_default": "P2",
+      "optional": true
+    }
+  },
+  "permissions": {
+    "P0": "read_observe",
+    "P1": "normal_reversible_write",
+    "P2": "external_or_sensitive_side_effect",
+    "P3": "destructive_irreversible_privileged"
+  },
+  "capabilities": {
+    "adaptive_recovery": true,
+    "loop_engineering": true,
+    "zero_guess_handoff": true,
+    "experience_absorption": true,
+    "wechat_existing_session_takeover": true,
+    "wechat_file_clipboard_send": true,
+    "wechat_qq_screenshot_only_verification": true,
+    "cross_conversation_handoff": "playwright_first",
+    "single_writer_per_worktree": true,
+    "local_mcp_locator_recovery": true,
+    "session_scoped_mcp_reconnect": true,
+    "visual_coordinate_calibration": true,
+    "preserve_preexisting_windows": true,
+    "gui_action_observer_failure_split": true,
+    "native_gui_first": true,
+    "multi_layer_dialog_tracking": true,
+    "docs_before_prompt_barrier": true,
+    "active_recovery_before_pause": true,
+    "mcp_concurrency_state_isolation": true,
+    "runtime_generation_contract_check": true,
+    "desktop_browser_profile_reuse": true,
+    "release_local_portable_sync": true,
+    "full_experience_ledger": true,
+    "rdc_four_layer_health": true
+  },
   "invariants": [
-    "local_sot_before_chat_memory",
-    "current_next_after_next",
-    "validation_before_closure",
-    "docs_before_handoff",
-    "failure_diagnosis_before_fallback",
-    "worktree_isolation_for_parallel_writers",
+    "prefer_structured_over_gui",
+    "prefer_playwright_for_web",
+    "do_not_reuse_stale_windows_ui_coordinates",
+    "do_not_write_same_file_from_two_mcps",
+    "do_not_bypass_security_gate_with_broader_mcp",
+    "verify_post_state_after_mutation",
+    "check_post_state_before_retrying_side_effect",
+    "adapt_within_same_tool_before_cross_tool_fallback",
+    "single_writer_per_worktree",
+    "loop_handoff_must_verify_next_conversation",
+    "next_stage_prompt_must_follow_zero_guess_template",
+    "next_stage_prompt_must_include_required_mcp_locators",
+    "do_not_treat_not_exposed_as_not_running",
+    "keep_session_scoped_browser_actions_in_one_mcp_session",
+    "absorb_reusable_failures_into_rules_and_evals",
+    "convert_screenshot_image_coordinates_before_mouse_actions",
+    "do_not_use_user_uploaded_image_pixels_as_click_coordinates",
+    "do_not_close_preexisting_user_windows_for_gui_convenience",
+    "do_not_confuse_observer_failure_with_action_failure",
+    "prefer_native_gui_controls_before_workarounds",
+    "reobserve_after_every_dialog_transition",
+    "interaction_primitive_success_is_not_business_success",
+    "never_store_secrets_in_skill",
+    "never_generate_next_prompt_before_live_docs_are_current",
+    "do_not_pause_while_a_valid_recovery_path_exists",
+    "listener_health_is_not_runtime_generation_proof",
+    "desktop_launcher_must_not_create_automation_only_browser_profile",
+    "release_and_local_portable_core_must_match",
+    "rdc_online_is_not_execution_plane_proof",
     "no_secrets_in_git"
-  ]
+  ],
+  "product": "WebGPT-as-Codex",
+  "canonical_skill": true
 }

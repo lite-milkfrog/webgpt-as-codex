@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.3.0 — 2026-09-21
+
+- Unified the former Computer Agent core and WebGPT-as-Codex product profile into one canonical `webgpt-as-codex` Skill.
+- Preserved the full Experience Ledger, MCP Guides, GUI/browser workflows and all original 53 regression scenarios; restored the legacy `serena-down`, `handoff` and `parallel-edit` contract aliases for 56 scenarios total.
+- Added the explicit WebGPT product contract, one canonical release/local Skill path and compatibility markers for local SoT / Validation / Handoff.
+- The old `computer-agent` name is migration history only and is no longer a second release entry point.
+- Release packaging now contains only the `webgpt-as-codex` Skill tree while preserving its scripts, workflows, evals and product contract.
+
 ## 1.2.0 — 2026-09-20
 
 - Promoted the previously machine-local Computer Agent into the canonical portable release Skill while preserving machine-specific overlays outside the release.

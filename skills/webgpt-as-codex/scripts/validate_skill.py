@@ -9,6 +9,7 @@ ROOT = Path(__file__).resolve().parents[1]
 WORKSPACE_ROOT = ROOT.parents[1]
 REQUIRED = [
     "SKILL.md",
+    "product-contract.md",
     "routing.md",
     "permissions.md",
     "validation.md",
@@ -56,16 +57,21 @@ for field in ("name:", "description:", "version:"):
 for md in ROOT.rglob("*.md"):
     if "state" in md.relative_to(ROOT).parts:
         continue
-    if md.name == "experience-ledger.md":
-        # Ledger code spans often name product-repository provenance files such
-        # as THIRD_PARTY_NOTICES.md. They are evidence references, not portable
-        # Computer Agent navigation links.
+    if md.name in {"experience-ledger.md", "environment.local.md", "MCP-SKILLS-INVENTORY.md"}:
+        # Ledger references and machine-local overlays may name project/workspace
+        # resources that intentionally do not exist in the portable Skill tree.
         continue
     text = md.read_text(encoding="utf-8")
     for target in re.findall(r"`([^`]+\.md)`", text):
         if target.startswith("http"):
             continue
-        target = target.removeprefix(".skills/computer-agent/")
+        if Path(target).name in {
+            "environment.local.md",
+            "MCP-SKILLS-INVENTORY.md",
+            "MCP-SKILLS-INVENTORY.json",
+        }:
+            continue
+        target = target.removeprefix(".skills/webgpt-as-codex/")
         candidate = (md.parent / target).resolve()
         if not candidate.exists():
             # Also allow paths relative to skill root.
@@ -119,7 +125,7 @@ except (OSError, json.JSONDecodeError) as exc:
     errors.append(f"invalid manifest.json: {exc}")
     manifest = {}
 
-if manifest.get("name") != "computer-agent":
+if manifest.get("name") != "webgpt-as-codex":
     errors.append("manifest name mismatch")
 if manifest.get("design") != "direct-mcp-with-soft-routing":
     errors.append("manifest design mismatch")

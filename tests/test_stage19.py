@@ -64,6 +64,34 @@ def test_auth_edge_runtime_spec_has_generation_and_contract() -> None:
     assert spec.contract_probe is not None
 
 
+def test_auth_edge_public_route_requires_canonical_funnel_target(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(
+        runtime,
+        "funnel_proxy_for_port",
+        lambda _port: "http://127.0.0.1:9341",
+    )
+    assert runtime._auth_edge_public_route_ready() is True
+
+    monkeypatch.setattr(
+        runtime,
+        "funnel_proxy_for_port",
+        lambda _port: "http://127.0.0.1:9240",
+    )
+    assert runtime._auth_edge_public_route_ready() is False
+
+
+def test_auth_edge_public_route_fails_closed_when_funnel_status_errors(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    def fail(_port: int) -> str:
+        raise RuntimeError("tailscale unavailable")
+
+    monkeypatch.setattr(runtime, "funnel_proxy_for_port", fail)
+    assert runtime._auth_edge_public_route_ready() is False
+
+
 def test_runtime_start_refreshes_stale_owned_auth_edge(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:

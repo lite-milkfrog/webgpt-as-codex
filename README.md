@@ -1,22 +1,64 @@
 # WebGPT-as-Codex
 
-[**English**](README.md) | [简体中文](README.zh-CN.md)
+**English** | [简体中文](README.zh-CN.md)
 
-WebGPT-as-Codex is a local-first control plane for using a web AI client as a durable coding/computer agent over MCP. Repository state is the public-safe source of truth; machine-local runtime state, credentials and browser/account state stay outside Git.
+> **Turn ChatGPT on the web into a durable local coding and computer agent.**
+>
+> One OAuth-protected public MCP endpoint, multiple local specialist MCPs, one canonical Agent Skill, reboot recovery, and Loop Engineering for work that must survive long sessions.
 
-## Architecture
+**Deploy once · one MCP URL · one-click start · self-recovery · local-first.**
 
-The verified implementation separates:
-- **Agent plane:** project SoT, WebGPT-as-Codex Skill, Loop Engineering and verified recursive handoff.
-- **Control plane:** bootstrap, component registry, Doctor/Repair and the loopback Manager.
-- **Runtime plane:** Serena, Coding Tools MCP, Playwright MCP and Windows-MCP.
-- **Gateway plane:** MCPJungle as the replaceable local aggregator.
-- **Edge plane:** compatibility adapter -> mcp-auth-proxy -> MCPJungle, published through Tailscale Funnel.
-- **Optional full-machine plane:** Remote Desktop Commander.
+WebGPT-as-Codex is not another MCP server. It is the control, routing, recovery and deployment layer you start needing once several MCPs must work together reliably: who owns code semantics, who writes files, how OAuth stays stable, what happens after reboot, how concurrent sessions avoid shared-state collisions, and how a long task hands itself to the next conversation without losing truth.
 
-The browser UI never owns runtime lifetime. Health is reported in separate layers rather than treating a live process/listener as proof of MCP, OAuth or remote health.
+## Fastest path: give the repository to an AI agent
 
-## Install
+Copy [`prompts/ONE-CLICK-AGENT-DEPLOY.md`](prompts/ONE-CLICK-AGENT-DEPLOY.md) to an agent that can operate the target Windows machine.
+
+The prompt tells it to actually deploy—not just explain how—to:
+
+- discover Python / Git / uv / Node / winget / Tailscale;
+- preserve healthy existing MCPs instead of duplicating them;
+- install and verify the core MCP stack and Unified Gateway;
+- configure OAuth + Tailscale HTTPS Edge;
+- install the desktop one-click launcher and Windows autostart;
+- synchronize the single `WebGPT-as-Codex` Skill;
+- run Doctor, Gateway, OAuth, startup-idempotence and release acceptance;
+- stop only for account/login/OAuth consent that genuinely requires a human.
+
+## What you get
+
+| Capability | What WebGPT-as-Codex does |
+|---|---|
+| **One endpoint** | Your web AI talks to one OAuth-protected MCP Gateway instead of several public MCP registrations |
+| **Correct routing** | Serena for semantics, Coding Tools for edits/tests/Git, Playwright for the web, Windows-MCP for native GUI |
+| **One-click startup** | Desktop and Windows-login launchers recover local backends, then start Gateway/OAuth/Manager and verify real readiness |
+| **Recovery with evidence** | Process, listener, MCP, OAuth and public-edge health are separate states; a live port is never called “healthy” by itself |
+| **Durable long tasks** | Loop Engineering persists SoT, validation, commits and verified next-conversation handoff |
+| **Concurrency boundaries** | Explicit isolation for Serena project state, Git worktree writers and shared physical GUI state |
+| **Independent repair plane** | Remote Desktop Commander stays separate from the Gateway as a full-machine recovery/control plane |
+| **Local-first security** | Secrets, OAuth databases, browser account state and machine-local runtime evidence stay off Git |
+
+## 30-second architecture
+
+```text
+ChatGPT / Web AI
+        │ HTTPS + OAuth / PKCE
+        ▼
+ WebGPT-as-Codex Edge
+        ▼
+  Unified MCP Gateway
+   ├─ Coding Tools   → edit / test / Git
+   ├─ Serena         → symbols / references / semantic navigation
+   ├─ Playwright     → web apps / authenticated browser
+   └─ Windows-MCP    → native Windows GUI
+
+Remote Desktop Commander
+   └─ independent full-machine recovery/control plane
+```
+
+The browser Manager is a control surface, not the runtime owner. Closing the page does not stop the agent backends.
+
+## Manual install
 
 Python 3.11+ is required.
 
@@ -26,9 +68,39 @@ python -m venv .venv
 .\.venv\Scripts\webgpt-codex.exe --version
 ```
 
-The wheel includes the public component manifests plus English/Chinese Manager HTML and their shared CSS/JavaScript required by installed runtime commands. Stage18 also packages bilingual public release/legal/provenance resources: the English/Chinese README, authoritative Apache-2.0 `LICENSE`, its explicitly non-binding Chinese reading translation, bilingual third-party notices, provenance metadata and the translation coverage manifest. Machine-local state is created outside the installed package.
+Plan first, then explicitly apply:
 
-For development:
+```powershell
+webgpt-codex deploy
+webgpt-codex deploy --apply
+webgpt-codex desktop-launcher install
+webgpt-codex autostart install
+webgpt-codex launcher --no-open --start-all
+webgpt-codex doctor
+```
+
+See [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md) for the complete deployment contract.
+
+## Verified behavior
+
+- the Unified Gateway aggregates the core MCP backends behind a namespaced tool surface;
+- real public HTTPS OAuth metadata, dynamic registration, PKCE, token, refresh and authenticated MCP flows have passed end-to-end acceptance;
+- unauthenticated public MCP requests are rejected with HTTP 401;
+- Start All is idempotent and preserves healthy unmanaged services instead of duplicating them;
+- OAuth Edge readiness verifies the real Funnel 443 target, not only local 9340/9341 listeners;
+- desktop launcher and autostart are reversible, credential-free and structurally upgradeable;
+- the only canonical Skill is `skills/webgpt-as-codex/`, preserving the full Experience Ledger, 53 original regression scenarios plus 3 legacy compatibility aliases (56 total), and MCP Guides;
+- the bilingual Manager exposes Doctor/Repair and environment/Gateway/OAuth/HTTPS state without returning secrets in normal status.
+
+## CLI and safety boundary
+
+`webgpt-codex --help` includes `deploy`, `bootstrap`, runtime `status/start/stop/restart`, `doctor`, allowlisted `repair`, loopback `manager`, launcher/autostart integration, discovery-first `add-mcp`, and durable `loop` evidence.
+
+Git and release artifacts must not contain OAuth databases, tokens, passwords, private keys, cookies, browser profiles, pairing data, private machine URLs, transient PID/process state or machine-local handoff receipts.
+
+WebGPT-as-Codex does not treat “can execute commands” as unlimited authority. Manager, Repair, Update and runtime lifecycle actions use bounded ownership/allowlist contracts; unknown listeners and healthy user-managed services fail closed or are preserved.
+
+## Development
 
 ```powershell
 .\.venv\Scripts\python -m pip install -e .[dev]
@@ -37,46 +109,4 @@ For development:
 .\.venv\Scripts\python scripts\secret_scan.py
 ```
 
-## CLI
-
-`webgpt-codex --help` exposes the supported command surfaces:
-
-- `paths`: show the machine-local state root.
-- `status`, `start`, `stop`, `restart`: bounded runtime-supervisor surfaces.
-- `doctor`: prerequisite-aware deep health checks.
-- `repair`: fixed allowlisted repair operations with confirmation/backups.
-- `bootstrap`: discovery-first state/bootstrap planning.
-- `manager`: loopback-only Manager UI/API.
-- `launcher`, `desktop-launcher`, `autostart`: Windows launcher integration.
-- `add-mcp`: discovery-first generic MCP onboarding; dry-run by default, explicit machine-local apply.
-- `loop`: durable Loop Engineering execution/closure evidence.
-
-Manager actions are fixed contracts only. Start/Restart are restricted by repository runtime ownership. Stage 11's Update action is repository-approved and offline-by-default: it can only consume an already-staged artifact whose component/version/source/digest/destination authority is declared by the repository.
-
-## Verified behavior
-
-Stages 0-11 established and regression-tested:
-- one Gateway endpoint over the four core MCP backends;
-- real public HTTPS OAuth metadata, DCR + PKCE, refresh and authenticated MCP calls;
-- unauthorized public MCP access rejected with HTTP 401;
-- loopback Manager with shallow polling, sanitized output and Host/Origin/action-schema hardening;
-- English/Chinese Manager parity with one shared functional implementation, explicit `/en`/`/zh` routes, public-safe environment/deployment/version/Gateway/OAuth/HTTPS/inventory surfaces, URL copy/open controls, secret-safe recent activity and reduced-motion/accessibility handling;
-- discovery-first Bootstrap, deep Doctor and allowlisted Repair;
-- PID birth/image ownership checks, idempotent Start All and bounded Restart;
-- reversible credential-free desktop launcher/autostart, with a current-deployment Chinese default and safe structural upgrade of the previously managed launcher;
-- stale-Manager generation/contract detection so a still-listening old Python process cannot mix a new static tree with an old route table; ambiguous non-WebGPT listeners remain protected from termination;
-- desktop Manager opening that reuses the user's normal running Edge profile (or the Windows default URL handler) instead of creating an automation-only blank profile;
-- generic Add MCP with capability-evidence states and portable Operating Guides;
-- durable Loop Engineering state and exactly-once Playwright handoff semantics;
-- atomic machine-local state writes, untrusted custom-manifest validation and bounded rollback;
-- repository-approved Manager Update authority.
-
-Manager local credential controls are loopback/confirmation gated. Normal status never returns an OAuth password. Explicit Reveal returns it only to that local response; Set and Regenerate do not echo it, Regenerate creates a new value, and the activity feed never records plaintext credentials. Adding a custom MCP candidate changes local registry visibility only and does not grant Gateway routing or runtime lifecycle authority.
-
-## Public-safe release boundary
-
-Git and release artifacts must not contain OAuth databases, tokens, passwords, private keys, cookies, browser profiles, pairing data, private machine URLs, local state receipts, generated handoff receipts, PID/process state or machine-specific private paths.
-
-The wheel intentionally carries runtime Python code, public component manifests, the Manager static UI, the bounded Stage18 public release/legal/provenance resources, and the unified Agent Skill 1.2.0 portable profiles under `share/webgpt-as-codex/skills`. Stage closures/prompts and machine-local runtime evidence remain outside the installed Skill/runtime surface. The local Computer Agent uses the same portable 1.2.0 core plus machine-only environment/inventory/state overlays.
-
-See `docs/ARCHITECTURE.md`, `docs/CURRENT-PROJECT-STATE.md`, `docs/DECISIONS-AND-RISKS.md` and `skills/webgpt-as-codex/SKILL.md`.
+For implementation state and design details, see [`docs/CURRENT-PROJECT-STATE.md`](docs/CURRENT-PROJECT-STATE.md), [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md), [`docs/DECISIONS-AND-RISKS.md`](docs/DECISIONS-AND-RISKS.md), and the canonical [`WebGPT-as-Codex Skill`](skills/webgpt-as-codex/SKILL.md).

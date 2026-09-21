@@ -16,6 +16,7 @@ import requests
 
 from .edge import (
     auth_proxy_binary,
+    funnel_proxy_for_port,
     public_https_base,
     start_funnel,
     stop_funnel,
@@ -306,6 +307,7 @@ def run_edge_runtime() -> int:
             public_base = actual_public
         _persist_public_url(public_base)
         _write_edge_state(status="running", public_base=public_base, auth_pid=auth_pid)
+        next_funnel_check = time.monotonic()
 
         while not stopping.wait(0.5):
             if auth_process is not None and auth_process.poll() is not None:
@@ -316,6 +318,11 @@ def run_edge_runtime() -> int:
                 auth_pid is None or not _existing_auth_proxy_matches(public_base, auth_pid)
             ):
                 raise RuntimeError("adopted OAuth proxy became unavailable or changed identity")
+            if time.monotonic() >= next_funnel_check:
+                target = funnel_proxy_for_port(PUBLIC_PORT)
+                if target is None or target.rstrip("/") != f"http://127.0.0.1:{COMPAT_PORT}":
+                    raise RuntimeError("public Funnel route changed away from managed OAuth edge")
+                next_funnel_check = time.monotonic() + 10.0
         return 0
     except Exception as exc:
         _write_edge_state(

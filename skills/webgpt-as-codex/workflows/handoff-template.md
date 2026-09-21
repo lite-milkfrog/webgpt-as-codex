@@ -53,30 +53,30 @@ Stage-specific 内容只属于 Variable Payload：Stage goal/out-of-scope、真�
 - Tool-local metadata policy：如果下一棒会激活 Serena/IDE 类工具，必须要求它在激活前记录 Git pre-state；本轮新建、此前不存在的未跟踪 `.serena/`/cache/local config 只算 `TOOL_LOCAL_METADATA`，不得提交，收口前清理；已有/已跟踪同名目录不得擅删。
 - 禁止 reset/clean/deploy/push 等边界
 
-## 2. Computer Agent Skill Bootstrap — REQUIRED
+## 2. WebGPT-as-Codex Skill Bootstrap — REQUIRED
 
 首先说明 Skill 的逻辑/实际入口：
 
-- **Workspace Skill 根**：`<absolute-or-workspace-root>/.skills/computer-agent/`
+- **Workspace Skill 根**：`<absolute-or-workspace-root>/.skills/webgpt-as-codex/`
 - **当前 Stage prompt**：`<exact current prompt path>`
 - **下一 Stage prompt**：`<exact next prompt path>`
 
-- `.skills/computer-agent/SKILL.md`
-- `.skills/computer-agent/routing.md`
-- `.skills/computer-agent/workflows/loop-engineering.md`
-- `.skills/computer-agent/workflows/coding.md`
-- `.skills/computer-agent/workflows/cross-tool.md`
-- `.skills/computer-agent/environment.local.md`
-- `.skills/computer-agent/workflows/handoff-template.md`
-- 交棒前 `.skills/computer-agent/workflows/browser.md`
-- 权限不明时 `.skills/computer-agent/permissions.md`
-- 完成前 `.skills/computer-agent/validation.md`
+- `.skills/webgpt-as-codex/SKILL.md`
+- `.skills/webgpt-as-codex/routing.md`
+- `.skills/webgpt-as-codex/workflows/loop-engineering.md`
+- `.skills/webgpt-as-codex/workflows/coding.md`
+- `.skills/webgpt-as-codex/workflows/cross-tool.md`
+- `.skills/webgpt-as-codex/environment.local.md`
+- `.skills/webgpt-as-codex/workflows/handoff-template.md`
+- 交棒前 `.skills/webgpt-as-codex/workflows/browser.md`
+- 权限不明时 `.skills/webgpt-as-codex/permissions.md`
+- 完成前 `.skills/webgpt-as-codex/validation.md`
 
 ### 怎么读
 
 默认用 Coding Tools `read_file` 精确读取这些 workspace 文件；不要用 Windows-MCP 打开文件管理器读 Skill。
 
-如果当前会话无法访问 `.skills/computer-agent/`：
+如果当前会话无法访问 `.skills/webgpt-as-codex/`：
 
 1. 明确记录 `COMPUTER_AGENT_SKILL_NOT_EXPOSED`；
 2. 读取项目 prompt 指定的 Skill fallback 文档；
@@ -233,7 +233,7 @@ Stage-specific 内容只属于 Variable Payload：Stage goal/out-of-scope、真�
 
 ### Experience absorbed in previous stage — REQUIRED when applicable
 
-如果上一 stage 新增/修改了 Computer Agent 规则，必须写清：
+如果上一 stage 新增/修改了 WebGPT-as-Codex 规则，必须写清：
 
 - 新 Skill 版本；
 - 触发该迭代的真实失败；
@@ -273,7 +273,7 @@ Stage-specific 内容只属于 Variable Payload：Stage goal/out-of-scope、真�
 
 如果本 stage 出现了新的可复用坑，还必须检查：
 
-- `.skills/computer-agent/maintenance.md`；
+- `.skills/webgpt-as-codex/maintenance.md`；
 - 对应 routing/workflow；
 - `evals/scenarios.json`；
 - `scripts/validate_skill.py` 结果；
@@ -316,7 +316,7 @@ Stage-specific 内容只属于 Variable Payload：Stage goal/out-of-scope、真�
 
 明确：
 
-1. 先读 `.skills/computer-agent/workflows/browser.md` 与 `.skills/computer-agent/environment.local.md`；
+1. 先读 `.skills/webgpt-as-codex/workflows/browser.md` 与 `.skills/webgpt-as-codex/environment.local.md`；
 2. 确认 docs/commit/next prompt 完成；
 3. 明确 Playwright direct namespace 或 local endpoint + deployment root；若 direct schema 未暴露，先 local MCP `initialize -> tools/list`；
 4. local MCP 多步调用必须保持同一 `mcp-session-id`，不得跨 session 复用 tab index/ref；

@@ -175,3 +175,24 @@ Desktop launcher 是普通用户浏览入口，不是 Playwright runtime。已�
 Stage19 真实主机验收已经通过 local 9341 metadata 200、public `/mcp` 401、当前 OAuth metadata、DCR + PKCE、authenticated MCP、refresh continuity，以及 Edge restart 前后相同的 87-tool surface。用户确认 ChatGPT connector 配置成功后，本 Stage 冻结 production Connector/Funnel/OAuth，禁止继续做扰动性 acceptance。
 
 成功配置后没有强制 Windows 整机重启。该项记录为 manual real-reboot acceptance；startup/recovery contract 已实现并测试，但保护刚建立的 production connector 优先于“为了证明而重启”。
+
+
+## 2026-09-21 启动与公网 Edge 维护补充
+
+当前部署合同新增两个 machine-local 扩展点：
+
+- `%LOCALAPPDATA%\WebGPT-as-Codex\local-prestart.cmd`：在 Desktop launcher 与 Windows-login autostart 的 `Start All` 之前执行，只用于恢复已经批准的外部 MCP backend。它不得包含 Token/密码，也不得修改或占用 WebGPT 的 canonical HTTPS 443。
+- `%LOCALAPPDATA%\WebGPT-as-Codex\local-launcher-overlay.cmd`：仍然只在手动 Desktop launcher 已经 READY 之后执行，用于当前主机专属的 post-READY 扩展；autostart 不调用它。
+
+`local-prestart.cmd` 的退出码只是诊断证据，不直接决定 WebGPT 成败。最终结果仍由随后真实的 layered readiness 判断。
+
+OAuth Edge READY 现在必须同时满足：
+
+1. 9341 compatibility edge 正常；
+2. 9340 OAuth child identity / issuer / generation 正确；
+3. Tailscale Funnel 的真实 HTTPS 443 target 当前就是 `http://127.0.0.1:9341`；
+4. public OAuth metadata 与未认证 `/mcp` 401 challenge 正常。
+
+如果运行期间 443 被其它脚本改到别的 target，Edge 必须退出 READY，而不是继续保持“本地端口正常”的假绿状态。
+
+Windows 登录恢复时，launcher 允许在有界时间内等待 required unmanaged backend 被 `local-prestart.cmd` 拉起；超时后仍按真实 missing backend fail closed。

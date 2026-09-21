@@ -42,7 +42,7 @@ export class McpHttpSession {
 
   async initialize({
     protocolVersion = '2025-06-18',
-    clientName = 'computer-agent-local-client',
+    clientName = 'webgpt-as-codex-local-client',
     clientVersion = '1.0.0',
   } = {}) {
     const initialized = await this.post({

@@ -7,6 +7,7 @@ import os
 import re
 import subprocess
 import sys
+import time
 import webbrowser
 from collections.abc import Callable
 from pathlib import Path
@@ -18,6 +19,9 @@ from .runtime import RuntimeSupervisor
 _MARKER = "REM WebGPT-as-Codex managed launcher"
 _DESKTOP_NAME = "WebGPT-as-Codex.cmd"
 _AUTOSTART_NAME = "WebGPT-as-Codex-Autostart.cmd"
+_EXTERNAL_BACKEND_WAIT_ENV = "WEBGPT_CODEX_EXTERNAL_BACKEND_WAIT_SECONDS"
+_EXTERNAL_BACKEND_WAIT_DEFAULT = 60.0
+_EXTERNAL_BACKEND_POLL = 2.0
 
 
 def _expand_shell_value(value: str) -> Path:
@@ -263,11 +267,38 @@ def _launcher_log_dir() -> Path:
     return state_root() / "logs" / "launcher"
 
 
+def _local_prestart_content(log_path: Path) -> str:
+    return (
+        'if exist "%LOCALAPPDATA%\\WebGPT-as-Codex\\local-prestart.cmd" (\r\n'
+        '  call "%LOCALAPPDATA%\\WebGPT-as-Codex\\local-prestart.cmd" >> "'
+        + str(log_path)
+        + '" 2>&1\r\n'
+        "  if errorlevel 1 (\r\n"
+        "    echo Local prestart hook reported a failure; readiness checks will decide final status.\r\n"
+        "  )\r\n"
+        ")\r\n"
+    )
+
+
+def _python_runtime_guard_content(python: str, log_path: Path, *, pause: bool) -> str:
+    tail = "  pause\r\n" if pause else ""
+    return (
+        f'if not exist "{python}" (\r\n'
+        + f'  echo WebGPT launcher failed. Python runtime not found: {python} > "{log_path}"\r\n'
+        + f'  type "{log_path}"\r\n'
+        + f"  echo Full log: {log_path}\r\n"
+        + tail
+        + "  exit /b 2\r\n"
+        + ")\r\n"
+    )
+
+
 def _launcher_content(*, open_browser: bool) -> str:
     flag = "--open" if open_browser else "--no-open"
     python = str(Path(sys.executable))
     log_root = _launcher_log_dir()
     log_path = log_root / ("desktop-launcher.log" if open_browser else "autostart.log")
+    prestart = _local_prestart_content(log_path)
     if open_browser:
         visible = (
             "echo WebGPT-as-Codex: detecting environment and waiting for real readiness...\r\n"
@@ -309,7 +340,10 @@ def _launcher_content(*, open_browser: bool) -> str:
         'set "WEBGPT_CODEX_UI_LANG=zh-CN"\r\n'
         + visible
         + f'if not exist "{log_root}" mkdir "{log_root}"\r\n'
-        + f'"{python}" -m webgpt_as_codex launcher {flag} --start-all > "{log_path}" 2>&1\r\n'
+        + _python_runtime_guard_content(python, log_path, pause=open_browser)
+        + f'type nul > "{log_path}"\r\n'
+        + prestart
+        + f'"{python}" -m webgpt_as_codex launcher {flag} --start-all >> "{log_path}" 2>&1\r\n'
         + "if errorlevel 1 (\r\n"
         + "  echo WebGPT launcher failed. Diagnostic output:\r\n"
         + f'  type "{log_path}"\r\n'
@@ -322,6 +356,45 @@ def _launcher_content(*, open_browser: bool) -> str:
         + remote_desktop_commander
         + "endlocal\r\n"
     )
+
+
+def _pre_guard_generation_matches(content: str, *, open_browser: bool) -> bool:
+    python = str(Path(sys.executable))
+    log_path = _launcher_log_dir() / (
+        "desktop-launcher.log" if open_browser else "autostart.log"
+    )
+    expected = _launcher_content(open_browser=open_browser).replace(
+        _python_runtime_guard_content(python, log_path, pause=open_browser),
+        "",
+        1,
+    )
+    return content.replace("\r\n", "\n") == expected.replace("\r\n", "\n")
+
+
+def _prestartless_generation_matches(content: str, *, open_browser: bool) -> bool:
+    flag = "--open" if open_browser else "--no-open"
+    python = str(Path(sys.executable))
+    log_path = _launcher_log_dir() / (
+        "desktop-launcher.log" if open_browser else "autostart.log"
+    )
+    expected = _launcher_content(open_browser=open_browser)
+    expected = expected.replace(
+        _python_runtime_guard_content(python, log_path, pause=open_browser),
+        "",
+        1,
+    )
+    expected = expected.replace(
+        f'type nul > "{log_path}"\r\n' + _local_prestart_content(log_path),
+        "",
+        1,
+    )
+    expected = expected.replace(
+        f'"{python}" -m webgpt_as_codex launcher {flag} --start-all >> "{log_path}" 2>&1',
+        f'"{python}" -m webgpt_as_codex launcher {flag} --start-all > "{log_path}" 2>&1',
+        1,
+    )
+    return content.replace("\r\n", "\n") == expected.replace("\r\n", "\n")
+
 
 def _previous_launcher_matches(content: str, *, open_browser: bool) -> bool:
     normalized = content.replace("\r\n", "\n").strip()
@@ -537,7 +610,9 @@ def desktop_launcher(action: str) -> dict[str, Any]:
     path = desktop_dir() / _DESKTOP_NAME
     expected = _launcher_content(open_browser=True)
     legacy_matcher = lambda content: (
-        _legacy_launcher_matches(content, open_browser=True)
+        _pre_guard_generation_matches(content, open_browser=True)
+        or _prestartless_generation_matches(content, open_browser=True)
+        or _legacy_launcher_matches(content, open_browser=True)
         or _previous_launcher_matches(content, open_browser=True)
         or _redirect_generation_matches(content, open_browser=True)
         or _visible_ready_generation_matches(content)
@@ -560,7 +635,9 @@ def autostart(action: str) -> dict[str, Any]:
     path = startup_dir() / _AUTOSTART_NAME
     expected = _launcher_content(open_browser=False)
     legacy_matcher = lambda content: (
-        _legacy_launcher_matches(content, open_browser=False)
+        _pre_guard_generation_matches(content, open_browser=False)
+        or _prestartless_generation_matches(content, open_browser=False)
+        or _legacy_launcher_matches(content, open_browser=False)
         or _previous_launcher_matches(content, open_browser=False)
         or _redirect_generation_matches(content, open_browser=False)
     )
@@ -577,10 +654,44 @@ def autostart(action: str) -> dict[str, Any]:
     raise ValueError(action)
 
 
+def _external_backend_wait_seconds() -> float:
+    raw = os.getenv(_EXTERNAL_BACKEND_WAIT_ENV)
+    if raw is None:
+        return _EXTERNAL_BACKEND_WAIT_DEFAULT
+    try:
+        return max(0.0, float(raw))
+    except ValueError:
+        return _EXTERNAL_BACKEND_WAIT_DEFAULT
+
+
+def _start_all_until_ready(supervisor: RuntimeSupervisor) -> dict[str, Any]:
+    result = supervisor.start_all(include_manager=False)
+    if result.get("fully_ready"):
+        return result
+    missing = result.get("required_unmanaged_missing")
+    if not isinstance(missing, list) or not missing:
+        return result
+    wait_seconds = _external_backend_wait_seconds()
+    deadline = time.monotonic() + wait_seconds
+    attempts = 1
+    while time.monotonic() < deadline:
+        time.sleep(min(_EXTERNAL_BACKEND_POLL, max(0.0, deadline - time.monotonic())))
+        attempts += 1
+        result = supervisor.start_all(include_manager=False, edge_prereq_wait=15.0)
+        if result.get("fully_ready"):
+            break
+        missing = result.get("required_unmanaged_missing")
+        if not isinstance(missing, list) or not missing:
+            break
+    result["launcher_backend_wait_attempts"] = attempts
+    result["launcher_backend_wait_budget_seconds"] = wait_seconds
+    return result
+
+
 def run_launcher(*, open_browser: bool = True, start_all: bool = True) -> dict[str, Any]:
     supervisor = RuntimeSupervisor()
     manager = supervisor.start("manager")
-    runtimes = supervisor.start_all(include_manager=False) if start_all else None
+    runtimes = _start_all_until_ready(supervisor) if start_all else None
     opened = False
     browser_mode = "not-requested"
     if manager.get("ok") and open_browser:

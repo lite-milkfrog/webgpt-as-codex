@@ -18,7 +18,7 @@
 
 已验证的通用失败类别包括“表面健康但代次错误”：端口/listener/healthz 可以保持绿色，但长期运行的解释器仍加载旧模块/旧 route table，而磁盘静态资源已经更新。通用修复不是“看到端口就杀”，而是先证明 ownership/process identity，再比较 runtime generation 与 capability/resource contract；只有确定属于当前产品且 stale 才 bounded refresh。浏览器侧同理，用户桌面入口的正常 profile 与自动化 isolated/shared context 不应混成一套启动逻辑。
 
-Computer Agent 在真实任务中遇到新坑时，优先完成当前用户目标，但**恢复成功后必须做一次经验吸收判断**：
+WebGPT-as-Codex 在真实任务中遇到新坑时，优先完成当前用户目标，但**恢复成功后必须做一次经验吸收判断**：
 
 `RECOVER -> DISTILL -> GENERALIZE -> PATCH -> EVAL -> VALIDATE -> PROPAGATE`
 
@@ -113,7 +113,7 @@ Skill 应随模型能力进步而**变薄**，而不是只增不减。
 
 每次大模型或 MCP 重大升级后，对同一批任务做 A/B：
 
-- A：不加载 Computer Agent Skill
+- A：不加载 WebGPT-as-Codex Skill
 - B：加载 Skill
 
 比较：

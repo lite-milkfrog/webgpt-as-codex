@@ -11,13 +11,14 @@
     "manager": "index.html + index.zh-CN.html share manager.js and manager.css"
   },
   "dynamic_historical_prefixes": [
-    "prompts/"
+    "prompts/",
+    "skills/computer-agent/"
   ],
   "dynamic_current_prefixes": [
     {
-      "prefix": "skills/computer-agent/",
+      "prefix": "skills/webgpt-as-codex/",
       "status": "LOCALIZED_OPERATIONAL_PROFILE",
-      "reason": "Canonical Computer Agent release tree mirrors the user's portable operational Skill, preserving its Chinese-first/mixed-language working form and exact technical identifiers; machine-local overlay is excluded."
+      "reason": "The single canonical WebGPT-as-Codex Skill preserves the user operational workflow, mixed Chinese/English technical identifiers, and excludes machine-local overlays from release."
     }
   ],
   "authoritative_legal_file": "LICENSE",
@@ -432,9 +433,9 @@
       "reason": "Executable source/test/script artifact; code identifiers/protocol strings are not documentation translation targets."
     },
     {
-      "path": "scripts/sync_computer_agent_skill.py",
+      "path": "scripts/sync_webgpt_skill.py",
       "status": "NOT_HUMAN_READER_CONTENT",
-      "reason": "Executable source/test/script artifact; code identifiers/protocol strings are not documentation translation targets."
+      "reason": "Deterministic Skill sync utility; executable implementation, not reader-facing prose."
     },
     {
       "path": "scripts/stage14_production_edge_e2e.py",
@@ -866,6 +867,16 @@
       "path": "tests/test_stage9.py",
       "status": "NOT_HUMAN_READER_CONTENT",
       "reason": "Executable source/test/script artifact; code identifiers/protocol strings are not documentation translation targets."
+    },
+    {
+      "path": "prompts/ONE-CLICK-AGENT-DEPLOY.md",
+      "status": "BILINGUAL_INLINE",
+      "reason": "Current Agent-native deployment prompt is Chinese-first with exact English technical identifiers and commands preserved inline."
+    },
+    {
+      "path": "scripts/sync_computer_agent_skill.py",
+      "status": "NOT_HUMAN_READER_CONTENT",
+      "reason": "Retired pre-1.3.0 sync utility retained only as a tracked-deletion candidate until the consolidation commit removes it from the index."
     }
   ]
 }

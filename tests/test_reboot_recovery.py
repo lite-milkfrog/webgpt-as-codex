@@ -284,10 +284,48 @@ def test_desktop_launcher_content_reports_ready_and_failure_paths() -> None:
     assert "pause" not in autostart
     assert "READY" not in autostart
     assert "--no-open --start-all" in autostart
+    assert "local-prestart.cmd" in desktop
+    assert "local-prestart.cmd" in autostart
+    assert "Python runtime not found" in desktop
     assert "Remote Desktop Commander" not in autostart
+    assert desktop.index("Python runtime not found") < desktop.index("local-prestart.cmd")
+    assert desktop.index("local-prestart.cmd") < desktop.index("--open --start-all")
     assert desktop.index("WebGPT-as-Codex is READY") < desktop.index(
         "Remote Desktop Commander start requested successfully."
     )
+
+
+def test_launcher_waits_for_unmanaged_backends_during_boot(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    class FakeSupervisor:
+        calls = 0
+
+        def start_all(self, **_kwargs: object) -> dict:
+            self.calls += 1
+            if self.calls == 1:
+                return {
+                    "ok": True,
+                    "fully_ready": False,
+                    "required_unmanaged_missing": ["coding-tools", "playwright"],
+                }
+            return {
+                "ok": True,
+                "fully_ready": True,
+                "required_unmanaged_missing": [],
+            }
+
+    supervisor = FakeSupervisor()
+    monkeypatch.setenv("WEBGPT_CODEX_EXTERNAL_BACKEND_WAIT_SECONDS", "5")
+    ticks = iter([0.0, 0.1, 0.2])
+    monkeypatch.setattr(launcher.time, "monotonic", lambda: next(ticks))
+    monkeypatch.setattr(launcher.time, "sleep", lambda _seconds: None)
+
+    result = launcher._start_all_until_ready(supervisor)  # type: ignore[arg-type]
+
+    assert result["fully_ready"] is True
+    assert result["launcher_backend_wait_attempts"] == 2
+    assert supervisor.calls == 2
 
 
 def test_installed_redirect_generation_launcher_is_upgradeable(

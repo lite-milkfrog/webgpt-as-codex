@@ -38,8 +38,8 @@
 
 可复用：
 
-- `.skills/computer-agent/scripts/mcp-http-client.mjs`
-- `.skills/computer-agent/scripts/chatgpt-loop-handoff.mjs`
+- `.skills/webgpt-as-codex/scripts/mcp-http-client.mjs`
+- `.skills/webgpt-as-codex/scripts/chatgpt-loop-handoff.mjs`
 
 ## 元素定位优先级
 

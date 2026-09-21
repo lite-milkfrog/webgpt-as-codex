@@ -27,7 +27,7 @@ const sha256 = (text) => crypto.createHash('sha256').update(text, 'utf8').digest
 const expectedHash = sha256(normalize(prompt));
 
 const mcp = new McpHttpSession(endpoint);
-await mcp.initialize({ clientName: 'computer-agent-chatgpt-loop-handoff' });
+await mcp.initialize({ clientName: 'webgpt-as-codex-chatgpt-loop-handoff' });
 
 const tools = await mcp.listTools();
 const toolNames = new Set((tools?.result?.tools ?? []).map((tool) => tool.name));

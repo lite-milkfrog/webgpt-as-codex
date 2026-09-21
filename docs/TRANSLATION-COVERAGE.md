@@ -21,7 +21,7 @@
 - `LEGAL_ORIGINAL_PRESERVED`：法律原文必须逐字节保留，并通过独立非约束译本提供中文阅读。
 - `HISTORICAL_EVIDENCE_PRESERVED_WITH_INDEX`：历史证据原样保留，并由中文索引解释其用途/边界。
 - `NOT_HUMAN_READER_CONTENT`：虽然格式是文本，但它不是面向读者的自然语言文档。
-- `LOCALIZED_OPERATIONAL_PROFILE`：当前 portable operational Skill 保留其已验证的中文优先/中英混合工作形态；技术 identifier 精确保留，machine-local overlay 不进入发行版。该状态用于 canonical `skills/computer-agent/` release tree。
+- `LOCALIZED_OPERATIONAL_PROFILE`：当前 portable operational Skill 保留其已验证的中文优先/中英混合工作形态；技术 identifier 精确保留，machine-local overlay 不进入发行版。该状态现在只用于唯一 canonical `skills/webgpt-as-codex/` release tree；旧 `computer-agent` 仅保留在历史证据中。
 
 ## Regression gate / 回归门禁
 

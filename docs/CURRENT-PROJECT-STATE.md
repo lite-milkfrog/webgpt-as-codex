@@ -218,3 +218,59 @@ RDC recovery-plane closure: docs/RDC-FINAL-RECOVERY-PLANE-CLOSURE.md.
 Supplemental Final Acceptance closure: `docs/SUPPLEMENTAL-FINAL-ACCEPTANCE-CLOSURE.md`.
 
 PROGRAM_STATE = GLOBAL_LOOP_COMPLETE
+
+
+## Post-complete maintenance reconciliation — 2026-09-21
+
+`PROGRAM_STATE` remains `GLOBAL_LOOP_COMPLETE`. This maintenance pass does not reopen the closed Stage 1-19 program; it supersedes current deployment/Skill/startup facts that changed after Supplemental Final Acceptance.
+
+Current accepted truth:
+- the product and the only canonical Agent Skill are both **WebGPT-as-Codex**;
+- canonical release Skill: `skills/webgpt-as-codex/`, version `1.3.0`;
+- machine-local workspace Skill: `.skills/webgpt-as-codex/` using the same portable core plus local environment/inventory/state overlays;
+- user shared Skill source and Codex/Claude junctions now use `webgpt-as-codex`; the old active `computer-agent` 1.0.0-local-candidate source/junctions are retired and backed up outside active Skill roots;
+- the former Computer Agent Experience Ledger, MCP Guides, GUI/Playwright workflows, Loop Engineering rules and all original 53 regression scenarios are preserved inside the single WAC Skill; three legacy contract aliases (`serena-down`, `handoff`, `parallel-edit`) are also restored, for 56 scenarios total;
+- release packaging now declares only `share/webgpt-as-codex/skills/webgpt-as-codex/**`; there is no second Computer Agent release entry point;
+- canonical Skill sync command is `scripts/sync_webgpt_skill.py`; the obsolete root `scripts/sync_computer_agent_skill.py` has been retired.
+
+Startup / OAuth correction accepted in this maintenance pass:
+- Windows Startup now has one active WebGPT entry: `WebGPT-as-Codex-Autostart.cmd`;
+- `%LOCALAPPDATA%\WebGPT-as-Codex\local-prestart.cmd` is the machine-local pre-Start-All hook for already-approved external MCP backend launchers; it contains no secrets and must never claim public HTTPS 443;
+- legacy duplicate Local Remote MCP / standalone Serena startup entries were disabled after the WAC launcher was proven upgradeable and working;
+- legacy `remote-mcp-unified` Manager processes on port 9199 were stopped; WebGPT Manager remains the control surface on 9200;
+- OAuth Edge readiness now requires the real Tailscale Funnel 443 target to be `http://127.0.0.1:9341`, in addition to local 9341/9340 identity/generation/issuer contracts;
+- the running OAuth Edge periodically detects if Funnel 443 is changed away from the managed 9341 edge and fails out of READY instead of remaining false-green;
+- the launcher supports a bounded wait for required unmanaged backends during Windows-login recovery.
+
+Real-host startup evidence from this maintenance pass:
+- direct execution of the installed Windows Autostart path completed twice with exit code 0;
+- first run reached `fully_ready=true`, `required_unmanaged_missing=[]` and refreshed the intentionally stale OAuth Edge generation introduced by this code change;
+- second run again reached `fully_ready=true`, `required_unmanaged_missing=[]` and preserved the same healthy Manager/Gateway/OAuth Edge instead of duplicating them;
+- live Funnel after the startup run kept canonical HTTPS 443 -> `http://127.0.0.1:9341`, while the independent compatibility endpoints remained on their assigned non-443 ports;
+- a physical Windows reboot has still not been forced in this maintenance pass; any claim of full cold-reboot acceptance still requires a separate real reboot observation.
+
+Agent-native deployment:
+- `prompts/ONE-CLICK-AGENT-DEPLOY.md` is the current repository prompt for handing the repository to a Windows-capable AI agent;
+- it covers environment discovery, preserve-vs-install decisions, MCP/Gateway/OAuth/Tailscale setup, single-Skill migration, desktop/autostart setup, layered acceptance and the final human-only account/OAuth consent boundary.
+
+Release/readme reconciliation:
+- English and Chinese README entrypoints now lead with the product outcome, one-endpoint architecture and Agent-native deployment path instead of Stage history;
+- `pyproject.toml` summary now describes the one OAuth-protected MCP gateway / durable local agent outcome;
+- `docs/DEPLOYMENT.md` documents the machine-local prestart hook and the stronger real-Funnel READY contract;
+- `docs/TRANSLATION-COVERAGE.*` now treats `skills/webgpt-as-codex/` as the only current operational Skill tree.
+
+
+### 2026-09-21 maintenance final acceptance
+
+- full repository regression after the consolidation: **228 PASS**;
+- Ruff: **PASS**;
+- repository secret scan: **SECRET_SCAN_PASS**;
+- `git diff --check`: **PASS**;
+- canonical/source Skill validator: **VALIDATION_OK**, 27 required files / **56 scenarios**;
+- workspace-local and user shared Skill copies were resynchronized and both validate at WebGPT-as-Codex Skill `1.3.0` / 56 scenarios;
+- current Desktop launcher and Windows Autostart were upgraded through the managed previous-generation matcher and now report `installed=true / managed=true / upgradeable=false`;
+- post-upgrade Autostart real-host execution completed with `fully_ready=true`, `required_unmanaged_missing=[]`; the final observed OAuth Edge was `preserved-owned` and canonical Tailscale Funnel HTTPS 443 still targeted `http://127.0.0.1:9341`;
+- final PEP517 wheel was built from the fixed source state, installed into a new external venv and reverified: package `0.1.0`, Skill `webgpt-as-codex` `1.3.0`, 56 scenarios, 9 workflows, product contract present, 8 component manifests, 4 Manager static resources, 9 release resources, and **no installed `computer-agent` Skill tree**;
+- final wheel SHA-256: `548ac770149ddadb1bde04081ffc5b79845589babbd2e804c60c63dd5e21e789`;
+- final wheel size: `302996` bytes;
+- full physical Windows cold reboot remains intentionally unforced. Startup recovery is implemented and repeatedly real-host exercised through the installed Windows Autostart path, but a separate reboot observation is still required for a literal cold-reboot acceptance claim.

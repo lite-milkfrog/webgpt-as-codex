@@ -165,7 +165,7 @@ Manager liveness and Manager generation are separate facts. A live 9200 listener
 
 The Desktop launcher is a user browser entry point, not a Playwright runtime. When the user's normal Microsoft Edge session is already running, the launcher reuses its last-used normal profile; otherwise it dispatches through the Windows default URL handler. It never intentionally creates a temporary user-data directory, isolated automation profile or InPrivate session for Manager opening.
 
-Machine-only one-click additions must not be embedded in the release launcher. The manual Desktop launcher recognizes one fixed local extension file, `%LOCALAPPDATA%\WebGPT-as-Codex\local-launcher-overlay.cmd`, and invokes it only after WebGPT is already READY. The overlay is absent from fresh installs, is never invoked by Windows-login autostart, and its failure does not downgrade WebGPT READY. This is the supported boundary for current-host-only additions.
+Machine-only one-click additions must not be embedded in the release launcher. Two fixed machine-local extension points are supported: `%LOCALAPPDATA%\WebGPT-as-Codex\local-prestart.cmd` may run before Start All from both Desktop and Windows-login launchers to recover already-approved external MCP backends, while `%LOCALAPPDATA%\WebGPT-as-Codex\local-launcher-overlay.cmd` remains a manual-Desktop-only post-READY extension. The prestart hook must be credential-free, may only invoke verified local backend launchers, and must never claim or rewrite the canonical WebGPT public HTTPS 443 route. Its exit status is diagnostic only: the subsequent layered readiness checks decide success. Both hooks are absent from fresh installs unless deployment discovers a justified machine-local need.
 
 ## Phase 9 — final manual actions
 
@@ -194,7 +194,7 @@ A deployment is not complete until:
 
 Production WebGPT uses one canonical `https://<stable-tailnet-dns>/mcp` identity on HTTPS 443. Ordinary Manager, Gateway, OAuth Edge, WebGPT and Windows restarts must not intentionally change that identity, issuer or OAuth credential.
 
-`Start All` must distinguish the 9340 OAuth child from the complete 9341 OAuth Edge. A raw 9340 listener can never by itself satisfy Edge readiness. The managed Edge is ready only when the 9341 compatibility contract, current issuer, repository generation and public 401/OAuth metadata all agree.
+`Start All` must distinguish the 9340 OAuth child from the complete 9341 OAuth Edge. A raw 9340 listener can never by itself satisfy Edge readiness. The managed Edge is ready only when the 9341 compatibility contract, current issuer, repository generation, real Tailscale Funnel HTTPS 443 target (`127.0.0.1:9341`), and public 401/OAuth metadata all agree. If another process rewrites 443 after startup, the Edge must drop out of READY rather than continuing with a false-green local state.
 
 If a matching 9340 OAuth child survives while the 9341 wrapper is absent, WebGPT may reuse that child only after verifying the canonical issuer. This permits restart recovery without forcing a credential rotation or connector recreation. Unknown/incompatible listeners fail closed.
 

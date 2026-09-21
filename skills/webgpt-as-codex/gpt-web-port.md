@@ -27,7 +27,7 @@
 
 ## 迁移方式
 
-优先保持“多个独立 MCP + 一个 Computer Agent Skill”，而不是先做万能 MCP 聚合器。
+优先保持“多个独立 MCP + 一个 WebGPT-as-Codex Skill”，而不是先做万能 MCP 聚合器。
 
 Skill 中不硬编码 URL；GPT 端通过已注册 MCP 的名称/工具描述识别能力。
 

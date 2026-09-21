@@ -2,23 +2,67 @@
 
 [English](README.md) | **简体中文**
 
-WebGPT-as-Codex 是一个本地优先的控制平面，用于让网页 AI 客户端通过 MCP 成为可持续工作的代码/电脑 Agent。仓库状态是公开安全的事实源；机器本地运行状态、凭据以及浏览器/账号状态始终留在 Git 之外。
+> **把 ChatGPT 网页版变成一个真正能持续操作你本地代码和电脑的 Agent。**
+>
+> 一个 OAuth 保护的公网 MCP 入口，聚合 Serena、Coding Tools、Playwright、Windows-MCP；再配上本地 Skill、自动恢复、开机自启和 Loop Engineering。
 
-## 架构
+**一次部署 · 一个 MCP 地址 · 一键启动 · 自动恢复 · 本地优先。**
 
-已验证的实现分为：
-- **Agent 平面：** 项目 SoT、WebGPT-as-Codex Skill、Loop Engineering 和已验证的递归交接。
-- **控制平面：** bootstrap、组件注册表、Doctor/Repair 与 loopback Manager。
-- **运行平面：** Serena、Coding Tools MCP、Playwright MCP、Windows-MCP。
-- **Gateway 平面：** 以 MCPJungle 作为可替换的本地聚合器。
-- **Edge 平面：** compatibility adapter -> mcp-auth-proxy -> MCPJungle，并通过 Tailscale Funnel 发布。
-- **可选整机平面：** Remote Desktop Commander。
+WebGPT-as-Codex 解决的不是“怎么再接一个 MCP”，而是 MCP 多起来以后真正麻烦的部分：谁负责什么、怎么统一暴露给网页大模型、OAuth 怎么稳定、电脑重启后怎么恢复、多个窗口怎么不互相打架，以及长任务怎么跨对话继续而不丢状态。
 
-浏览器 UI 不拥有运行时生命周期。健康状态按层报告，不能把“进程/监听器存活”误当成 MCP、OAuth 或远程链路健康。
+## 最快的使用方式：把仓库交给 AI
 
-## 安装
+不想手搓环境？直接把 [`prompts/ONE-CLICK-AGENT-DEPLOY.md`](prompts/ONE-CLICK-AGENT-DEPLOY.md) 交给一个能操作目标 Windows 电脑的 Agent。
 
-需要 Python 3.11+。
+它会按真实环境自动完成：
+
+- 检测 Python / Git / uv / Node / winget / Tailscale；
+- 发现并保留已有健康 MCP，避免重复安装；
+- 部署/校验核心 MCP 与 Unified Gateway；
+- 配置 OAuth + Tailscale HTTPS Edge；
+- 安装桌面“一键启动”和 Windows 登录自启；
+- 同步唯一的 `WebGPT-as-Codex` Skill；
+- 执行 Doctor、OAuth、Gateway、启动幂等性和发布验收；
+- 最后只把必须由人确认的账号登录/OAuth consent 留给你。
+
+## 你最终得到什么
+
+| 能力 | WebGPT-as-Codex 做什么 |
+|---|---|
+| **统一入口** | ChatGPT 只需要面对一个 OAuth-protected MCP Gateway，而不是分别维护一堆公网 MCP |
+| **正确路由** | Serena 看语义，Coding Tools 改代码/跑测试，Playwright 操作网页，Windows-MCP 操作原生 GUI |
+| **一键启动** | 桌面脚本和 Windows Autostart 先恢复本机后端，再启动 Gateway/OAuth/Manager，并做真实 READY 判定 |
+| **断线自恢复** | 区分 process / listener / MCP / OAuth / public edge，不用“端口活着”冒充健康 |
+| **长任务持续执行** | Loop Engineering 把 SoT、验证、commit、next prompt 和跨会话 handoff 变成可重复流程 |
+| **并发不互踩** | 对 Serena project state、Git worktree writer、真实 GUI 焦点等共享状态设置明确边界 |
+| **独立救援面** | Remote Desktop Commander 不塞进 Gateway，保留为整机 repair/control plane |
+| **本地优先** | 密码、OAuth DB、Token、浏览器账号态和机器私有状态留在本机，不进入 Git |
+
+## 30 秒架构
+
+```text
+ChatGPT / Web AI
+        │
+        │ HTTPS + OAuth 2.1 / PKCE
+        ▼
+ WebGPT-as-Codex Edge
+        │
+        ▼
+  Unified MCP Gateway
+   ├─ Coding Tools   → 改代码 / 测试 / Git
+   ├─ Serena         → symbols / references / semantic navigation
+   ├─ Playwright     → Web / 已登录浏览器
+   └─ Windows-MCP    → Windows 原生 GUI
+
+Remote Desktop Commander
+   └─ 独立整机恢复与控制，不是 Gateway 的硬依赖
+```
+
+网页 Manager 只是控制面，不拥有运行时生命周期；关掉网页不会把 Agent 后端一起关掉。
+
+## 手动安装
+
+需要 Python 3.11+。如果你不使用 Agent-native Prompt，可以手动：
 
 ```powershell
 python -m venv .venv
@@ -26,9 +70,51 @@ python -m venv .venv
 .\.venv\Scripts\webgpt-codex.exe --version
 ```
 
-wheel 包含公共组件清单、英文/中文 Manager HTML 及其共享 CSS/JavaScript，以及 Stage18 定义的双语公开发布/法律/provenance 资源。机器本地状态在安装包之外创建。
+先看部署计划，再显式执行：
 
-开发环境：
+```powershell
+webgpt-codex deploy
+webgpt-codex deploy --apply
+webgpt-codex desktop-launcher install
+webgpt-codex autostart install
+webgpt-codex launcher --no-open --start-all
+webgpt-codex doctor
+```
+
+完整契约见 [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md)。
+
+## 当前已经验证的关键行为
+
+- Unified Gateway 可聚合核心 MCP，并通过 namespaced tool surface 暴露；
+- 真实 HTTPS OAuth metadata、动态注册、PKCE、token、refresh 和 authenticated MCP 已做过端到端验收；
+- 未授权公网 MCP 请求返回 401，而不是裸暴露工具；
+- Start All 幂等，能 preserve 健康外部服务，不重复拉实例；
+- OAuth Edge READY 不再只看 9340/9341 本地端口，还校验真实 Funnel 443 target；
+- 桌面 launcher 与 Autostart 可安全升级、可逆、无凭据；
+- 唯一正式 Skill 为 `skills/webgpt-as-codex/`，保留完整 Experience Ledger、原有 53 个 regression scenarios，并补回 3 个 legacy compatibility aliases（总计 56），以及 MCP Guides；
+- Manager 提供中英文 UI、Doctor/Repair、版本/环境/Gateway/OAuth/HTTPS 状态，但普通状态接口不泄露 Secret。
+
+## CLI
+
+`webgpt-codex --help` 提供：
+
+- `deploy`：组件发现、版本/兼容性判断与受控安装；
+- `bootstrap`：fresh-machine prerequisite / 本机状态准备；
+- `status` / `start` / `stop` / `restart`：受所有权约束的 Runtime Supervisor；
+- `doctor`：分层深度诊断；
+- `repair`：固定白名单、可回退的修复；
+- `manager`：loopback-only Web Manager；
+- `launcher` / `desktop-launcher` / `autostart`：启动与 Windows 集成；
+- `add-mcp`：discovery-first MCP 扩展；
+- `loop`：持久化 Loop Engineering 证据。
+
+## 安全边界
+
+Git / release artifact 不得包含 OAuth DB、Token、password、private key、cookie、browser profile、pairing data、私有机器 URL、PID/process transient state 或 machine-local handoff receipts。
+
+WebGPT-as-Codex 不把“能执行命令”当成无限权限。Manager、Repair、Update、runtime lifecycle 都有固定 authority boundary；未知 listener 和用户自己管理的健康服务默认 preserve。
+
+## 开发与验证
 
 ```powershell
 .\.venv\Scripts\python -m pip install -e .[dev]
@@ -37,46 +123,4 @@ wheel 包含公共组件清单、英文/中文 Manager HTML 及其共享 CSS/Jav
 .\.venv\Scripts\python scripts\secret_scan.py
 ```
 
-## CLI
-
-`webgpt-codex --help` 暴露以下受支持的命令面：
-
-- `paths`：显示机器本地状态根目录。
-- `status`、`start`、`stop`、`restart`：有界 Runtime Supervisor 操作。
-- `doctor`：具备先决条件意识的深度健康检查。
-- `repair`：带确认/备份的固定白名单修复操作。
-- `bootstrap`：发现优先的状态/bootstrap 规划。
-- `manager`：仅 loopback 的 Manager UI/API。
-- `launcher`、`desktop-launcher`、`autostart`：Windows 启动器集成。
-- `add-mcp`：发现优先的通用 MCP 接入；默认 dry-run，显式执行机器本地 apply。
-- `loop`：持久化的 Loop Engineering 执行/收口证据。
-
-Manager 操作只能使用固定契约。Start/Restart 受仓库运行时所有权约束。Stage 11 的 Update 是仓库批准、默认离线的能力：只能消费仓库已声明组件/版本/来源/digest/目标权限且已预先暂存的 artifact。
-
-## 已验证行为
-
-Stages 0-11 及后续补充链已经建立并回归验证了：
-- 通过四个核心 MCP 后端提供一个 Gateway endpoint；
-- 真实公网 HTTPS OAuth metadata、DCR + PKCE、refresh 与 authenticated MCP calls；
-- 未授权的公网 MCP 请求以 HTTP 401 拒绝；
-- loopback Manager 的浅轮询、输出净化与 Host/Origin/action-schema 加固；
-- 英文/中文 Manager 功能等价：共享功能实现，显式 `/en` / `/zh`，公开安全的环境/部署/版本/Gateway/OAuth/HTTPS/库存信息，URL 复制/打开，以及 reduced-motion/accessibility；
-- discovery-first Bootstrap、deep Doctor 和 allowlisted Repair；
-- PID birth/image 所有权检查、幂等 Start All 与有界 Restart；
-- 可逆、无凭据的桌面启动器/autostart，当前部署默认中文；
-- stale-Manager generation/contract 检测，避免“旧 Python 路由表 + 新静态资源”的混合版本；不相关或身份不明的监听器不被终止；
-- 桌面 Manager 打开复用用户正常运行的 Edge profile（或 Windows 默认 URL handler），不会创建 automation-only 空白 profile；
-- 通用 Add MCP 的 capability-evidence 状态与可移植 Operating Guides；
-- 持久化 Loop Engineering 与 exactly-once Playwright handoff；
-- 原子机器本地状态写入、不可信自定义 manifest 校验与有界 rollback；
-- 仓库批准的 Manager Update 权限。
-
-Manager 的本地凭据控制受 loopback/confirmation 约束。普通 status 从不返回 OAuth password；显式 Reveal 只在当前本地响应返回明文；Set/Regenerate 不回显，Regenerate 生成新值，activity feed 从不记录明文凭据。添加自定义 MCP candidate 只改变本地 registry 可见性，不自动获得 Gateway route 或 runtime lifecycle authority。
-
-## 公开安全发布边界
-
-Git 与发布 artifact 不得包含 OAuth 数据库、token、password、private key、cookie、browser profile、pairing data、私有机器 URL、本地状态 receipt、handoff receipt、PID/process state 或机器特定私有路径。
-
-wheel 有意携带运行时 Python 代码、公共 component manifests、Manager 静态 UI、Stage18 的双语/legal/provenance release resources，以及安装到 `share/webgpt-as-codex/skills` 的统一 Agent Skill 1.2.0 portable profiles。Stage closure/prompt 与机器本地运行证据不进入 installed Skill/runtime surface。本机 Computer Agent 与发行版共享同一 portable 1.2.0 core，只额外叠加 environment/inventory/state 等 machine-local overlay。
-
-参见 [中文架构](docs/zh-CN/ARCHITECTURE.md)、[中文当前状态](docs/zh-CN/CURRENT-PROJECT-STATE.md)、[中文决策与风险](docs/zh-CN/DECISIONS-AND-RISKS.md) 和 [中文 Skill](skills/webgpt-as-codex/zh-CN/SKILL.md)。
+项目状态与设计细节见 [`docs/CURRENT-PROJECT-STATE.md`](docs/CURRENT-PROJECT-STATE.md)、[`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md)、[`docs/DECISIONS-AND-RISKS.md`](docs/DECISIONS-AND-RISKS.md) 与 [`skills/webgpt-as-codex/SKILL.md`](skills/webgpt-as-codex/SKILL.md)。

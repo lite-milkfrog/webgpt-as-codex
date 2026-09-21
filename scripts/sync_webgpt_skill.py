@@ -5,8 +5,8 @@ import shutil
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
-CANONICAL = REPO_ROOT / "skills" / "computer-agent"
-DEFAULT_TARGET = REPO_ROOT.parent / ".skills" / "computer-agent"
+CANONICAL = REPO_ROOT / "skills" / "webgpt-as-codex"
+DEFAULT_TARGET = REPO_ROOT.parent / ".skills" / "webgpt-as-codex"
 LOCAL_OVERLAY_ROOT_FILES = {
     "environment.local.md",
     "MCP-SKILLS-INVENTORY.md",
@@ -50,7 +50,7 @@ def assert_canonical_is_portable() -> None:
     )
     if forbidden:
         raise SystemExit(
-            "canonical Computer Agent contains machine-local overlay: "
+            "canonical WebGPT-as-Codex Skill contains machine-local overlay: "
             + ", ".join(sorted(forbidden))
         )
 
