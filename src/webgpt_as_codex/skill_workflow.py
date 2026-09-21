@@ -14,7 +14,7 @@ from typing import Any
 from .paths import resource_root, state_root, user_home
 
 _CATEGORY_RE = re.compile(r"^[a-z0-9][a-z0-9._-]{0,63}$")
-_ROUTE_RE = re.compile(r"\.\./\.\./([^/\\\s]+)/REFERENCE\.md")
+_ROUTE_RE = re.compile(r"\.\./\.\./([^/\\\s]+)/(?:REFERENCE|SKILL)\.md")
 _RUN_STATUSES = {"pending", "in_progress", "passed", "failed", "blocked", "skipped"}
 _RUN_TRANSITION_STATUSES = {"in_progress", "passed", "failed", "blocked", "skipped"}
 
@@ -207,10 +207,10 @@ class SkillWorkflowControlPlane:
         with self._lock:
             roots = self._skill_roots()
             overlay = self._load_overlay()
-            memberships: dict[str, set[str]] = {}
-            for root in roots:
-                for name, categories in self._route_memberships(root["path"]).items():
-                    memberships.setdefault(name, set()).update(categories)
+            memberships_by_root = {
+                _path_key(root["path"]): self._route_memberships(root["path"])
+                for root in roots
+            }
 
             aggregated: dict[str, dict[str, Any]] = {}
             duplicate_counts: dict[str, int] = {}
@@ -234,6 +234,10 @@ class SkillWorkflowControlPlane:
                         continue
                     resolved = child.resolve(strict=False)
                     identity = _path_key(resolved)
+                    root_memberships = memberships_by_root.get(_path_key(path), {})
+                    local_router_categories = set(
+                        root_memberships.get(child.name, set())
+                    )
                     entry = skill_md if skill_md.is_file() else reference_md
                     markdown = _read_text(entry, limit=32768)
                     display_name, description = _summary_from_markdown(
@@ -267,10 +271,16 @@ class SkillWorkflowControlPlane:
                             "resolved_path": str(resolved),
                             "is_link": _is_link_like(child),
                             "locations": [],
-                            "router_categories": sorted(
-                                memberships.get(child.name, set())
-                            ),
+                            "router_categories": sorted(local_router_categories),
                         }
+                    else:
+                        combined_categories = set(
+                            aggregated[identity].get("router_categories") or []
+                        )
+                        combined_categories.update(local_router_categories)
+                        aggregated[identity]["router_categories"] = sorted(
+                            combined_categories
+                        )
                     aggregated[identity]["locations"].append(
                         {
                             "root_id": root["id"],
@@ -377,9 +387,15 @@ class SkillWorkflowControlPlane:
     def _require_skill(self, skill_id: str) -> dict[str, Any]:
         if not isinstance(skill_id, str) or not skill_id.strip():
             raise ValueError("skill id required")
-        for skill in self.skill_snapshot()["skills"]:
-            if skill["id"] == skill_id or skill["slug"] == skill_id:
-                return skill
+        skills = self.skill_snapshot()["skills"]
+        exact = [skill for skill in skills if skill["id"] == skill_id]
+        if len(exact) == 1:
+            return exact[0]
+        slug_matches = [skill for skill in skills if skill["slug"] == skill_id]
+        if len(slug_matches) == 1:
+            return slug_matches[0]
+        if len(slug_matches) > 1:
+            raise ValueError("ambiguous Skill slug; use stable Skill id")
         raise KeyError(skill_id)
 
     def move_skill(
