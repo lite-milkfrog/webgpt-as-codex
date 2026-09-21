@@ -17,6 +17,7 @@ from webgpt_as_codex.manager import (
     ActionRunner,
     build_server,
 )
+from webgpt_as_codex.skill_workflow import SkillWorkflowControlPlane
 
 
 def test_public_url_accepts_https_and_rejects_private_or_credentialed() -> None:
@@ -132,3 +133,180 @@ def test_manager_ui_has_bounded_polling_and_no_embedded_secret() -> None:
     assert "/api/password" not in html + script
     assert 'src="/manager.js"' in html
     assert "payload.component" in script
+
+
+def _manager_control_plane(tmp_path: Path) -> SkillWorkflowControlPlane:
+    root = tmp_path / "skills"
+    skill = root / "frontend-design"
+    skill.mkdir(parents=True)
+    (skill / "REFERENCE.md").write_text("# Frontend Design\n", encoding="utf-8")
+    registry = tmp_path / "workflow-registry.json"
+    registry.write_text(
+        json.dumps(
+            {
+                "schema_version": 1,
+                "workflows": [
+                    {
+                        "id": "demo",
+                        "title": "Demo",
+                        "stages": [
+                            {
+                                "id": "design",
+                                "title": "Design",
+                                "skills": [
+                                    {
+                                        "name": "frontend-design",
+                                        "required": True,
+                                    }
+                                ],
+                            }
+                        ],
+                    }
+                ],
+            }
+        ),
+        encoding="utf-8",
+    )
+    return SkillWorkflowControlPlane(
+        skill_roots=[root],
+        workflow_registry_path=registry,
+        local_state_dir=tmp_path / "state" / "skills",
+    )
+
+
+def test_manager_exposes_skill_and_workflow_read_models(tmp_path: Path) -> None:
+    control = _manager_control_plane(tmp_path)
+    server = build_server("127.0.0.1", 0, skill_workflow=control)
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    try:
+        port = server.server_address[1]
+        conn = http.client.HTTPConnection("127.0.0.1", port, timeout=3)
+        conn.request("GET", "/api/skills", headers={"Host": f"127.0.0.1:{port}"})
+        response = conn.getresponse()
+        skills = json.loads(response.read().decode("utf-8"))
+        assert response.status == 200
+        assert skills["skills"][0]["slug"] == "frontend-design"
+
+        conn.request("GET", "/api/workflows", headers={"Host": f"127.0.0.1:{port}"})
+        response = conn.getresponse()
+        workflows = json.loads(response.read().decode("utf-8"))
+        assert response.status == 200
+        assert workflows["workflows"][0]["id"] == "demo"
+    finally:
+        server.shutdown()
+        server.server_close()
+        thread.join(timeout=3)
+
+
+def test_manager_skill_move_requires_confirmation_and_persists(tmp_path: Path) -> None:
+    control = _manager_control_plane(tmp_path)
+    server = build_server("127.0.0.1", 0, skill_workflow=control)
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    try:
+        port = server.server_address[1]
+        headers = {
+            "Host": f"127.0.0.1:{port}",
+            "Content-Type": "application/json",
+            "X-WebGPT-Control": "1",
+        }
+        conn = http.client.HTTPConnection("127.0.0.1", port, timeout=3)
+        conn.request(
+            "POST",
+            "/api/skills",
+            body=json.dumps(
+                {
+                    "operation": "move",
+                    "id": "frontend-design",
+                    "category": "favorites",
+                    "confirm": False,
+                }
+            ),
+            headers=headers,
+        )
+        response = conn.getresponse()
+        response.read()
+        assert response.status == 409
+
+        conn.request(
+            "POST",
+            "/api/skills",
+            body=json.dumps(
+                {
+                    "operation": "move",
+                    "id": "frontend-design",
+                    "category": "favorites",
+                    "position": 1,
+                    "confirm": True,
+                }
+            ),
+            headers=headers,
+        )
+        response = conn.getresponse()
+        body = json.loads(response.read().decode("utf-8"))
+        assert response.status == 200
+        assert body["move_kind"] == "logical-category"
+        moved = control.skill_snapshot()["skills"][0]
+        assert moved["category"] == "favorites"
+        assert moved["position"] == 1
+    finally:
+        server.shutdown()
+        server.server_close()
+        thread.join(timeout=3)
+
+
+def test_manager_can_start_and_transition_workflow_run(tmp_path: Path) -> None:
+    control = _manager_control_plane(tmp_path)
+    server = build_server("127.0.0.1", 0, skill_workflow=control)
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    try:
+        port = server.server_address[1]
+        headers = {
+            "Host": f"127.0.0.1:{port}",
+            "Content-Type": "application/json",
+            "X-WebGPT-Control": "1",
+        }
+        conn = http.client.HTTPConnection("127.0.0.1", port, timeout=3)
+        conn.request(
+            "POST",
+            "/api/workflow-runs",
+            body=json.dumps(
+                {
+                    "operation": "start",
+                    "workflow_id": "demo",
+                    "context": {},
+                    "confirm": True,
+                }
+            ),
+            headers=headers,
+        )
+        response = conn.getresponse()
+        run = json.loads(response.read().decode("utf-8"))
+        assert response.status == 200
+        assert run["current_stage"] == "design"
+
+        conn.request(
+            "POST",
+            "/api/workflow-runs",
+            body=json.dumps(
+                {
+                    "operation": "transition",
+                    "run_id": run["run_id"],
+                    "stage_id": "design",
+                    "status": "passed",
+                    "evidence": "validated",
+                    "confirm": True,
+                }
+            ),
+            headers=headers,
+        )
+        response = conn.getresponse()
+        completed = json.loads(response.read().decode("utf-8"))
+        assert response.status == 200
+        assert completed["status"] == "complete"
+    finally:
+        server.shutdown()
+        server.server_close()
+        thread.join(timeout=3)
