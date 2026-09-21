@@ -310,3 +310,76 @@ def test_manager_can_start_and_transition_workflow_run(tmp_path: Path) -> None:
         server.shutdown()
         server.server_close()
         thread.join(timeout=3)
+
+
+def test_manager_can_preview_workflow_plan_without_starting_run(tmp_path: Path) -> None:
+    control = _manager_control_plane(tmp_path)
+    server = build_server("127.0.0.1", 0, skill_workflow=control)
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    try:
+        port = server.server_address[1]
+        headers = {
+            "Host": f"127.0.0.1:{port}",
+            "Content-Type": "application/json",
+            "X-WebGPT-Control": "1",
+        }
+        conn = http.client.HTTPConnection("127.0.0.1", port, timeout=3)
+        conn.request(
+            "POST",
+            "/api/workflows",
+            body=json.dumps(
+                {
+                    "operation": "plan",
+                    "workflow_id": "demo",
+                    "context": {},
+                }
+            ),
+            headers=headers,
+        )
+        response = conn.getresponse()
+        plan = json.loads(response.read().decode("utf-8"))
+        assert response.status == 200
+        assert plan["workflow_id"] == "demo"
+        assert plan["stages"][0]["id"] == "design"
+        assert plan["stages"][0]["status"] == "ready"
+        assert control.list_runs() == []
+    finally:
+        server.shutdown()
+        server.server_close()
+        thread.join(timeout=3)
+
+
+def test_manager_rejects_arbitrary_path_as_skill_id(tmp_path: Path) -> None:
+    control = _manager_control_plane(tmp_path)
+    server = build_server("127.0.0.1", 0, skill_workflow=control)
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    try:
+        port = server.server_address[1]
+        headers = {
+            "Host": f"127.0.0.1:{port}",
+            "Content-Type": "application/json",
+            "X-WebGPT-Control": "1",
+        }
+        conn = http.client.HTTPConnection("127.0.0.1", port, timeout=3)
+        conn.request(
+            "POST",
+            "/api/skills",
+            body=json.dumps(
+                {
+                    "operation": "open",
+                    "id": str(tmp_path / "outside"),
+                    "confirm": True,
+                }
+            ),
+            headers=headers,
+        )
+        response = conn.getresponse()
+        body = json.loads(response.read().decode("utf-8"))
+        assert response.status == 404
+        assert body["error"] == "skill-not-found"
+    finally:
+        server.shutdown()
+        server.server_close()
+        thread.join(timeout=3)
