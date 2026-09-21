@@ -444,3 +444,101 @@ def test_duplicate_skill_slugs_are_root_local_and_require_stable_ids(
 
     selected = copies[0]
     assert control._require_skill(selected["id"])["path"] == selected["path"]
+
+
+def test_relocation_plan_blocks_when_target_router_is_missing(tmp_path: Path) -> None:
+    source_root = tmp_path / "source"
+    target_root = tmp_path / "target"
+    write(
+        source_root / "category-web-ui" / "SKILL.md",
+        "# Web UI\n",
+    )
+    write(
+        source_root / "category-web-ui" / "references" / "routes.md",
+        "- demo -> ../../demo/REFERENCE.md\n",
+    )
+    write(source_root / "demo" / "REFERENCE.md", "# Demo\n")
+    target_root.mkdir()
+    registry = tmp_path / "workflow-registry.json"
+    make_registry(registry)
+    control = SkillWorkflowControlPlane(
+        skill_roots=[source_root, target_root],
+        workflow_registry_path=registry,
+        local_state_dir=tmp_path / "state" / "skills",
+    )
+
+    demo = next(row for row in control.skill_snapshot()["skills"] if row["slug"] == "demo")
+    plan = control.plan_relocation(demo["id"], "custom-2")
+
+    assert plan["ok"] is False
+    assert plan["status"] == "blocked"
+    assert plan["reason"] == "target-category-router-missing"
+    assert (source_root / "demo" / "REFERENCE.md").is_file()
+
+
+def test_relocation_moves_skill_and_route_transactionally(tmp_path: Path) -> None:
+    source_root = tmp_path / "source"
+    target_root = tmp_path / "target"
+    write(source_root / "category-web-ui" / "SKILL.md", "# Web UI\n")
+    write(
+        source_root / "category-web-ui" / "references" / "routes.md",
+        "- demo -> ../../demo/REFERENCE.md\n",
+    )
+    write(source_root / "demo" / "REFERENCE.md", "# Demo\n")
+    write(target_root / "category-web-ui" / "SKILL.md", "# Web UI\n")
+    write(
+        target_root / "category-web-ui" / "references" / "routes.md",
+        "# Routes\n",
+    )
+    registry = tmp_path / "workflow-registry.json"
+    make_registry(registry)
+    control = SkillWorkflowControlPlane(
+        skill_roots=[source_root, target_root],
+        workflow_registry_path=registry,
+        local_state_dir=tmp_path / "state" / "skills",
+    )
+
+    demo = next(row for row in control.skill_snapshot()["skills"] if row["slug"] == "demo")
+    plan = control.plan_relocation(demo["id"], "custom-2")
+    assert plan["ok"] is True
+    assert plan["filesystem_changed"] is False
+    assert plan["route_changes"][0]["category"] == "web-ui"
+
+    moved = control.relocate_skill(demo["id"], "custom-2")
+    assert moved["status"] == "relocated"
+    assert moved["filesystem_changed"] is True
+    assert not (source_root / "demo").exists()
+    assert (target_root / "demo" / "REFERENCE.md").is_file()
+
+    source_routes = (
+        source_root / "category-web-ui" / "references" / "routes.md"
+    ).read_text(encoding="utf-8")
+    target_routes = (
+        target_root / "category-web-ui" / "references" / "routes.md"
+    ).read_text(encoding="utf-8")
+    assert "../../demo/REFERENCE.md" not in source_routes
+    assert "../../demo/REFERENCE.md" in target_routes
+
+    snapshot = control.skill_snapshot()
+    relocated = next(row for row in snapshot["skills"] if row["slug"] == "demo")
+    assert Path(relocated["path"]).parent == target_root
+    assert "web-ui" in relocated["router_categories"]
+
+
+def test_relocation_rejects_linked_or_ambiguous_skill(tmp_path: Path) -> None:
+    source_root = tmp_path / "source"
+    target_root = tmp_path / "target"
+    write(source_root / "demo" / "REFERENCE.md", "# Demo\n")
+    write(target_root / "demo" / "REFERENCE.md", "# Other Demo\n")
+    registry = tmp_path / "workflow-registry.json"
+    make_registry(registry)
+    control = SkillWorkflowControlPlane(
+        skill_roots=[source_root, target_root],
+        workflow_registry_path=registry,
+        local_state_dir=tmp_path / "state" / "skills",
+    )
+
+    copies = [row for row in control.skill_snapshot()["skills"] if row["slug"] == "demo"]
+    assert len(copies) == 2
+    with pytest.raises(ValueError, match="duplicate Skill slug"):
+        control.plan_relocation(copies[0]["id"], "custom-2")
