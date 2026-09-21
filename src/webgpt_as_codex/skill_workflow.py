@@ -7,7 +7,7 @@ import re
 import secrets
 import subprocess
 import threading
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -20,7 +20,7 @@ _RUN_TRANSITION_STATUSES = {"in_progress", "passed", "failed", "blocked", "skipp
 
 
 def _utc_now() -> str:
-    return datetime.now(timezone.utc).isoformat()
+    return datetime.now(UTC).isoformat()
 
 
 def _path_key(path: Path) -> str:
@@ -638,12 +638,10 @@ class SkillWorkflowControlPlane:
                 and not all(bool(context.get(flag)) for flag in all_flags)
             ):
                 return False
-            if (
+            return not (
                 isinstance(none_flags, list)
                 and any(bool(context.get(flag)) for flag in none_flags)
-            ):
-                return False
-            return True
+            )
         return False
 
     def plan_workflow(
@@ -772,7 +770,7 @@ class SkillWorkflowControlPlane:
         with self._lock:
             plan = self.plan_workflow(workflow_id, context)
             run_id = (
-                datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+                datetime.now(UTC).strftime("%Y%m%dT%H%M%SZ")
                 + "-"
                 + secrets.token_hex(4)
             )
@@ -980,7 +978,7 @@ def _parse_context_json(raw: str | None) -> dict[str, Any]:
     except json.JSONDecodeError as exc:
         raise ValueError("context must be valid JSON") from exc
     if not isinstance(value, dict):
-        raise ValueError("context must be a JSON object")
+        raise TypeError("context must be a JSON object")
     return value
 
 
