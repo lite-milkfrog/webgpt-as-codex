@@ -5,6 +5,7 @@ import json
 import os
 import re
 import secrets
+import shutil
 import subprocess
 import threading
 from datetime import UTC, datetime
@@ -444,6 +445,203 @@ class SkillWorkflowControlPlane:
                 "filesystem_changed": False,
                 "inherit_router_category": category == "inherit",
             }
+
+    def _root_by_id(self, root_id: str) -> dict[str, Any]:
+        matches = [root for root in self._skill_roots() if root["id"] == root_id]
+        if len(matches) != 1:
+            raise KeyError(root_id)
+        return matches[0]
+
+    @staticmethod
+    def _route_lines_for_skill(route_file: Path, slug: str) -> list[str]:
+        if not route_file.is_file():
+            return []
+        text = route_file.read_text(encoding="utf-8")
+        marker_reference = f"../../{slug}/REFERENCE.md"
+        marker_skill = f"../../{slug}/SKILL.md"
+        return [
+            line
+            for line in text.splitlines()
+            if marker_reference in line or marker_skill in line
+        ]
+
+    @staticmethod
+    def _write_text_atomic(path: Path, text: str) -> None:
+        tmp = path.with_suffix(path.suffix + ".tmp")
+        tmp.write_text(text, encoding="utf-8")
+        os.replace(tmp, path)
+
+    def plan_relocation(self, skill_id: str, target_root_id: str) -> dict[str, Any]:
+        with self._lock:
+            skill = self._require_skill(skill_id)
+            if skill["kind"] == "category-router":
+                raise ValueError("category routers cannot be physically relocated")
+            if skill.get("is_link"):
+                raise ValueError("linked or junction Skills cannot be physically relocated")
+            if len(skill.get("locations") or []) != 1:
+                raise ValueError("Skill has aliases or duplicate locations; relocation is ambiguous")
+
+            location = skill["locations"][0]
+            source_root = self._root_by_id(str(location.get("root_id") or ""))
+            target_root = self._root_by_id(target_root_id)
+            source_root_path = Path(source_root["path"])
+            target_root_path = Path(target_root["path"])
+            source = Path(skill["path"])
+            destination = target_root_path / skill["slug"]
+
+            if _path_key(source_root_path) == _path_key(target_root_path):
+                raise ValueError("source and target Skill roots are the same")
+            if not source.is_dir():
+                raise FileNotFoundError(source)
+            if not target_root_path.is_dir():
+                raise FileNotFoundError(target_root_path)
+            if destination.exists():
+                raise FileExistsError(destination)
+
+            duplicates = [
+                row
+                for row in self.skill_snapshot()["skills"]
+                if row["slug"] == skill["slug"] and row["path"] != skill["path"]
+            ]
+            if duplicates:
+                raise ValueError("duplicate Skill slug exists; relocation is ambiguous")
+
+            route_changes: list[dict[str, Any]] = []
+            for category in skill.get("router_categories") or []:
+                source_route = (
+                    source_root_path
+                    / f"category-{category}"
+                    / "references"
+                    / "routes.md"
+                )
+                target_route = (
+                    target_root_path
+                    / f"category-{category}"
+                    / "references"
+                    / "routes.md"
+                )
+                lines = self._route_lines_for_skill(source_route, skill["slug"])
+                if not lines:
+                    continue
+                if not target_route.is_file():
+                    return {
+                        "ok": False,
+                        "status": "blocked",
+                        "reason": "target-category-router-missing",
+                        "skill_id": skill["id"],
+                        "target_root_id": target_root_id,
+                        "missing_category": category,
+                        "source": str(source),
+                        "destination": str(destination),
+                    }
+                route_changes.append(
+                    {
+                        "category": category,
+                        "source_route": str(source_route),
+                        "target_route": str(target_route),
+                        "lines": lines,
+                    }
+                )
+
+            return {
+                "ok": True,
+                "status": "ready",
+                "skill_id": skill["id"],
+                "slug": skill["slug"],
+                "source_root_id": source_root["id"],
+                "target_root_id": target_root["id"],
+                "source": str(source),
+                "destination": str(destination),
+                "entrypoint": skill["entrypoint"],
+                "route_changes": route_changes,
+                "filesystem_changed": False,
+            }
+
+    def relocate_skill(self, skill_id: str, target_root_id: str) -> dict[str, Any]:
+        with self._lock:
+            plan = self.plan_relocation(skill_id, target_root_id)
+            if not plan.get("ok"):
+                return plan
+
+            source = Path(plan["source"])
+            destination = Path(plan["destination"])
+            route_backups: dict[Path, str] = {}
+            overlay_before = self._load_overlay()
+            moved = False
+            try:
+                for change in plan["route_changes"]:
+                    for key in ("source_route", "target_route"):
+                        path = Path(change[key])
+                        if path not in route_backups:
+                            route_backups[path] = path.read_text(encoding="utf-8")
+
+                shutil.move(str(source), str(destination))
+                moved = True
+
+                for change in plan["route_changes"]:
+                    source_route = Path(change["source_route"])
+                    target_route = Path(change["target_route"])
+                    lines_to_move = set(change["lines"])
+
+                    source_lines = source_route.read_text(encoding="utf-8").splitlines()
+                    source_text = "\n".join(
+                        line for line in source_lines if line not in lines_to_move
+                    )
+                    if source_text:
+                        source_text += "\n"
+                    self._write_text_atomic(source_route, source_text)
+
+                    target_text = target_route.read_text(encoding="utf-8")
+                    target_lines = target_text.splitlines()
+                    for line in change["lines"]:
+                        if line not in target_lines:
+                            target_lines.append(line)
+                    new_target = "\n".join(target_lines)
+                    if new_target:
+                        new_target += "\n"
+                    self._write_text_atomic(target_route, new_target)
+
+                entrypoint = destination / str(plan["entrypoint"])
+                if not entrypoint.is_file():
+                    raise RuntimeError("relocated Skill entrypoint missing")
+
+                snapshot = self.skill_snapshot()
+                relocated = [
+                    row
+                    for row in snapshot["skills"]
+                    if _path_key(Path(row["path"])) == _path_key(destination)
+                ]
+                if len(relocated) != 1:
+                    raise RuntimeError("relocated Skill not discoverable")
+
+                routed = set(relocated[0].get("router_categories") or [])
+                expected = {change["category"] for change in plan["route_changes"]}
+                if not expected.issubset(routed):
+                    raise RuntimeError("relocated Skill category routes did not validate")
+
+                return {
+                    **plan,
+                    "ok": True,
+                    "status": "relocated",
+                    "skill_id": relocated[0]["id"],
+                    "filesystem_changed": True,
+                }
+            except Exception:
+                for path, text in route_backups.items():
+                    try:
+                        self._write_text_atomic(path, text)
+                    except OSError:
+                        pass
+                if moved and destination.exists() and not source.exists():
+                    try:
+                        shutil.move(str(destination), str(source))
+                    except OSError:
+                        pass
+                try:
+                    self._write_overlay(overlay_before)
+                except OSError:
+                    pass
+                raise
 
     def open_skill_location(self, skill_id: str) -> dict[str, Any]:
         skill = self._require_skill(skill_id)
@@ -1001,6 +1199,14 @@ def cli_skill_workflow(argv: list[str]) -> int:
     open_folder = sub.add_parser("open-folder")
     open_folder.add_argument("skill_id")
 
+    relocate_plan = sub.add_parser("relocate-plan")
+    relocate_plan.add_argument("skill_id")
+    relocate_plan.add_argument("target_root_id")
+
+    relocate = sub.add_parser("relocate")
+    relocate.add_argument("skill_id")
+    relocate.add_argument("target_root_id")
+
     start = sub.add_parser("run-start")
     start.add_argument("workflow_id")
     start.add_argument("--context", default="{}")
@@ -1041,6 +1247,16 @@ def cli_skill_workflow(argv: list[str]) -> int:
             )
         elif args.action == "open-folder":
             result = control.open_skill_location(args.skill_id)
+        elif args.action == "relocate-plan":
+            result = control.plan_relocation(
+                args.skill_id,
+                args.target_root_id,
+            )
+        elif args.action == "relocate":
+            result = control.relocate_skill(
+                args.skill_id,
+                args.target_root_id,
+            )
         elif args.action == "run-start":
             result = control.start_run(
                 args.workflow_id,
