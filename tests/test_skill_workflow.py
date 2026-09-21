@@ -276,3 +276,49 @@ def test_run_starts_blocked_when_first_stage_required_skill_is_missing(
     assert run["current_stage"] == "design"
     assert run["stages"][0]["planner_status"] == "blocked"
     assert run["stages"][0]["status"] == "blocked"
+
+
+def test_invalid_workflow_registry_fails_closed(tmp_path: Path) -> None:
+    root = tmp_path / "skills"
+    root.mkdir()
+    registry = tmp_path / "workflow-registry.json"
+    registry.write_text(
+        json.dumps(
+            {
+                "schema_version": 1,
+                "workflows": [
+                    {
+                        "id": "demo",
+                        "title": "Demo",
+                        "stages": [
+                            {
+                                "id": "design",
+                                "title": "Design",
+                                "skills": [
+                                    {
+                                        "name": "frontend-design",
+                                        "required": "yes",
+                                        "unexpected": True,
+                                    }
+                                ],
+                            }
+                        ],
+                    }
+                ],
+            }
+        ),
+        encoding="utf-8",
+    )
+    control = SkillWorkflowControlPlane(
+        skill_roots=[root],
+        workflow_registry_path=registry,
+        local_state_dir=tmp_path / "state" / "skills",
+    )
+
+    catalog = control.workflow_catalog()
+    assert catalog["error"] == "workflow-registry-invalid"
+    assert catalog["workflows"] == []
+    assert any("required" in item for item in catalog["validation_errors"])
+    assert any("unsupported keys" in item for item in catalog["validation_errors"])
+    with pytest.raises(KeyError):
+        control.plan_workflow("demo")
