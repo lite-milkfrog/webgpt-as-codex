@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import argparse
 import json
 import os
 import re
@@ -706,3 +707,105 @@ class SkillWorkflowControlPlane:
             data["updated_at"] = _utc_now()
             self._write_run(data)
             return data
+
+
+def _parse_context_json(raw: str | None) -> dict[str, Any]:
+    if not raw:
+        return {}
+    try:
+        value = json.loads(raw)
+    except json.JSONDecodeError as exc:
+        raise ValueError("context must be valid JSON") from exc
+    if not isinstance(value, dict):
+        raise ValueError("context must be a JSON object")
+    return value
+
+
+def cli_skill_workflow(argv: list[str]) -> int:
+    parser = argparse.ArgumentParser(prog="webgpt-codex skill-workflow")
+    sub = parser.add_subparsers(dest="action", required=True)
+
+    sub.add_parser("skills")
+    sub.add_parser("workflows")
+
+    plan = sub.add_parser("plan")
+    plan.add_argument("workflow_id")
+    plan.add_argument("--context", default="{}")
+
+    move = sub.add_parser("move")
+    move.add_argument("skill_id")
+    move.add_argument("category")
+    move.add_argument("--position", type=int)
+
+    open_folder = sub.add_parser("open-folder")
+    open_folder.add_argument("skill_id")
+
+    start = sub.add_parser("run-start")
+    start.add_argument("workflow_id")
+    start.add_argument("--context", default="{}")
+
+    run_list = sub.add_parser("run-list")
+    run_list.add_argument("--limit", type=int, default=50)
+
+    transition = sub.add_parser("run-transition")
+    transition.add_argument("run_id")
+    transition.add_argument("stage_id")
+    transition.add_argument(
+        "status",
+        choices=sorted(_RUN_STATUSES),
+    )
+    transition.add_argument("--evidence")
+
+    args = parser.parse_args(argv)
+    control = SkillWorkflowControlPlane()
+
+    try:
+        if args.action == "skills":
+            result: Any = control.skill_snapshot()
+        elif args.action == "workflows":
+            result = control.workflow_catalog()
+        elif args.action == "plan":
+            result = control.plan_workflow(
+                args.workflow_id,
+                _parse_context_json(args.context),
+            )
+        elif args.action == "move":
+            result = control.move_skill(
+                args.skill_id,
+                args.category,
+                args.position,
+            )
+        elif args.action == "open-folder":
+            result = control.open_skill_location(args.skill_id)
+        elif args.action == "run-start":
+            result = control.start_run(
+                args.workflow_id,
+                _parse_context_json(args.context),
+            )
+        elif args.action == "run-list":
+            result = {"runs": control.list_runs(limit=args.limit)}
+        elif args.action == "run-transition":
+            result = control.transition_run(
+                args.run_id,
+                args.stage_id,
+                args.status,
+                args.evidence,
+            )
+        else:
+            parser.error("unknown action")
+            return 2
+    except (FileNotFoundError, KeyError, OSError, TypeError, ValueError) as exc:
+        print(
+            json.dumps(
+                {
+                    "ok": False,
+                    "error": type(exc).__name__,
+                    "detail": str(exc),
+                },
+                ensure_ascii=False,
+            )
+        )
+        return 2
+
+    print(json.dumps(result, ensure_ascii=False, indent=2))
+    return 0
