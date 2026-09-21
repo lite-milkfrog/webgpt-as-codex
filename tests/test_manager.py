@@ -383,3 +383,115 @@ def test_manager_rejects_arbitrary_path_as_skill_id(tmp_path: Path) -> None:
         server.shutdown()
         server.server_close()
         thread.join(timeout=3)
+
+
+def test_manager_relocation_plan_then_confirmed_move(tmp_path: Path) -> None:
+    source_root = tmp_path / "source"
+    target_root = tmp_path / "target"
+    (source_root / "category-web-ui" / "references").mkdir(parents=True)
+    (source_root / "category-web-ui" / "SKILL.md").write_text("# Web UI\n", encoding="utf-8")
+    (source_root / "category-web-ui" / "references" / "routes.md").write_text(
+        "- demo -> ../../demo/REFERENCE.md\n",
+        encoding="utf-8",
+    )
+    (source_root / "demo").mkdir()
+    (source_root / "demo" / "REFERENCE.md").write_text("# Demo\n", encoding="utf-8")
+    (target_root / "category-web-ui" / "references").mkdir(parents=True)
+    (target_root / "category-web-ui" / "SKILL.md").write_text("# Web UI\n", encoding="utf-8")
+    (target_root / "category-web-ui" / "references" / "routes.md").write_text(
+        "# Routes\n",
+        encoding="utf-8",
+    )
+    registry = tmp_path / "workflow-registry.json"
+    registry.write_text(
+        json.dumps(
+            {
+                "schema_version": 1,
+                "workflows": [
+                    {
+                        "id": "noop",
+                        "title": "Noop",
+                        "stages": [{"id": "noop", "title": "Noop", "skills": []}],
+                    }
+                ],
+            }
+        ),
+        encoding="utf-8",
+    )
+    control = SkillWorkflowControlPlane(
+        skill_roots=[source_root, target_root],
+        workflow_registry_path=registry,
+        local_state_dir=tmp_path / "state" / "skills",
+    )
+    demo = next(row for row in control.skill_snapshot()["skills"] if row["slug"] == "demo")
+
+    server = build_server("127.0.0.1", 0, skill_workflow=control)
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    try:
+        port = server.server_address[1]
+        headers = {
+            "Host": f"127.0.0.1:{port}",
+            "Content-Type": "application/json",
+            "X-WebGPT-Control": "1",
+        }
+        conn = http.client.HTTPConnection("127.0.0.1", port, timeout=3)
+        conn.request(
+            "POST",
+            "/api/skills",
+            body=json.dumps(
+                {
+                    "operation": "relocation-plan",
+                    "id": demo["id"],
+                    "target_root_id": "custom-2",
+                }
+            ),
+            headers=headers,
+        )
+        response = conn.getresponse()
+        plan = json.loads(response.read().decode("utf-8"))
+        assert response.status == 200
+        assert plan["status"] == "ready"
+        assert (source_root / "demo").is_dir()
+
+        conn.request(
+            "POST",
+            "/api/skills",
+            body=json.dumps(
+                {
+                    "operation": "relocate",
+                    "id": demo["id"],
+                    "target_root_id": "custom-2",
+                    "confirm": False,
+                }
+            ),
+            headers=headers,
+        )
+        response = conn.getresponse()
+        response.read()
+        assert response.status == 409
+        assert (source_root / "demo").is_dir()
+
+        conn.request(
+            "POST",
+            "/api/skills",
+            body=json.dumps(
+                {
+                    "operation": "relocate",
+                    "id": demo["id"],
+                    "target_root_id": "custom-2",
+                    "confirm": True,
+                }
+            ),
+            headers=headers,
+        )
+        response = conn.getresponse()
+        moved = json.loads(response.read().decode("utf-8"))
+        assert response.status == 200
+        assert moved["status"] == "relocated"
+        assert not (source_root / "demo").exists()
+        assert (target_root / "demo" / "REFERENCE.md").is_file()
+    finally:
+        server.shutdown()
+        server.server_close()
+        thread.join(timeout=3)
