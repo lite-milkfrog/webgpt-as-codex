@@ -93,6 +93,10 @@ def test_skill_snapshot_uses_router_membership_and_persists_logical_move(
     assert frontend["category"] == "web-ui"
     assert frontend["category_source"] == "category-router"
     assert frontend["path"].endswith("frontend-design")
+    assert any(
+        item["workflow_id"] == "demo" and item["stage_id"] == "design"
+        for item in frontend["workflow_usage"]
+    )
 
     result = control.move_skill(frontend["id"], "favorites", 2)
     assert result["filesystem_changed"] is False
