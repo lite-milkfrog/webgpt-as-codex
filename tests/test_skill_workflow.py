@@ -326,3 +326,42 @@ def test_invalid_workflow_registry_fails_closed(tmp_path: Path) -> None:
     assert any("unsupported keys" in item for item in catalog["validation_errors"])
     with pytest.raises(KeyError):
         control.plan_workflow("demo")
+
+
+def test_blocked_run_can_refresh_after_required_skill_appears(tmp_path: Path) -> None:
+    root = tmp_path / "skills"
+    root.mkdir()
+    registry = tmp_path / "workflow-registry.json"
+    make_registry(registry)
+    control = SkillWorkflowControlPlane(
+        skill_roots=[root],
+        workflow_registry_path=registry,
+        local_state_dir=tmp_path / "state" / "skills",
+    )
+
+    run = control.start_run("demo", {"qa_needed": False})
+    assert run["status"] == "blocked"
+    write(root / "frontend-design" / "REFERENCE.md", "# Frontend Design\n")
+
+    refreshed = control.refresh_run(run["run_id"])
+    assert refreshed["status"] == "active"
+    assert refreshed["current_stage"] == "design"
+    assert refreshed["stages"][0]["planner_status"] in {"ready", "degraded"}
+    assert refreshed["stages"][0]["status"] == "in_progress"
+
+
+def test_run_rejects_transition_of_non_current_stage(tmp_path: Path) -> None:
+    root = tmp_path / "skills"
+    write(root / "frontend-design" / "REFERENCE.md", "# Frontend Design\n")
+    write(root / "webapp-testing" / "REFERENCE.md", "# Web App Testing\n")
+    registry = tmp_path / "workflow-registry.json"
+    make_registry(registry)
+    control = SkillWorkflowControlPlane(
+        skill_roots=[root],
+        workflow_registry_path=registry,
+        local_state_dir=tmp_path / "state" / "skills",
+    )
+
+    run = control.start_run("demo", {"qa_needed": True})
+    with pytest.raises(ValueError, match="current stage"):
+        control.transition_run(run["run_id"], "qa", "passed")
