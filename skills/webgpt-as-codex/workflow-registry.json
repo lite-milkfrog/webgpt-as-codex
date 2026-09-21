@@ -1,0 +1,441 @@
+{
+  "schema_version": 1,
+  "id": "webgpt-as-codex-workflow-registry",
+  "updated_at": "2026-09-22",
+  "design": {
+    "source_of_truth": "repository",
+    "execution_state": "machine-local",
+    "rule": "Workflows select Skills by stage. The UI reads this registry; the UI never becomes the workflow SoT."
+  },
+  "workflows": [
+    {
+      "id": "web-product-build",
+      "title": "Web Product Build",
+      "description": "From product context to visual direction, implementation, browser verification, and final polish.",
+      "supporting_workflows": [
+        "coding.md",
+        "browser.md",
+        "cross-tool.md"
+      ],
+      "stages": [
+        {
+          "id": "product-context",
+          "title": "Product context",
+          "skills": [
+            {
+              "name": "ui-design",
+              "required": false
+            }
+          ],
+          "outputs": [
+            "product brief",
+            "page goals",
+            "target users",
+            "constraints"
+          ],
+          "gate": {
+            "type": "artifact",
+            "requires": [
+              "product brief"
+            ]
+          }
+        },
+        {
+          "id": "visual-direction",
+          "title": "Visual direction",
+          "skills": [
+            {
+              "name": "frontend-design",
+              "required": true
+            },
+            {
+              "name": "design-taste-frontend",
+              "required": false,
+              "when": "brand_heavy"
+            },
+            {
+              "name": "brandkit",
+              "required": false,
+              "when": "brand_identity_needed"
+            },
+            {
+              "name": "imagegen-frontend-web",
+              "required": false,
+              "when": "visual_reference_needed"
+            }
+          ],
+          "outputs": [
+            "design direction",
+            "component language",
+            "reference plan"
+          ],
+          "gate": {
+            "type": "review",
+            "requires": [
+              "coherent visual direction"
+            ]
+          }
+        },
+        {
+          "id": "implementation",
+          "title": "Implementation",
+          "skills": [
+            {
+              "name": "frontend-design",
+              "required": true
+            },
+            {
+              "name": "web-development",
+              "required": false
+            },
+            {
+              "name": "shadcn",
+              "required": false,
+              "when": "component_library_needed"
+            }
+          ],
+          "supporting_workflows": [
+            "coding.md"
+          ],
+          "outputs": [
+            "working frontend"
+          ],
+          "gate": {
+            "type": "validation",
+            "requires": [
+              "build or runtime proof"
+            ]
+          }
+        },
+        {
+          "id": "reference-fidelity",
+          "title": "Reference fidelity",
+          "when": "reference_image_exists",
+          "skills": [
+            {
+              "name": "pixel-perfect-reference-ui",
+              "required": false
+            },
+            {
+              "name": "ui-image-to-code",
+              "required": false
+            }
+          ],
+          "outputs": [
+            "reference parity evidence"
+          ],
+          "gate": {
+            "type": "visual",
+            "requires": [
+              "reference comparison"
+            ]
+          }
+        },
+        {
+          "id": "browser-qa",
+          "title": "Browser QA",
+          "skills": [
+            {
+              "name": "webapp-testing",
+              "required": true
+            },
+            {
+              "name": "web-design-guidelines",
+              "required": false
+            }
+          ],
+          "supporting_workflows": [
+            "browser.md"
+          ],
+          "outputs": [
+            "browser evidence",
+            "interaction findings"
+          ],
+          "gate": {
+            "type": "validation",
+            "requires": [
+              "critical flows pass"
+            ]
+          }
+        },
+        {
+          "id": "polish",
+          "title": "Final polish",
+          "skills": [
+            {
+              "name": "impeccable",
+              "required": true
+            },
+            {
+              "name": "redesign-existing-projects",
+              "required": false,
+              "when": "existing_product"
+            }
+          ],
+          "outputs": [
+            "final polish report"
+          ],
+          "gate": {
+            "type": "review",
+            "requires": [
+              "visual and interaction acceptance"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "screenshot-to-frontend",
+      "title": "Screenshot to Frontend",
+      "description": "Turn screenshot, Figma export, or visual reference into editable frontend with parity evidence.",
+      "supporting_workflows": [
+        "coding.md",
+        "browser.md"
+      ],
+      "stages": [
+        {
+          "id": "reference-intake",
+          "title": "Reference intake",
+          "skills": [
+            {
+              "name": "ui-image-to-code",
+              "required": true
+            },
+            {
+              "name": "image-to-code",
+              "required": false
+            }
+          ],
+          "outputs": [
+            "layout blueprint",
+            "asset map",
+            "visual constraints"
+          ],
+          "gate": {
+            "type": "artifact",
+            "requires": [
+              "reference blueprint"
+            ]
+          }
+        },
+        {
+          "id": "implementation",
+          "title": "Editable implementation",
+          "skills": [
+            {
+              "name": "pixel-perfect-reference-ui",
+              "required": true
+            },
+            {
+              "name": "frontend-design",
+              "required": true
+            },
+            {
+              "name": "web-development",
+              "required": false
+            }
+          ],
+          "outputs": [
+            "editable frontend"
+          ],
+          "gate": {
+            "type": "validation",
+            "requires": [
+              "renderable implementation"
+            ]
+          }
+        },
+        {
+          "id": "visual-diff",
+          "title": "Visual diff and correction",
+          "skills": [
+            {
+              "name": "webapp-testing",
+              "required": true
+            },
+            {
+              "name": "impeccable",
+              "required": false
+            }
+          ],
+          "outputs": [
+            "screenshot diff evidence",
+            "correction list"
+          ],
+          "gate": {
+            "type": "visual",
+            "requires": [
+              "accepted parity"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "existing-ui-redesign",
+      "title": "Existing UI Redesign",
+      "description": "Audit and improve an existing UI while preserving product behavior.",
+      "supporting_workflows": [
+        "coding.md",
+        "browser.md",
+        "cross-tool.md"
+      ],
+      "stages": [
+        {
+          "id": "audit",
+          "title": "Existing product audit",
+          "skills": [
+            {
+              "name": "impeccable",
+              "required": true
+            },
+            {
+              "name": "web-design-guidelines",
+              "required": false
+            }
+          ],
+          "outputs": [
+            "audit findings",
+            "preserve list",
+            "change list"
+          ],
+          "gate": {
+            "type": "review",
+            "requires": [
+              "behavior preservation scope"
+            ]
+          }
+        },
+        {
+          "id": "redesign",
+          "title": "Redesign",
+          "skills": [
+            {
+              "name": "redesign-existing-projects",
+              "required": true
+            },
+            {
+              "name": "frontend-design",
+              "required": true
+            },
+            {
+              "name": "design-taste-frontend",
+              "required": false,
+              "when": "brand_heavy"
+            }
+          ],
+          "outputs": [
+            "redesigned implementation"
+          ],
+          "gate": {
+            "type": "validation",
+            "requires": [
+              "existing behavior preserved"
+            ]
+          }
+        },
+        {
+          "id": "browser-acceptance",
+          "title": "Browser acceptance",
+          "skills": [
+            {
+              "name": "webapp-testing",
+              "required": true
+            },
+            {
+              "name": "impeccable",
+              "required": false
+            }
+          ],
+          "outputs": [
+            "acceptance evidence"
+          ],
+          "gate": {
+            "type": "validation",
+            "requires": [
+              "critical flows and responsive states pass"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "long-running-engineering",
+      "title": "Long-running Engineering",
+      "description": "Generic WAC Loop Engineering wrapper for multi-stage repository work.",
+      "supporting_workflows": [
+        "coding.md",
+        "cross-tool.md",
+        "loop-engineering.md",
+        "handoff-template.md"
+      ],
+      "stages": [
+        {
+          "id": "bootstrap",
+          "title": "Skill, tool, Git and SoT bootstrap",
+          "skills": [],
+          "outputs": [
+            "execution map",
+            "repo truth",
+            "stage contract"
+          ],
+          "gate": {
+            "type": "evidence",
+            "requires": [
+              "tool map",
+              "Git state",
+              "SoT state"
+            ]
+          }
+        },
+        {
+          "id": "implementation",
+          "title": "Bounded stage implementation",
+          "skills": [],
+          "outputs": [
+            "stage implementation",
+            "targeted validation"
+          ],
+          "gate": {
+            "type": "validation",
+            "requires": [
+              "stage exit criteria"
+            ]
+          }
+        },
+        {
+          "id": "closure",
+          "title": "Docs-before-prompt closure",
+          "skills": [],
+          "outputs": [
+            "updated SoT",
+            "closure commit",
+            "next prompt"
+          ],
+          "gate": {
+            "type": "evidence",
+            "requires": [
+              "docs barrier",
+              "commit state",
+              "handoff prompt"
+            ]
+          }
+        },
+        {
+          "id": "handoff",
+          "title": "Verified recursive handoff",
+          "skills": [],
+          "outputs": [
+            "handoff receipt"
+          ],
+          "gate": {
+            "type": "runtime",
+            "requires": [
+              "next conversation takeover"
+            ]
+          }
+        }
+      ]
+    }
+  ]
+}
