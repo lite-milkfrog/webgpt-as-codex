@@ -417,7 +417,7 @@ def test_duplicate_skill_slugs_are_root_local_and_require_stable_ids(
     ]
     assert len(copies) == 2
     assert all("@" in row["id"] for row in copies)
-    by_path = {Path(row["path"]).parent.parent.name: row for row in copies}
+    by_path = {Path(row["path"]).parent.name: row for row in copies}
     assert by_path["root-a"]["category"] == "web-ui"
     assert by_path["root-b"]["category"] == "unclassified"
     with pytest.raises(ValueError, match="ambiguous"):
