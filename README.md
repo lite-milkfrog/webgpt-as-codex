@@ -8,6 +8,14 @@
 
 **Deploy once · one MCP URL · one-click start · self-recovery · local-first.**
 
+> **No extra API tokens. No extra API bill.**
+>
+> WebGPT-as-Codex is designed to use your existing ChatGPT plan instead of asking you to buy a separate API balance. That gives you a practical degree of **local compute freedom**: when Codex quota is tight, you can keep working through your own local tools, browser and computer. It is especially useful for long coding, automation and desktop-control tasks that would otherwise burn through dedicated coding-agent quota.
+>
+> Personally tested across a very wide range of real tasks: repository development, testing, Git workflows, browser automation, Windows GUI control, MCP deployment, OAuth recovery, long-running handoffs and more.
+
+ChatGPT itself still follows the limits of your current plan and client. In practice, the project does **not** require a separate OpenAI API key or additional API-token spend. If your ChatGPT client supports MCP/Plugins, the same local stack can be used from the plan you already have.
+
 WebGPT-as-Codex is not another MCP server. It is the control, routing, recovery and deployment layer you start needing once several MCPs must work together reliably: who owns code semantics, who writes files, how OAuth stays stable, what happens after reboot, how concurrent sessions avoid shared-state collisions, and how a long task hands itself to the next conversation without losing truth.
 
 ## Fastest path: give the repository to an AI agent
