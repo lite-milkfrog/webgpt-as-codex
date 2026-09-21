@@ -281,6 +281,38 @@ class SkillWorkflowControlPlane:
                     )
 
             skills = list(aggregated.values())
+            usage: dict[str, list[dict[str, Any]]] = {}
+            catalog = self.workflow_catalog()
+            for workflow in catalog.get("workflows", []):
+                if not isinstance(workflow, dict):
+                    continue
+                for stage in workflow.get("stages", []):
+                    if not isinstance(stage, dict):
+                        continue
+                    for selector in stage.get("skills", []):
+                        if isinstance(selector, str):
+                            name = selector
+                            required = True
+                            condition = None
+                        elif isinstance(selector, dict):
+                            name = selector.get("name")
+                            required = selector.get("required", True) is not False
+                            condition = selector.get("when")
+                        else:
+                            continue
+                        if not isinstance(name, str):
+                            continue
+                        usage.setdefault(name, []).append(
+                            {
+                                "workflow_id": workflow.get("id"),
+                                "workflow_title": workflow.get("title"),
+                                "stage_id": stage.get("id"),
+                                "stage_title": stage.get("title"),
+                                "required": required,
+                                "when": condition,
+                            }
+                        )
+
             assignments = overlay.get("assignments") or {}
             categories: set[str] = set()
             for skill in skills:
@@ -313,6 +345,7 @@ class SkillWorkflowControlPlane:
                     if isinstance(position, int) and position >= 0
                     else None
                 )
+                skill["workflow_usage"] = usage.get(skill["slug"], [])
                 categories.add(category)
 
             skills.sort(
@@ -508,9 +541,13 @@ class SkillWorkflowControlPlane:
                         requires = gate.get("requires")
                         if not isinstance(gate_type, str) or not gate_type:
                             errors.append(f"{stage_path}.gate.type: required")
-                        if not isinstance(requires, list) or not all(
-                            isinstance(item, str) and item.strip()
-                            for item in requires
+                        if (
+                            not isinstance(requires, list)
+                            or not requires
+                            or not all(
+                                isinstance(item, str) and item.strip()
+                                for item in requires
+                            )
                         ):
                             errors.append(
                                 f"{stage_path}.gate.requires: expected non-empty strings"
