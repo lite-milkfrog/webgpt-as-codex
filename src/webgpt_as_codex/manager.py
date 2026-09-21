@@ -786,6 +786,46 @@ class ManagerRequestHandler(BaseHTTPRequestHandler):
             self._json({"ok": False, "error": "invalid-action-payload"}, HTTPStatus.BAD_REQUEST)
             return
 
+        if self.path == "/api/workflows":
+            try:
+                self._require_fields(
+                    payload,
+                    {"operation", "workflow_id", "context"},
+                )
+                if payload.get("operation") != "plan":
+                    raise ActionPayloadError("unknown workflow operation")
+                context = payload.get("context")
+                if context is not None and not isinstance(context, dict):
+                    raise ActionPayloadError("context must be an object")
+                result = self.server.skill_workflow.plan_workflow(
+                    str(payload.get("workflow_id") or ""),
+                    context,
+                )
+            except ActionPayloadError:
+                self._json(
+                    {"ok": False, "error": "invalid-action-payload"},
+                    HTTPStatus.BAD_REQUEST,
+                )
+                return
+            except KeyError:
+                self._json(
+                    {"ok": False, "error": "workflow-not-found"},
+                    HTTPStatus.NOT_FOUND,
+                )
+                return
+            except (OSError, TypeError, ValueError) as exc:
+                self._json(
+                    {
+                        "ok": False,
+                        "error": "workflow-plan-failed",
+                        "failure_type": type(exc).__name__,
+                    },
+                    HTTPStatus.BAD_REQUEST,
+                )
+                return
+            self._local_json(result)
+            return
+
         if self._handle_local_mutation(payload):
             return
 
