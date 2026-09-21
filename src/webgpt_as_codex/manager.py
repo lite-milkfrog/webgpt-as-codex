@@ -553,6 +553,17 @@ class ManagerRequestHandler(BaseHTTPRequestHandler):
                     )
                     self._local_json(result)
                     return True
+                if operation == "refresh":
+                    result = self.server.skill_workflow.refresh_run(
+                        str(payload.get("run_id") or "")
+                    )
+                    self.server.record_activity(
+                        "workflow-runs.refresh",
+                        "success",
+                        detail=str(result.get("run_id") or ""),
+                    )
+                    self._local_json(result)
+                    return True
                 if operation == "transition":
                     result = self.server.skill_workflow.transition_run(
                         str(payload.get("run_id") or ""),
