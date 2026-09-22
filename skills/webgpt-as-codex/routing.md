@@ -1,5 +1,28 @@
 # Routing
 
+## 0. Workflow 编排层优先于单工具路由
+
+当任务是多阶段交付、需要多个 Skills 协作、或用户明确要求“按流程做”时，先读取
+`workflow-registry.json`，匹配 Workflow，再进入当前 Stage。
+
+顺序是：
+
+`Task -> Workflow -> Stage -> Skill selectors -> MCP/tool routing -> gate -> next Stage`
+
+规则：
+
+- Workflow 决定“这个阶段应该加载哪些 Skills、产出什么、什么条件才允许继续”。
+- 本文件继续决定“当前 Skill/Stage 内具体用哪个 MCP/tool 执行”。
+- 两层不能互相替代：Workflow 不是 MCP 路由器，MCP 路由也不能替代 Stage/gate。
+- 简单单步任务不强制套 Workflow；直接按本文件路由，避免为了编排而编排。
+- 一个 Stage 只加载该阶段需要的 Skills；禁止把整个 Skill 库一次性塞入上下文。
+- `required=true` 的 Skill 缺失时 Stage 为 `blocked`；仅 optional Skill 缺失时可 `degraded` 继续。
+- Manager 中的分类/拖动属于 machine-local 组织视图，不得暗中改写 repository-owned Workflow 执行语义。
+- Workflow 的 canonical 定义来自仓库 `workflow-registry.json`；运行态/证据属于 machine-local run state。
+- Stage 通过 gate 后再进入下一 Stage；失败先按对应 Skill/本文件恢复规则处理，不因为一个 Skill 失败就重做整个 Workflow。
+
+如果没有匹配 Workflow，回到下面的直接工具路由。
+
 ## 1. 决策顺序
 
 先判断任务对象，再判断动作类型：
@@ -159,6 +182,9 @@
 - 不为了展示能力而调用不必要 MCP。
 
 ## 7. 长任务路由
+
+若 `workflow-registry.json` 已有匹配项，优先使用其 Stage 顺序与 Skill selectors；
+没有匹配项时，再按下面的通用语义阶段生成临时计划。
 
 将任务拆成语义阶段，而不是按 MCP 拆：
 
