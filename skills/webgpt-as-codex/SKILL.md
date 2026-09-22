@@ -60,6 +60,7 @@ Gateway/OAuth、Manager、Bootstrap/Doctor/Repair、Runtime Supervisor 与发布
 29. **listener 活着不等于运行的是当前代码**：长期 Python/Node 服务在 source/static 更新后可能继续以旧 route table/旧模块驻留，形成“新磁盘资源 + 旧进程逻辑”的 mixed-version 状态。对 repository-owned 服务应同时校验 ownership、process identity、runtime generation/版本与关键 capability contract；确认 stale 且有 lifecycle authority 才刷新。未知/歧义 listener 即使端口正确也禁止 kill。
 30. **用户桌面 launcher 与浏览器自动化 profile 分离**：用户双击桌面 launcher 打开的本地 Manager/控制页，应优先复用用户已经运行的正常浏览器 profile；浏览器未运行时走 Windows 正常 URL handler/default browser。不得因为项目也使用 Playwright 就让桌面 launcher 创建 temp user-data-dir、isolated profile、InPrivate 或 automation-only 空白 profile。Playwright 的 Extension/shared-context 生命周期与桌面 URL opener 是两个独立职责。
 31. **Playwright handoff 必须防 session churn 与重复页**：若上一调用已成功创建 ChatGPT tab，但下一 connector 调用只看到 Extension Welcome，先把它分类为可能的 MCP session/observer churn，而不是“页面消失”。恢复时枚举 persistent context 中现存页面与 composer 后态，复用唯一可归因目标；禁止继续批量新建 tab、重复填 prompt 或重复 submit。handoff 成功后只清理当前 Agent 明确创建且未使用的空白/重复页，不关闭用户原有标签页。
+32. **复杂任务先选 Workflow，再选 Stage Skills**：多阶段交付或需要多个 Skills 协作时，先读取 `workflow-registry.json`，按 `Task -> Workflow -> Stage -> Skill selectors -> MCP routing -> gate` 执行。只加载当前 Stage 需要的 Skills；required Skill 缺失时阻塞该 Stage，optional Skill 缺失只能降级。Manager 的分类/拖动只改变 machine-local 组织视图，不能偷偷改写 repository-owned Workflow 语义。Workflow 运行态和证据必须写 machine-local durable state，网页 UI 只读取/操作这套真值，不能成为新的 SoT。
 
 ## 首选路由
 
@@ -128,7 +129,7 @@ Serena / Desktop Commander：
 - 桌面应用自动化：Desktop Commander 先检查是否有 CLI/API → 无结构化入口再 Windows-MCP。
 - Web 后台操作：优先 Playwright；只有浏览器 chrome、系统弹窗或不可访问区域才 Windows-MCP。
 
-复杂场景读取 `workflows/` 对应文件。
+复杂场景先读取 `workflow-registry.json` 判断是否存在 canonical Workflow，再读取当前 Stage 需要的 `workflows/` 与 leaf Skills。没有匹配 Workflow 的简单任务继续直接路由，不强行编排。
 
 ## 失败与回退
 
@@ -165,6 +166,7 @@ Serena / Desktop Commander：
 - Windows GUI 视觉坐标 / 高 DPI / 自绘控件 → `workflows/windows-gui-visual-calibration.md`
 - 微信文件传输助手发送文件 → `workflows/wechat-file-transfer.md`（已有登录窗口优先；FileDropList + Ctrl+V 是已验证稳定路径；发送后必须看业务后态）
 - 文件/终端 → `workflows/files.md`
+- 多阶段 Skill 编排 / Workflow 匹配 → `workflow-registry.json`
 - 多工具长任务 → `workflows/cross-tool.md`
 - 分阶段自动接力 / Loop Engineering → `workflows/loop-engineering.md`
 - 下一窗口固定 prompt 结构 → `workflows/handoff-template.md`

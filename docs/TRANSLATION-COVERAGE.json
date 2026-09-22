@@ -877,6 +877,27 @@
       "path": "scripts/sync_computer_agent_skill.py",
       "status": "NOT_HUMAN_READER_CONTENT",
       "reason": "Retired pre-1.3.0 sync utility retained only as a tracked-deletion candidate until the consolidation commit removes it from the index."
+    },
+    {
+      "path": "docs/SKILL-WORKFLOW-CONTROL-PLANE.md",
+      "status": "MIRRORED_CURRENT",
+      "mirror_path": "docs/zh-CN/SKILL-WORKFLOW-CONTROL-PLANE.md",
+      "reason": "Current Skill Workflow Control Plane SoT with a deterministic Simplified Chinese mirror."
+    },
+    {
+      "path": "docs/zh-CN/SKILL-WORKFLOW-CONTROL-PLANE.md",
+      "status": "MIRROR_TARGET",
+      "reason": "Simplified Chinese mirror; identifiers, paths, commands, status values and hashes preserve source semantics."
+    },
+    {
+      "path": "src/webgpt_as_codex/skill_workflow.py",
+      "status": "NOT_HUMAN_READER_CONTENT",
+      "reason": "Executable control-plane source; code identifiers, protocol strings and schema keys are not documentation translation targets."
+    },
+    {
+      "path": "tests/test_skill_workflow.py",
+      "status": "NOT_HUMAN_READER_CONTENT",
+      "reason": "Executable regression tests; code identifiers and fixture strings are not documentation translation targets."
     }
   ]
 }

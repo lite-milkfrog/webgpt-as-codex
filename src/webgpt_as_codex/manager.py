@@ -26,6 +26,7 @@ from .health import ManagerStatusService, sanitize_for_output
 from .paths import resource_root
 from .prerequisites import environment_report, install_tailscale_with_winget
 from .registry import delete_custom_component, load_components, write_custom_component
+from .skill_workflow import SkillWorkflowControlPlane
 
 
 @dataclass(frozen=True)
@@ -149,10 +150,12 @@ class ManagerHTTPServer(ThreadingHTTPServer):
         *,
         status_service: ManagerStatusService,
         action_runner: ActionRunner,
+        skill_workflow: SkillWorkflowControlPlane,
     ) -> None:
         super().__init__(server_address, ManagerRequestHandler)
         self.status_service = status_service
         self.action_runner = action_runner
+        self.skill_workflow = skill_workflow
         self.local_mutation_lock = threading.Lock()
         self._activity_lock = threading.Lock()
         self._activity: deque[dict[str, Any]] = deque(maxlen=50)
@@ -431,6 +434,15 @@ class ManagerRequestHandler(BaseHTTPRequestHandler):
         if self.path == "/api/activity":
             self._local_json({"activity": self.server.recent_activity()})
             return
+        if self.path == "/api/skills":
+            self._local_json(self.server.skill_workflow.skill_snapshot())
+            return
+        if self.path == "/api/workflows":
+            self._local_json(self.server.skill_workflow.workflow_catalog())
+            return
+        if self.path == "/api/workflow-runs":
+            self._local_json({"runs": self.server.skill_workflow.list_runs()})
+            return
         self.send_error(HTTPStatus.NOT_FOUND.value)
 
     def _handle_local_mutation(self, payload: dict[str, Any]) -> bool:
@@ -438,6 +450,8 @@ class ManagerRequestHandler(BaseHTTPRequestHandler):
             "/api/environment",
             "/api/components",
             "/api/oauth-password",
+            "/api/skills",
+            "/api/workflow-runs",
         }:
             return False
         if not self.server.local_mutation_lock.acquire(blocking=False):
@@ -445,6 +459,169 @@ class ManagerRequestHandler(BaseHTTPRequestHandler):
             self._json({"ok": False, "error": "manager-mutation-busy"}, HTTPStatus.CONFLICT)
             return True
         try:
+            if self.path == "/api/skills":
+                self._require_fields(
+                    payload,
+                    {
+                        "operation",
+                        "confirm",
+                        "id",
+                        "category",
+                        "position",
+                        "target_root_id",
+                    },
+                )
+                operation = payload.get("operation")
+                if operation == "relocation-plan":
+                    result = self.server.skill_workflow.plan_relocation(
+                        str(payload.get("id") or ""),
+                        str(payload.get("target_root_id") or ""),
+                    )
+                    self.server.record_activity(
+                        "skills.relocation-plan",
+                        "success" if result.get("ok") else "blocked",
+                        detail=str(result.get("skill_id") or ""),
+                    )
+                    status = HTTPStatus.OK if result.get("ok") else HTTPStatus.CONFLICT
+                    self._local_json(result, status)
+                    return True
+                if payload.get("confirm") is not True:
+                    self.server.record_activity(
+                        "skills",
+                        "blocked",
+                        detail="confirmation-required",
+                    )
+                    self._json(
+                        {"ok": False, "error": "confirmation-required"},
+                        HTTPStatus.CONFLICT,
+                    )
+                    return True
+                if operation == "move":
+                    result = self.server.skill_workflow.move_skill(
+                        str(payload.get("id") or ""),
+                        str(payload.get("category") or ""),
+                        payload.get("position"),
+                    )
+                    self.server.record_activity(
+                        "skills.move",
+                        "success",
+                        detail=str(result.get("skill_id") or ""),
+                    )
+                    self._local_json(result)
+                    return True
+                if operation == "relocate":
+                    result = self.server.skill_workflow.relocate_skill(
+                        str(payload.get("id") or ""),
+                        str(payload.get("target_root_id") or ""),
+                    )
+                    self.server.record_activity(
+                        "skills.relocate",
+                        "success" if result.get("ok") else "blocked",
+                        detail=str(result.get("skill_id") or ""),
+                    )
+                    status = HTTPStatus.OK if result.get("ok") else HTTPStatus.CONFLICT
+                    self._local_json(result, status)
+                    return True
+                if operation == "open":
+                    result = self.server.skill_workflow.open_skill_location(
+                        str(payload.get("id") or "")
+                    )
+                    self.server.record_activity(
+                        "skills.open",
+                        "success" if result.get("ok") else "failed",
+                        detail=str(result.get("skill_id") or ""),
+                    )
+                    status = HTTPStatus.OK if result.get("ok") else HTTPStatus.CONFLICT
+                    self._local_json(result, status)
+                    return True
+                self.server.record_activity(
+                    "skills",
+                    "failed",
+                    detail="unknown-operation",
+                )
+                self._json(
+                    {"ok": False, "error": "unknown-skill-operation"},
+                    HTTPStatus.BAD_REQUEST,
+                )
+                return True
+
+            if self.path == "/api/workflow-runs":
+                self._require_fields(
+                    payload,
+                    {
+                        "operation",
+                        "confirm",
+                        "workflow_id",
+                        "context",
+                        "run_id",
+                        "stage_id",
+                        "status",
+                        "evidence",
+                    },
+                )
+                if payload.get("confirm") is not True:
+                    self.server.record_activity(
+                        "workflow-runs",
+                        "blocked",
+                        detail="confirmation-required",
+                    )
+                    self._json(
+                        {"ok": False, "error": "confirmation-required"},
+                        HTTPStatus.CONFLICT,
+                    )
+                    return True
+                operation = payload.get("operation")
+                if operation == "start":
+                    context = payload.get("context")
+                    if context is not None and not isinstance(context, dict):
+                        raise ActionPayloadError("context must be an object")
+                    result = self.server.skill_workflow.start_run(
+                        str(payload.get("workflow_id") or ""),
+                        context,
+                    )
+                    self.server.record_activity(
+                        "workflow-runs.start",
+                        "success",
+                        detail=str(result.get("run_id") or ""),
+                    )
+                    self._local_json(result)
+                    return True
+                if operation == "refresh":
+                    result = self.server.skill_workflow.refresh_run(
+                        str(payload.get("run_id") or "")
+                    )
+                    self.server.record_activity(
+                        "workflow-runs.refresh",
+                        "success",
+                        detail=str(result.get("run_id") or ""),
+                    )
+                    self._local_json(result)
+                    return True
+                if operation == "transition":
+                    result = self.server.skill_workflow.transition_run(
+                        str(payload.get("run_id") or ""),
+                        str(payload.get("stage_id") or ""),
+                        str(payload.get("status") or ""),
+                        str(payload.get("evidence") or "") or None,
+                    )
+                    self.server.record_activity(
+                        "workflow-runs.transition",
+                        "success",
+                        detail=str(result.get("run_id") or ""),
+                    )
+                    self._local_json(result)
+                    return True
+                self.server.record_activity(
+                    "workflow-runs",
+                    "failed",
+                    detail="unknown-operation",
+                )
+                self._json(
+                    {"ok": False, "error": "unknown-workflow-run-operation"},
+                    HTTPStatus.BAD_REQUEST,
+                )
+                return True
+
             if self.path == "/api/environment":
                 self._require_fields(payload, {"operation", "confirm"})
                 if payload.get("confirm") is not True:
@@ -583,12 +760,30 @@ class ManagerRequestHandler(BaseHTTPRequestHandler):
             self.server.record_activity(self.path, "failed", detail="invalid-action-payload")
             self._json({"ok": False, "error": "invalid-action-payload"}, HTTPStatus.BAD_REQUEST)
             return True
+        except KeyError as exc:
+            failure = (
+                "skill-not-found"
+                if self.path == "/api/skills"
+                else "workflow-not-found"
+                if self.path == "/api/workflow-runs"
+                else "resource-not-found"
+            )
+            self.server.record_activity(self.path, "failed", detail=failure)
+            self._json(
+                {"ok": False, "error": failure, "resource": str(exc)},
+                HTTPStatus.NOT_FOUND,
+            )
+            return True
         except (FileNotFoundError, OSError, TypeError, ValueError) as exc:
             failure = (
                 "component-operation-failed"
                 if self.path == "/api/components"
                 else "oauth-password-operation-failed"
                 if self.path == "/api/oauth-password"
+                else "skill-operation-failed"
+                if self.path == "/api/skills"
+                else "workflow-run-operation-failed"
+                if self.path == "/api/workflow-runs"
                 else "environment-operation-failed"
             )
             self.server.record_activity(self.path, "failed", detail=failure)
@@ -622,6 +817,46 @@ class ManagerRequestHandler(BaseHTTPRequestHandler):
             payload = self._read_json_body()
         except ActionPayloadError:
             self._json({"ok": False, "error": "invalid-action-payload"}, HTTPStatus.BAD_REQUEST)
+            return
+
+        if self.path == "/api/workflows":
+            try:
+                self._require_fields(
+                    payload,
+                    {"operation", "workflow_id", "context"},
+                )
+                if payload.get("operation") != "plan":
+                    raise ActionPayloadError("unknown workflow operation")
+                context = payload.get("context")
+                if context is not None and not isinstance(context, dict):
+                    raise ActionPayloadError("context must be an object")
+                result = self.server.skill_workflow.plan_workflow(
+                    str(payload.get("workflow_id") or ""),
+                    context,
+                )
+            except ActionPayloadError:
+                self._json(
+                    {"ok": False, "error": "invalid-action-payload"},
+                    HTTPStatus.BAD_REQUEST,
+                )
+                return
+            except KeyError:
+                self._json(
+                    {"ok": False, "error": "workflow-not-found"},
+                    HTTPStatus.NOT_FOUND,
+                )
+                return
+            except (OSError, TypeError, ValueError) as exc:
+                self._json(
+                    {
+                        "ok": False,
+                        "error": "workflow-plan-failed",
+                        "failure_type": type(exc).__name__,
+                    },
+                    HTTPStatus.BAD_REQUEST,
+                )
+                return
+            self._local_json(result)
             return
 
         if self._handle_local_mutation(payload):
@@ -679,6 +914,7 @@ def build_server(
     *,
     status_service: ManagerStatusService | None = None,
     action_runner: ActionRunner | None = None,
+    skill_workflow: SkillWorkflowControlPlane | None = None,
 ) -> ManagerHTTPServer:
     if host not in {"127.0.0.1", "::1", "localhost"}:
         raise ValueError("Manager is loopback-only")
@@ -701,6 +937,7 @@ def build_server(
         (host, port),
         status_service=status_service or ManagerStatusService(),
         action_runner=action_runner,
+        skill_workflow=skill_workflow or SkillWorkflowControlPlane(),
     )
 
 
