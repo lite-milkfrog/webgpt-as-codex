@@ -500,6 +500,70 @@ def test_boot_recovery_retries_edge_not_ready_without_missing_backends(
     assert supervisor.calls == 2
 
 
+def test_launcher_waits_for_public_remote_before_reporting_ready(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    probes = iter(
+        [
+            (False, {"attempted": True, "error_type": "ConnectionError"}),
+            (
+                True,
+                {
+                    "attempted": True,
+                    "https": True,
+                    "protected_resource_status": 200,
+                    "unauthenticated_mcp_status": 401,
+                    "oauth_challenge_present": True,
+                },
+            ),
+        ]
+    )
+    monkeypatch.setenv("WEBGPT_CODEX_EXTERNAL_BACKEND_WAIT_SECONDS", "5")
+    ticks = iter([0.0, 0.1, 0.2])
+    monkeypatch.setattr(launcher, "probe_public_remote", lambda: next(probes))
+    monkeypatch.setattr(launcher.time, "monotonic", lambda: next(ticks))
+    monkeypatch.setattr(launcher.time, "sleep", lambda _seconds: None)
+
+    health, evidence = launcher._wait_public_remote_ready()
+
+    assert health is True
+    assert evidence["launcher_public_wait_attempts"] == 2
+    assert evidence["unauthenticated_mcp_status"] == 401
+
+
+def test_launcher_public_remote_failure_is_not_ready(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    class FakeSupervisor:
+        def start(self, component_id: str) -> dict:
+            assert component_id == "manager"
+            return {"ok": True}
+
+        def start_all(self, **_kwargs: object) -> dict:
+            return {
+                "ok": True,
+                "fully_ready": True,
+                "required_unmanaged_missing": [],
+            }
+
+    monkeypatch.setattr(launcher, "RuntimeSupervisor", FakeSupervisor)
+    monkeypatch.setattr(
+        launcher,
+        "_wait_public_remote_ready",
+        lambda: (
+            False,
+            {"attempted": True, "error_type": "ConnectionError"},
+        ),
+    )
+
+    result = launcher.run_launcher(open_browser=False, start_all=True)
+
+    assert result["ok"] is False
+    assert result["fully_ready"] is False
+    assert result["public_remote_ready"] is False
+    assert result["public_remote"]["attempted"] is True
+
+
 def test_installed_redirect_generation_launcher_is_upgradeable(
     monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,

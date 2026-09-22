@@ -270,6 +270,11 @@ def _probe_remote(public_mcp: str | None) -> tuple[bool | None, dict]:
         return False, {"attempted": True, "https": True, "error_type": type(exc).__name__}
 
 
+def probe_public_remote() -> tuple[bool | None, dict[str, Any]]:
+    """Probe the configured public MCP edge without running the full doctor."""
+    return _probe_remote(_public_mcp_url())
+
+
 def _check_component(
     component: Component,
     process_rows: list[str] | None,

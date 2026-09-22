@@ -13,6 +13,7 @@ from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
+from .doctor import probe_public_remote
 from .paths import state_root, user_home
 from .runtime import RuntimeSupervisor
 
@@ -964,6 +965,29 @@ def _start_all_until_ready(supervisor: RuntimeSupervisor) -> dict[str, Any]:
     return result
 
 
+def _wait_public_remote_ready() -> tuple[bool | None, dict[str, Any]]:
+    health, evidence = probe_public_remote()
+    attempts = 1
+    wait_seconds = _external_backend_wait_seconds()
+    if health is False and wait_seconds > 0:
+        deadline = time.monotonic() + wait_seconds
+        while time.monotonic() < deadline:
+            time.sleep(
+                min(
+                    _EXTERNAL_BACKEND_POLL,
+                    max(0.0, deadline - time.monotonic()),
+                )
+            )
+            attempts += 1
+            health, evidence = probe_public_remote()
+            if health is not False:
+                break
+    details = dict(evidence)
+    details["launcher_public_wait_attempts"] = attempts
+    details["launcher_public_wait_budget_seconds"] = wait_seconds
+    return health, details
+
+
 def run_launcher(*, open_browser: bool = True, start_all: bool = True) -> dict[str, Any]:
     supervisor = RuntimeSupervisor()
     manager = supervisor.start("manager")
@@ -973,12 +997,23 @@ def run_launcher(*, open_browser: bool = True, start_all: bool = True) -> dict[s
     if manager.get("ok") and open_browser:
         opened, browser_mode = _open_manager_url("http://127.0.0.1:9200/")
     runtimes_ready = runtimes is None or bool(runtimes.get("fully_ready"))
+    public_remote_ready: bool | None = None
+    public_remote: dict[str, Any] = {
+        "attempted": False,
+        "reason": "start-all-disabled" if not start_all else "local-runtimes-not-ready",
+    }
+    if start_all and runtimes_ready:
+        public_remote_ready, public_remote = _wait_public_remote_ready()
+    public_ready = public_remote_ready is not False
     browser_ready = (not open_browser) or opened
+    fully_ready = runtimes_ready and public_ready
     return {
-        "ok": bool(manager.get("ok")) and runtimes_ready and browser_ready,
-        "fully_ready": runtimes_ready,
+        "ok": bool(manager.get("ok")) and fully_ready and browser_ready,
+        "fully_ready": fully_ready,
         "manager": manager,
         "start_all": runtimes,
+        "public_remote_ready": public_remote_ready,
+        "public_remote": public_remote,
         "browser_open_requested": open_browser,
         "browser_open_dispatched": opened,
         "browser_open_mode": browser_mode,
