@@ -495,8 +495,6 @@ class SkillWorkflowControlPlane:
                 raise FileNotFoundError(source)
             if not target_root_path.is_dir():
                 raise FileNotFoundError(target_root_path)
-            if destination.exists():
-                raise FileExistsError(destination)
 
             duplicates = [
                 row
@@ -505,6 +503,8 @@ class SkillWorkflowControlPlane:
             ]
             if duplicates:
                 raise ValueError("duplicate Skill slug exists; relocation is ambiguous")
+            if destination.exists():
+                raise FileExistsError(destination)
 
             route_changes: list[dict[str, Any]] = []
             for category in skill.get("router_categories") or []:
