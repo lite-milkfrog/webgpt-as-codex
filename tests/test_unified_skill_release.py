@@ -29,7 +29,7 @@ def test_canonical_skill_version_and_name() -> None:
     skill = (WAC_SKILL / "SKILL.md").read_text(encoding="utf-8")
     assert manifest["name"] == "webgpt-as-codex"
     version = re.search(
-        r"(?m)^\\s*version:\\s*([0-9]+\\.[0-9]+\\.[0-9]+)\\s*$",
+        r"(?m)^\s*version:\s*([0-9]+\.[0-9]+\.[0-9]+)\s*$",
         skill,
     )
     assert version is not None
