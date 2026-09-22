@@ -2,13 +2,13 @@
 
 STATUS = ACTIVE_IMPLEMENTATION
 
-CURRENT_STAGE = WCP-01-REGISTRY-PLANNER-AND-RUN-STATE
-NEXT_STAGE = WCP-02-MANAGER-API-AND-HOST-INTEGRATION
-AFTER_NEXT_STAGE = WCP-03-WEB-MANAGER-UX
+CURRENT_STAGE = WCP-02-MANAGER-API-AND-HOST-INTEGRATION
+NEXT_STAGE = WCP-03-WEB-MANAGER-UX
+AFTER_NEXT_STAGE = WCP-04-WEB-MANAGER-BROWSER-ACCEPTANCE
 
 BASE_REPO = lite-milkfrog/webgpt-as-codex
-BASE_MAIN = 33b5bec3ca93204529172974cba77324bdeeae9c
-WORK_BRANCH = feat/skill-workflow-control-plane-20260922
+BASE_MAIN = c3884abecbb6644fb33c353f67fc76b895d44454
+WORK_BRANCH = feat/skill-workflow-control-plane-clean-20260922
 START_DATE = 2026-09-22
 
 ## 1. Product goal
@@ -100,7 +100,7 @@ Default discovery roots:
 
 "Move" is split into two different operations.
 
-### Logical move — allowed in WCP-01
+### Logical move — implemented
 
 Dragging/reclassifying a Skill between categories changes only the machine-local overlay.
 
@@ -108,20 +108,21 @@ It does not move the filesystem directory.
 
 Reason: the current category-router design uses relative references to a flat shared Skill root. Blind physical moves can break router paths and global junctions.
 
-### Physical relocation — not yet authorized
+### Physical relocation — implemented, host verification pending
 
-Cross-root filesystem relocation requires its own later transaction:
+Cross-root filesystem relocation is now a guarded two-step transaction:
 
-1. inspect source and aliases;
-2. compute affected category-router references;
-3. verify target root and conflicts;
-4. move once;
-5. patch routes;
-6. verify every route resolves;
-7. validate Skill pack;
-8. rollback on failure.
+1. resolve a known Skill ID and target root ID;
+2. reject category routers, links/junctions, aliases and ambiguous duplicate slugs;
+3. compute affected category-router references;
+4. verify target root, router availability and path conflicts;
+5. return a read-only relocation plan;
+6. require explicit confirmation before mutation;
+7. move once and patch source/target routes atomically;
+8. rescan and verify entrypoint + route membership;
+9. rollback routes, location and local overlay if validation fails.
 
-No Manager endpoint may accept an arbitrary filesystem path for relocation.
+No Manager endpoint accepts an arbitrary filesystem path for relocation.
 
 ## 5. Workflow model
 
@@ -181,7 +182,7 @@ Run state must survive Manager/browser closure and ChatGPT conversation changes.
 
 The existing WAC Manager remains loopback-only.
 
-Planned API surfaces:
+Implemented API surfaces:
 
 - `GET /api/skills`
 - `POST /api/skills`
@@ -223,25 +224,36 @@ The frontend will use the installed Web/UI Skill pack only after Stage 1-7 are s
 
 ## 9. Current evidence
 
-Implemented on feature branch so far:
+Implemented on the clean integration branch:
 
-- core module created:
-  `src/webgpt_as_codex/skill_workflow.py`
-- canonical workflow registry created:
-  `skills/webgpt-as-codex/workflow-registry.json`
+- Skill scanner + category/router discovery + duplicate/junction identity handling;
+- logical category/order overlays;
+- Workflow registry, schema, planner and durable run state;
+- headless `webgpt-codex skill-workflow` CLI;
+- loopback Manager Skills / Workflows / Runs APIs;
+- safe known-Skill Explorer operation;
+- relocation plan + confirmed physical relocation transaction with route patching and rollback;
+- WAC routing updated to `Task -> Workflow -> Stage -> Skills -> MCP/tool -> gate`;
+- targeted tests and dedicated control-plane CI workflow.
+
+Branch recovery note:
+
+- the original feature branch was concurrently reset to `main` and PR #1 closed;
+- preserved commits were recovered without force-pushing;
+- a clean branch was recreated from current `main` (`c3884ab...`) so concurrent WAC 1.3.1 / Playwright handoff work remains intact.
 
 Not yet claimed verified:
 
-- repository tests have not yet run in the user's Windows checkout;
+- the clean integration branch still requires its fresh PR CI result;
 - WAC direct local MCP is unavailable in this chat session;
-- RDC device is currently offline;
-- Manager API wiring is not yet complete;
-- real scan of the current host through this new module is not yet complete;
-- frontend has not started.
+- RDC execution plane is currently offline;
+- the real Windows shared Skill roots have not yet been scanned by this build;
+- Explorer open-folder and physical relocation have not yet been exercised on the user's Windows host;
+- the new Manager frontend has not started.
 
 ## 10. Exit criteria
 
-WCP-01 closes only when:
+WCP-01 is closed when:
 
 - Skill scanner handles flat Skills + category router references + duplicate/junction aliases;
 - logical move/category state persists machine-locally;
@@ -250,6 +262,6 @@ WCP-01 closes only when:
 - targeted unit tests pass;
 - full existing suite shows no regression.
 
-WCP-02 closes only when Manager API exposes these capabilities with the existing safety contract and host opening is verified.
+WCP-02 closes only when the clean branch CI is green and the Manager API, real Windows Skill scan, Explorer open-folder and relocation safety path are verified on the host without interrupting WAC.
 
-WCP-03 starts only after WCP-01 and WCP-02 are verified.
+WCP-03 starts only after WCP-02 host verification is complete.
