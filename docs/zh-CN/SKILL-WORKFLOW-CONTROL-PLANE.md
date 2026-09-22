@@ -2,9 +2,9 @@
 
 STATUS = ACTIVE_IMPLEMENTATION
 
-CURRENT_STAGE = WCP-02-MANAGER-API-AND-HOST-INTEGRATION
-NEXT_STAGE = WCP-03-WEB-MANAGER-UX
-AFTER_NEXT_STAGE = WCP-04-WEB-MANAGER-BROWSER-ACCEPTANCE
+CURRENT_STAGE = WCP-03-WEB-MANAGER-UX
+NEXT_STAGE = WCP-04-WEB-MANAGER-BROWSER-ACCEPTANCE
+AFTER_NEXT_STAGE = WCP-05-LIVE-INTEGRATION-AND-SKILLS-CONTROL-MERGE
 
 BASE_REPO = lite-milkfrog/webgpt-as-codex
 BASE_MAIN = c3884abecbb6644fb33c353f67fc76b895d44454
@@ -246,14 +246,27 @@ Clean integration branch 已实现：
 - 已保留原提交对象，没有 force-push 覆盖别人的工作；
 - 当前从最新 `main` (`c3884ab...`) 重建 clean branch，并保留 WAC 1.3.1 / Playwright handoff 的最新规则。
 
-仍不得宣称完成：
+WCP-02 Windows 真机证据已经闭合，且没有改动 live dirty WAC checkout：
 
-- 当前聊天无法直连本机 WAC developer MCP；
-- RDC execution plane 当前离线；
-- clean integration branch 还需要新的 PR CI 结果；
-- Windows 真实 Skill root 尚未通过新 scanner 做 host verification；
-- Explorer 打开动作与 physical relocation 尚未在用户 Windows 主机实测；
-- 新管理端前端尚未开始。
+- RDC 已在 `JIAOLONG16proSeries` 恢复在线；
+- 真实扫描 `C:\\Users\\24734\\.agents\\skills`、`C:\\Users\\24734\\.codex\\skills` 与 WAC 包内 `skills/`；
+- 共发现 121 个 Skills、15 个分类；
+- `frontend-design` 正确由 category router 归入 `web-ui`，并带出 Workflow usage；
+- `category-web-ui` 在 shared 与 Codex roots 都被识别；
+- `web-product-build` planner 为 `blocked=false`，required 的 `frontend-design`、`webapp-testing`、`impeccable` 全部可用；
+- durable run 成功从 `product-context` 启动；
+- logical move 与 `inherit` restore 在临时 machine-local state 上实测通过；
+- physical relocation 在一次性 Windows sandbox 中实测通过：文件只移动一次、source/target routes 同步、重新扫描成功；
+- 隔离 Manager 的 `/api/skills`、`/api/workflows`、workflow plan 均返回 HTTP 200；
+- `open_skill_location("frontend-design")` 返回 opened，Explorer 后态确认路径为 `file:///C:/Users/24734/.agents/skills/frontend-design`；
+- Control Plane CI run 30 的 regression gate、Ruff、Secret Scan、Full Suite evidence 全绿；
+- live WAC checkout 没有被修改，因为另一个并发任务仍拥有 dirty 的 `skills_control.py` / `skills-runtime` 实现。
+
+仍待完成：
+
+- Web Manager UX；
+- Skills / Workflows / Runs / Runtime 的浏览器验收；
+- 等并发低层 Skill index/MCP runtime 形成干净提交后，再做最终 live integration。
 
 ## 10. Exit criteria
 
@@ -266,6 +279,6 @@ WCP-01 的关闭条件：
 - targeted unit tests PASS；
 - full suite 中不存在由本次变更引入的回归。
 
-WCP-02 只有在 clean branch CI 全绿，并且 Manager API、真实 Windows Skill scan、Explorer open-folder 与 relocation 安全路径都完成真机验证且不打断 WAC 后关闭。
+WCP-02 已 CLOSED：clean branch CI 全绿，Manager API、真实 Windows Skill scan、Explorer open-folder、logical classification 与 sandbox relocation 均完成真机验证，而且没有中断 WAC。
 
-WCP-03 只能在 WCP-02 真机验收完成后开始。
+WCP-03 现在负责真实 Manager UX；必须直接消费现有 API 与 machine-local 真值，禁止再造第二套 SoT。
