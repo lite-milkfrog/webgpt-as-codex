@@ -27,6 +27,8 @@ _EXTERNAL_BACKEND_POLL = 2.0
 _BOOT_RECOVERY_POLL = 10.0
 _DESKTOP_RECOVERY_SECONDS = 180
 _AUTOSTART_RECOVERY_SECONDS = 300
+_RDC_REMOTE_LAUNCHER_MARKER = "# WebGPT-as-Codex managed RDC launcher"
+_RDC_REMOTE_LAUNCHER_ENV = "WEBGPT_CODEX_RDC_LAUNCHER_PATH"
 
 
 def _expand_shell_value(value: str) -> Path:
@@ -88,6 +90,175 @@ def startup_dir() -> Path:
         / "Startup"
     )
     return _shell_folder("Startup", fallback, "WEBGPT_CODEX_STARTUP_DIR")
+
+
+def _rdc_remote_launcher_path() -> Path:
+    override = os.getenv(_RDC_REMOTE_LAUNCHER_ENV)
+    if override:
+        return Path(override).expanduser().resolve()
+    local_appdata = os.getenv("LOCALAPPDATA")
+    root = (
+        Path(local_appdata)
+        if local_appdata
+        else user_home() / "AppData" / "Local"
+    )
+    return root / "DesktopCommander" / "start-remote.ps1"
+
+
+def _rdc_remote_launcher_content() -> str:
+    lines = [
+        _RDC_REMOTE_LAUNCHER_MARKER,
+        "$ErrorActionPreference = 'SilentlyContinue'",
+        "",
+        "$base = Split-Path -Parent $MyInvocation.MyCommand.Path",
+        "$pidFile = Join-Path $base 'remote-agent.pid'",
+        "$log = Join-Path $base 'remote-agent.log'",
+        "$errLog = Join-Path $base 'remote-agent.err.log'",
+        "",
+        "New-Item -ItemType Directory -Force $base | Out-Null",
+        "",
+        "function Get-RemoteDesktopCommanderProcess {",
+        "    Get-CimInstance Win32_Process | Where-Object {",
+        "        $_.Name -eq 'node.exe' -and",
+        "        $_.CommandLine -match 'desktop-commander' -and",
+        "        $_.CommandLine -match '\\bremote\\b'",
+        "    } | Select-Object -First 1",
+        "}",
+        "",
+        "function Test-RemoteDesktopCommanderHealthy([int]$ProcessId) {",
+        "    $connection = Get-NetTCPConnection -OwningProcess $ProcessId -State Established -ErrorAction SilentlyContinue | Select-Object -First 1",
+        "    return [bool]$connection",
+        "}",
+        "",
+        "$existing = Get-RemoteDesktopCommanderProcess",
+        "if ($existing) {",
+        "    if (Test-RemoteDesktopCommanderHealthy $existing.ProcessId) {",
+        "        $existing.ProcessId | Set-Content -LiteralPath $pidFile",
+        "        exit 0",
+        "    }",
+        "    Add-Content -LiteralPath $log -Value ('Launcher self-heal: stale RDC remote process ' + $existing.ProcessId + ' has no established TCP connection; restarting.')",
+        "    Stop-Process -Id $existing.ProcessId -Force -ErrorAction SilentlyContinue",
+        "    Start-Sleep -Seconds 1",
+        "}",
+        "",
+        "$node = (Get-Command node.exe -ErrorAction SilentlyContinue).Source",
+        "if (-not $node) {",
+        "    Add-Content -LiteralPath $log -Value 'Launcher error: node.exe not found on PATH.'",
+        "    exit 2",
+        "}",
+        "",
+        "$entry = $null",
+        "$runtimes = Get-ChildItem -LiteralPath $base -Directory -Filter 'runtime-*' -ErrorAction SilentlyContinue | Sort-Object LastWriteTime -Descending",
+        "foreach ($runtime in $runtimes) {",
+        "    $candidate = Join-Path $runtime.FullName 'node_modules\\@wonderwhy-er\\desktop-commander\\dist\\index.js'",
+        "    if (Test-Path -LiteralPath $candidate) {",
+        "        $entry = $candidate",
+        "        break",
+        "    }",
+        "}",
+        "if (-not $entry) {",
+        "    Add-Content -LiteralPath $log -Value 'Launcher error: no Desktop Commander runtime entry found.'",
+        "    exit 3",
+        "}",
+        "",
+        "Set-Content -LiteralPath $log -Value ('===== launcher ' + (Get-Date -Format 'yyyy-MM-dd HH:mm:ss') + ' | proxy-aware self-heal =====') -Encoding UTF8",
+        "Set-Content -LiteralPath $errLog -Value '' -Encoding UTF8",
+        "",
+        "$nodeArgs = @($entry, 'remote', '--debug')",
+        "$proxySettings = Get-ItemProperty 'HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Internet Settings' -ErrorAction SilentlyContinue",
+        "$proxyValue = $null",
+        "if ($proxySettings -and $proxySettings.ProxyEnable -eq 1 -and $proxySettings.ProxyServer) {",
+        "    $proxyValue = [string]$proxySettings.ProxyServer",
+        "    if ($proxyValue -match ';') {",
+        "        $parts = $proxyValue -split ';'",
+        "        $httpsPart = $parts | Where-Object { $_ -match '^https=' } | Select-Object -First 1",
+        "        $httpPart = $parts | Where-Object { $_ -match '^http=' } | Select-Object -First 1",
+        "        if ($httpsPart) { $proxyValue = $httpsPart.Substring($httpsPart.IndexOf('=') + 1) }",
+        "        elseif ($httpPart) { $proxyValue = $httpPart.Substring($httpPart.IndexOf('=') + 1) }",
+        "    } elseif ($proxyValue -match '^[^=]+=') {",
+        "        $proxyValue = $proxyValue.Substring($proxyValue.IndexOf('=') + 1)",
+        "    }",
+        "    if ($proxyValue -and $proxyValue -notmatch '^[a-zA-Z][a-zA-Z0-9+.-]*://') {",
+        "        $proxyValue = 'http://' + $proxyValue",
+        "    }",
+        "}",
+        "",
+        "if ($proxyValue) {",
+        "    try {",
+        "        $proxyUri = [uri]$proxyValue",
+        "        if ($proxyUri.Host -in @('127.0.0.1', 'localhost', '::1')) {",
+        "            $proxyDeadline = (Get-Date).AddSeconds(45)",
+        "            do {",
+        "                $proxyReady = Test-NetConnection -ComputerName $proxyUri.Host -Port $proxyUri.Port -InformationLevel Quiet -WarningAction SilentlyContinue",
+        "                if ($proxyReady) { break }",
+        "                Start-Sleep -Seconds 2",
+        "            } while ((Get-Date) -lt $proxyDeadline)",
+        "            if (-not $proxyReady) {",
+        "                Add-Content -LiteralPath $log -Value ('Launcher error: Windows user proxy is configured but not reachable: ' + $proxyValue)",
+        "                exit 5",
+        "            }",
+        "        }",
+        "    } catch {",
+        "        Add-Content -LiteralPath $log -Value ('Launcher warning: could not validate proxy URI: ' + $proxyValue)",
+        "    }",
+        "    $env:HTTP_PROXY = $proxyValue",
+        "    $env:HTTPS_PROXY = $proxyValue",
+        "    $env:NO_PROXY = '127.0.0.1,localhost,::1'",
+        "    $env:NODE_USE_ENV_PROXY = '1'",
+        '    $nodeHelp = (& $node --help 2>$null) -join "`n"',
+        "    if ($nodeHelp -match '--use-env-proxy') {",
+        "        $nodeArgs = @('--use-env-proxy', $entry, 'remote', '--debug')",
+        "    }",
+        "    Add-Content -LiteralPath $log -Value ('Launcher network: using Windows user proxy ' + $proxyValue)",
+        "}",
+        "",
+        "Start-Process -FilePath $node -ArgumentList $nodeArgs -WindowStyle Hidden -RedirectStandardOutput $log -RedirectStandardError $errLog",
+        "",
+        "$deadline = (Get-Date).AddSeconds(45)",
+        "$started = $null",
+        "do {",
+        "    Start-Sleep -Milliseconds 750",
+        "    $started = Get-RemoteDesktopCommanderProcess",
+        "    if ($started -and (Test-RemoteDesktopCommanderHealthy $started.ProcessId)) {",
+        "        $started.ProcessId | Set-Content -LiteralPath $pidFile",
+        "        exit 0",
+        "    }",
+        "    if (-not $started) { continue }",
+        "    if (Select-String -LiteralPath $log -Pattern 'Waiting for authorization' -Quiet -ErrorAction SilentlyContinue) {",
+        "        $started.ProcessId | Set-Content -LiteralPath $pidFile",
+        "        exit 0",
+        "    }",
+        "} while ((Get-Date) -lt $deadline)",
+        "",
+        "if ($started) {",
+        "    Add-Content -LiteralPath $log -Value ('Launcher error: RDC process stayed alive but never established a TCP connection by ' + (Get-Date -Format 'yyyy-MM-dd HH:mm:ss'))",
+        "    Stop-Process -Id $started.ProcessId -Force -ErrorAction SilentlyContinue",
+        "} else {",
+        "    Add-Content -LiteralPath $log -Value ('Launcher error: RDC remote process did not stay alive by ' + (Get-Date -Format 'yyyy-MM-dd HH:mm:ss'))",
+        "}",
+        "exit 4",
+    ]
+    return "\r\n".join(lines) + "\r\n"
+
+
+def _ensure_rdc_remote_launcher() -> dict[str, Any]:
+    path = _rdc_remote_launcher_path()
+    expected = _rdc_remote_launcher_content()
+    path.parent.mkdir(parents=True, exist_ok=True)
+    if path.exists():
+        try:
+            current = path.read_text(encoding="utf-8")
+        except OSError as exc:
+            return {"ok": False, "status": "read-failed", "path": str(path), "error": str(exc)}
+        if _RDC_REMOTE_LAUNCHER_MARKER not in current:
+            return {"ok": True, "status": "preserved-existing-unmanaged-file", "path": str(path)}
+        if current.replace("\r\n", "\n") == expected.replace("\r\n", "\n"):
+            return {"ok": True, "status": "present", "path": str(path)}
+        operation = "updated"
+    else:
+        operation = "installed"
+    path.write_text(expected, encoding="utf-8", newline="")
+    return {"ok": True, "status": operation, "path": str(path)}
 
 
 def _pythonw() -> Path:
@@ -708,7 +879,10 @@ def desktop_launcher(action: str) -> dict[str, Any]:
             **_managed_file_status(path, expected, legacy_matcher=legacy_matcher),
         }
     if action == "install":
-        return _install(path, expected, legacy_matcher=legacy_matcher)
+        result = _install(path, expected, legacy_matcher=legacy_matcher)
+        if result.get("ok"):
+            result["rdc_launcher"] = _ensure_rdc_remote_launcher()
+        return result
     if action == "uninstall":
         return _uninstall(path, expected, legacy_matcher=legacy_matcher)
     raise ValueError(action)

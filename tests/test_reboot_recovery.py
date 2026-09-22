@@ -306,6 +306,46 @@ def test_desktop_launcher_content_reports_ready_and_failure_paths() -> None:
     )
 
 
+def test_rdc_remote_launcher_content_is_proxy_aware_and_self_healing() -> None:
+    content = launcher._rdc_remote_launcher_content()
+
+    assert launcher._RDC_REMOTE_LAUNCHER_MARKER in content
+    assert "runtime-*" in content
+    assert "Get-NetTCPConnection" in content
+    assert "stale RDC remote process" in content
+    assert "ProxyEnable" in content
+    assert "HTTP_PROXY" in content
+    assert "HTTPS_PROXY" in content
+    assert "NODE_USE_ENV_PROXY" in content
+    assert "--use-env-proxy" in content
+    assert "Test-NetConnection" in content
+    assert "Waiting for authorization" in content
+
+
+def test_desktop_launcher_install_creates_rdc_helper_and_preserves_unmanaged(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    desktop = tmp_path / "Desktop"
+    logs = tmp_path / "logs"
+    rdc_launcher = tmp_path / "DesktopCommander" / "start-remote.ps1"
+    monkeypatch.setenv("WEBGPT_CODEX_DESKTOP_DIR", str(desktop))
+    monkeypatch.setenv("WEBGPT_CODEX_LAUNCH_LOG_DIR", str(logs))
+    monkeypatch.setenv("WEBGPT_CODEX_RDC_LAUNCHER_PATH", str(rdc_launcher))
+
+    installed = launcher.desktop_launcher("install")
+    assert installed["ok"] is True
+    assert installed["rdc_launcher"]["status"] == "installed"
+    assert launcher._RDC_REMOTE_LAUNCHER_MARKER in rdc_launcher.read_text(encoding="utf-8")
+
+    user_owned = "# user-managed RDC launcher\n"
+    rdc_launcher.write_text(user_owned, encoding="utf-8")
+    updated = launcher.desktop_launcher("install")
+    assert updated["ok"] is True
+    assert updated["rdc_launcher"]["status"] == "preserved-existing-unmanaged-file"
+    assert rdc_launcher.read_text(encoding="utf-8") == user_owned
+
+
 def test_immediately_previous_prestart_generation_is_upgradeable(
     monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,
