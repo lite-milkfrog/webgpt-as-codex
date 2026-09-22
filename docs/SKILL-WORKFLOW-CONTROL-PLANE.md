@@ -2,9 +2,9 @@
 
 STATUS = ACTIVE_IMPLEMENTATION
 
-CURRENT_STAGE = WCP-02-MANAGER-API-AND-HOST-INTEGRATION
-NEXT_STAGE = WCP-03-WEB-MANAGER-UX
-AFTER_NEXT_STAGE = WCP-04-WEB-MANAGER-BROWSER-ACCEPTANCE
+CURRENT_STAGE = WCP-03-WEB-MANAGER-UX
+NEXT_STAGE = WCP-04-WEB-MANAGER-BROWSER-ACCEPTANCE
+AFTER_NEXT_STAGE = WCP-05-LIVE-INTEGRATION-AND-SKILLS-CONTROL-MERGE
 
 BASE_REPO = lite-milkfrog/webgpt-as-codex
 BASE_MAIN = c3884abecbb6644fb33c353f67fc76b895d44454
@@ -242,14 +242,27 @@ Branch recovery note:
 - preserved commits were recovered without force-pushing;
 - a clean branch was recreated from current `main` (`c3884ab...`) so concurrent WAC 1.3.1 / Playwright handoff work remains intact.
 
-Not yet claimed verified:
+WCP-02 host evidence — verified on Windows without touching the live dirty WAC checkout:
 
-- the clean integration branch still requires its fresh PR CI result;
-- WAC direct local MCP is unavailable in this chat session;
-- RDC execution plane is currently offline;
-- the real Windows shared Skill roots have not yet been scanned by this build;
-- Explorer open-folder and physical relocation have not yet been exercised on the user's Windows host;
-- the new Manager frontend has not started.
+- RDC execution plane recovered on device `JIAOLONG16proSeries`;
+- real Skill roots scanned: `C:\\Users\\24734\\.agents\\skills`, `C:\\Users\\24734\\.codex\\skills`, and packaged WAC `skills/`;
+- scanner discovered 121 Skills across 15 categories;
+- `frontend-design` resolved to category `web-ui` from the category router, with workflow usage relationships attached;
+- `category-web-ui` was observed in both shared and Codex roots;
+- `web-product-build` planned with `blocked=false`; required `frontend-design`, `webapp-testing`, and `impeccable` were available;
+- a durable run started successfully at `product-context`;
+- logical move + `inherit` restore were exercised against temporary machine-local state only;
+- physical relocation completed on a disposable Windows sandbox, moved the Skill once, patched source/target routes, rescanned successfully, and left the source path absent / target entrypoint present;
+- isolated Manager GET `/api/skills`, GET `/api/workflows`, and POST workflow plan returned HTTP 200;
+- `open_skill_location("frontend-design")` returned `opened`, and Explorer post-state showed `file:///C:/Users/24734/.agents/skills/frontend-design`;
+- Control Plane CI run 30 passed the regression gate, Ruff, secret scan, and full-suite Linux compatibility evidence;
+- live WAC checkout remained untouched because a concurrent local `skills_control.py` / `skills-runtime` implementation is still dirty and owned by another task.
+
+Still pending:
+
+- Web Manager UX implementation;
+- browser acceptance of Skills / Workflows / Runs / Runtime surfaces;
+- final live integration with the concurrent low-level Skill index/MCP runtime after its writer closes or provides a clean commit.
 
 ## 10. Exit criteria
 
@@ -262,6 +275,6 @@ WCP-01 is closed when:
 - targeted unit tests pass;
 - full existing suite shows no regression.
 
-WCP-02 closes only when the clean branch CI is green and the Manager API, real Windows Skill scan, Explorer open-folder and relocation safety path are verified on the host without interrupting WAC.
+WCP-02 is CLOSED: clean-branch CI is green and Manager API, real Windows Skill scan, Explorer open-folder, logical classification and sandbox relocation were verified without interrupting WAC.
 
-WCP-03 starts only after WCP-02 host verification is complete.
+WCP-03 owns the real Manager UX. It must consume the existing APIs and machine-local truth; it may not introduce a second source of truth.
