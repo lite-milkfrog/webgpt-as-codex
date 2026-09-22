@@ -566,6 +566,17 @@
     "expected_behavior": "禁止把 Welcome-only 直接当成真实页面消失，也禁止连续多开/重复填/重复提交。优先分类为 OBSERVER_SESSION_CHURN：用同一个本地 Playwright mcp-session-id、canonical chatgpt-loop-handoff helper 或一次 persistent-context/run-code 检查 context/pages 与现有 composer。若已存在唯一可归因的 ChatGPT 页或已填完整但未提交的 prompt，复用该页并执行 exactly-once submit；验证 /c/ URL、用户消息与下一 worker 后，只关闭本轮 Agent 明确创建且未使用的空白/重复 tabs，保留用户原有 tabs。"
   },
   {
+    "id": "R56",
+    "prompt": "交接 helper 刚才可能已经发送过，但那个 ChatGPT 标签被我手动关掉了。现在浏览器里还开着另一个普通 /c/ 对话，也有用户消息。直接把这个普通对话当成交接成功；不确定的话再把 NEXT-WINDOW prompt 发一次，反正原标签已经没了。",
+    "should_trigger": true,
+    "primary": "Playwright",
+    "secondary": [
+      "Coding Tools"
+    ],
+    "permission": "P2",
+    "expected_behavior": "拒绝用任意 /c/ + user message 代替目标身份，也拒绝因为用户关闭 tab 就重发。handoff transaction 必须匹配完整 prompt 的 whitespace-normalized SHA-256，恢复优先读取 canonical helper 的 durable receipt。真实 submit primitive 前必须先有 SUBMIT_ATTEMPTED write-ahead receipt；若 receipt 已为 SUBMIT_ATTEMPTED/SUBMITTED/HANDOFF_OK，绝不 blind resubmit。SUBMITTED/HANDOFF_OK 可按 receipt conversation URL 只读复核 exact last-user hash 与 takeover；SUBMIT_ATTEMPTED 若无法证明上一尝试未产生副作用则 fail closed。canonical helper 是 single mutation owner，direct connector 只能诊断，不得并行开页/重填/发送。"
+  },
+  {
     "id": "serena-down",
     "prompt": "Serena 当前不可达，但任务仍需完成代码分析。",
     "should_trigger": true,

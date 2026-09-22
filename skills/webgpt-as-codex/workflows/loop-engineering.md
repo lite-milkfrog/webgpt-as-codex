@@ -154,6 +154,8 @@ Web 不应默认切 Windows-MCP 坐标操作。
 
 Loop handoff 是 session-scoped 长链：`initialize -> tools/list -> tabs -> target lease -> prompt fill -> exactly-once submit -> post-state verify -> duplicate-tab cleanup`。如果网页 connector 每次调用都会换 `mcp-session-id`/relay，不能继续逐调用 new/list/type；改用持久本地 MCP session、`scripts/chatgpt-loop-handoff.mjs` 或一次 persistent-context 调用。上一调用已开出 ChatGPT、下一调用只见 Welcome 时，先检查 persistent context 和现有 composer，禁止把 observer/session churn 误判成页面消失并连续多开窗口。
 
+自动 handoff 默认必须把 `scripts/chatgpt-loop-handoff.mjs` 视为**唯一 mutation owner**，而不是与 direct connector 并行的另一条可选发送路径。事务身份使用完整 prompt 的 whitespace-normalized SHA-256；helper 必须在创建新 tab 前先找 exact-hash 草稿/已提交消息，并在任何 submit primitive 前先写 machine-local `SUBMIT_ATTEMPTED` receipt。exact submit 被证明后升级 `SUBMITTED`，takeover 被证明后升级 `HANDOFF_OK`。只要 receipt 已到 `SUBMIT_ATTEMPTED` 或更后状态，后续 session churn、进程失败或用户手动关闭 tab 都只允许恢复/验证先前尝试；无法证明未提交时 fail closed，不能盲目再次 submit。
+
 ### Windows-MCP
 
 只用于 Windows/Obsidian 原生 GUI、浏览器 chrome、系统 dialog/file picker 等 DOM 外 UI。

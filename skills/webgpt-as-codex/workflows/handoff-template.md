@@ -2,7 +2,7 @@
 
 > 用于 Loop Engineering 每一棒生成下一棒 prompt。所有标记为 **REQUIRED** 的章节都必须实例化；不得只复制模板标题或使用“相关文件/合适工具/按需处理”等模糊词。
 
-`STABLE_CORE_VERSION = LE-STABLE-2026-09-22.1`
+`STABLE_CORE_VERSION = LE-STABLE-2026-09-22.2`
 
 ## Stable Core Contract — REQUIRED / DO NOT DRIFT
 
@@ -15,7 +15,7 @@ Stable Core 必须完整保留：
 3. Program state taxonomy：`ACTIVE / PAUSED_EXTERNAL_BLOCKER / USER_STOPPED / GLOBAL_LOOP_COMPLETE`；
 4. Single-writer + Git/dirty/tool-local-metadata safety；
 5. Known-local MCP Auto-Recovery 与 capability/auth-state 分层；
-6. prompt fill/submit/post-state integrity、session continuity、duplicate-send 与 agent-owned duplicate-tab cleanup；
+6. prompt-hash transaction、single mutation owner、write-ahead `SUBMIT_ATTEMPTED` + durable `SUBMITTED/HANDOFF_OK` receipt、session continuity、duplicate-send 与 agent-owned duplicate-tab cleanup；
 7. final hardening + mandatory tests + version/build + Obsidian installable trio + release ZIP 完成后，才允许项目级完成。
 8. Active-Recovery：普通 test/build/tool/browser/MCP 故障默认继续自主恢复，不得在仍有可执行路径时停工等待用户；
 9. Docs-before-prompt：所有受影响 live SoT/evidence/risk/environment/session/progress 文档必须先更新并完成检查，之后才能生成 next prompt；
@@ -319,8 +319,8 @@ Stage-specific 内容只属于 Variable Payload：Stage goal/out-of-scope、真�
 1. 先读 `.skills/webgpt-as-codex/workflows/browser.md` 与 `.skills/webgpt-as-codex/environment.local.md`；
 2. 确认 docs/commit/next prompt 完成；
 3. 明确 Playwright direct namespace 或 local endpoint + deployment root；若 direct schema 未暴露，先 local MCP `initialize -> tools/list`；
-4. local MCP 多步调用必须保持同一 `mcp-session-id`，不得跨 session 复用 tab index/ref；若 connector 每次调用会重新 initialize/换 relay，禁止继续逐调用 new/list/type，改用持久 local MCP session、`scripts/chatgpt-loop-handoff.mjs` 或单次 persistent-context/run-code；
-5. 找/建空白 ChatGPT 对话；若上一调用已成功 new、下一调用只见 Welcome，先按 `OBSERVER_SESSION_CHURN` 检查 persistent context 与现存 composer，禁止直接再开第二/第三个窗口；
+4. local MCP 多步调用必须保持同一 `mcp-session-id`，不得跨 session 复用 tab index/ref；若 connector 每次调用会重新 initialize/换 relay，禁止继续逐调用 new/list/type。自动 handoff 默认由 `scripts/chatgpt-loop-handoff.mjs` 独占 mutation ownership；direct connector 只做只读诊断，不能同时成为第二条开页/填充/提交路径；
+5. helper 以完整 prompt 的 whitespace-normalized SHA-256 作为 transaction identity；创建新 tab 前必须先检查 exact-hash 已提交消息 / exact-hash 未提交草稿 / durable receipt。任何真实 submit primitive 前先写 `SUBMIT_ATTEMPTED` write-ahead receipt；如果 receipt 已到 `SUBMIT_ATTEMPTED`/`SUBMITTED`，即使用户关闭 tab 或 takeover 暂不可见，也禁止盲目再次 submit，必须先恢复并证明先前尝试的后态。`SUBMITTED` 只按 receipt conversation URL 做只读复核；只有不存在已越过 submit boundary 的 transaction state 时才找/建一个空白 ChatGPT 对话。若上一调用已成功 new、下一调用只见 Welcome，先按 `OBSERVER_SESSION_CHURN` 检查 persistent context 与现存 composer，禁止直接再开第二/第三个窗口；
 6. 从 repo 读取完整 prompt；
 7. 填入；长 prompt `type/fill` timeout 后先查 composer 后态，不盲重填；
 8. 校验长度 + 首/中/尾；必要时 whitespace-normalized SHA-256；
@@ -366,7 +366,7 @@ Stage-specific 内容只属于 Variable Payload：Stage goal/out-of-scope、真�
 5. `PRODUCT_STAGE_COMPLETE` 与 `HANDOFF_COMPLETE` 独立；handoff失败写 `STAGE_COMPLETE_HANDOFF_PENDING`，恢复只做 handoff 层；
 6. timeout/non-zero exit 后必须查后态，禁止重复发送；
 7. 长 prompt 强校验使用双方相同 whitespace normalization + SHA-256，UTF-8 bytes 不等于 JS characters；
-8. 每棒重新发现 MCP；Playwright local reconnect 保持同一 `mcp-session-id`；connector session churn 时必须切 persistent session/context，并清理仅由本轮 Agent 产生的未使用重复 tabs；
+8. 每棒重新发现 MCP；Playwright local reconnect 保持同一 `mcp-session-id`；handoff 使用 exact prompt SHA-256 + single mutation owner + write-ahead/durable receipt。connector session churn、helper 退出或用户关闭 tab 时，如果已有 `SUBMIT_ATTEMPTED`/`SUBMITTED` receipt，只恢复验证先前尝试，不得 blind resubmit；并清理仅由本轮 Agent 产生的未使用重复 tabs；
 9. Experience Absorption 按 `RECOVER -> DISTILL -> GENERALIZE -> PATCH -> EVAL -> VALIDATE -> PROPAGATE` 继续向后传播；
 10. Program state 必须区分 `ACTIVE / PAUSED_EXTERNAL_BLOCKER / USER_STOPPED / GLOBAL_LOOP_COMPLETE`；用户停止与不可恢复安全门都是未完成状态，只有 canonical Program Completion Gate 全部通过才允许 `GLOBAL_LOOP_COMPLETE`；
 11. 下一 worker 在生成下下一棒 prompt 时必须再次完整复制该 invariant；

@@ -656,3 +656,18 @@ Protected lesson:
 - session-scoped handoff must use one persistent `mcp-session-id`, the canonical handoff helper, or one persistent-context call for target discovery, fill, exactly-once submit and verification;
 - before retrying, enumerate existing pages and inspect composer/URL post-state; if a full unsent prompt already exists, reuse that page and do not duplicate the prompt;
 - after successful handoff, clean up only blank/duplicate tabs that are provably owned by the current Agent; preserve the user's pre-existing tabs and the accepted conversation.
+
+## 2026-09-22 — Handoff rules need a programmatic transaction owner
+
+Origin:
+- The 1.3.1 Skill was actually loaded and already documented same-session Playwright, observer-session churn and duplicate-tab rules, but recovery still used direct connector calls outside the canonical helper. The rules therefore did not prevent a second mutation path from opening candidate tabs.
+- The user later clarified that they had manually closed the handoff tab. A missing tab is therefore not evidence that submit failed, and a recovery system that only trusts live tab presence can accidentally resend work that already crossed the side-effect boundary.
+- The existing helper's generic submitted predicate accepted any `/c/` page with at least one user message and an empty composer; resume mode could therefore mistake an unrelated conversation for the target handoff without proving exact prompt identity.
+
+Protected lesson:
+- a behavioral instruction is not enough for an exactly-once side effect; handoff needs one programmatic mutation owner and a durable transaction identity;
+- bind the transaction to the full whitespace-normalized prompt SHA-256 and compare the exact last-user-message hash before treating a conversation as the target;
+- before creating a new page, recover an exact-hash submitted message or unsent draft if one already exists; ambiguous duplicates fail closed;
+- write a machine-local `SUBMIT_ATTEMPTED` receipt immediately before invoking any real submit primitive, then upgrade it to `SUBMITTED` only after exact submit is proven and to `HANDOFF_OK` only after takeover is observed; this write-ahead boundary covers a crash/connection-loss window between the side effect and its post-state confirmation;
+- once `SUBMITTED` exists, user tab closure, connector failure or missing live browser state cannot authorize another submit; recovery is read-only verification against the receipt's conversation URL;
+- direct connector/Windows GUI may diagnose a helper failure, but cannot become a parallel mutation owner for the same transaction.

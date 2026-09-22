@@ -58,6 +58,9 @@
 - next prompt 是否基于最新 HEAD/tests/dirty state/BLOCKED_ENV，而不是提前写死？
 - Playwright handoff 是否验证 prompt 完整性？
 - Playwright handoff 是否在同一 `mcp-session-id` / persistent context 内完成 target discovery、fill、submit、verify，而不是把 session-scoped 长链拆成会换 relay 的独立 connector calls？
+- 自动 handoff 是否只有一个 mutation owner（canonical helper / 等价事务客户端），而没有 helper 与 direct connector 同时开页/填充/提交？
+- 恢复是否绑定 exact whitespace-normalized prompt SHA-256，而不是把“任意 `/c/` + 任意 user message”当成目标 handoff？
+- submit primitive 前是否先写 machine-local `SUBMIT_ATTEMPTED` write-ahead receipt；如果 receipt 已到 `SUBMIT_ATTEMPTED`/`SUBMITTED`，即使用户关闭 tab/连接断开是否仍禁止 blind resubmit，并优先恢复证明先前尝试后态？
 - 如果上一调用已成功创建 ChatGPT、下一调用只见 Welcome，是否先证明/排除 `OBSERVER_SESSION_CHURN`，而不是继续多开页面？
 - submit/click 超时后是否先查后态？
 - 是否验证下一 conversation 已接管？

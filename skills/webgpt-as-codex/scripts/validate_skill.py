@@ -139,7 +139,7 @@ for required_role in ("code_semantics", "code_execution", "filesystem_terminal",
         errors.append(f"manifest missing role: {required_role}")
 
 capabilities = manifest.get("capabilities", {})
-for required_capability in ("adaptive_recovery", "loop_engineering", "zero_guess_handoff", "experience_absorption", "single_writer_per_worktree", "local_mcp_locator_recovery", "session_scoped_mcp_reconnect", "docs_before_prompt_barrier", "active_recovery_before_pause", "visual_coordinate_calibration", "preserve_preexisting_windows", "gui_action_observer_failure_split", "native_gui_first", "multi_layer_dialog_tracking", "mcp_concurrency_state_isolation", "release_local_portable_sync", "full_experience_ledger", "rdc_four_layer_health"):
+for required_capability in ("adaptive_recovery", "loop_engineering", "zero_guess_handoff", "experience_absorption", "single_writer_per_worktree", "local_mcp_locator_recovery", "session_scoped_mcp_reconnect", "docs_before_prompt_barrier", "active_recovery_before_pause", "visual_coordinate_calibration", "preserve_preexisting_windows", "gui_action_observer_failure_split", "native_gui_first", "multi_layer_dialog_tracking", "mcp_concurrency_state_isolation", "release_local_portable_sync", "full_experience_ledger", "rdc_four_layer_health", "handoff_prompt_hash_transaction", "durable_handoff_receipt", "handoff_write_ahead_attempt_receipt", "single_handoff_mutation_owner"):
     if not capabilities.get(required_capability):
         errors.append(f"manifest missing capability: {required_capability}")
 
@@ -163,6 +163,40 @@ if not any("RDC_EXECUTION_PLANE" in (s.get("expected_behavior") or "") for s in 
     errors.append("no RDC execution-plane verification scenario")
 if not any("release/local portable drift" in (s.get("expected_behavior") or "") for s in scenarios):
     errors.append("no release/local portable sync scenario")
+if "R56" not in ids:
+    errors.append("no exact-prompt handoff transaction scenario")
+if not any(
+    "whitespace-normalized SHA-256" in (s.get("expected_behavior") or "")
+    and "SUBMITTED" in (s.get("expected_behavior") or "")
+    and "single mutation owner" in (s.get("expected_behavior") or "")
+    for s in scenarios
+):
+    errors.append("no durable exact-prompt handoff recovery scenario")
+
+handoff_helper_path = ROOT / "scripts/chatgpt-loop-handoff.mjs"
+handoff_helper = (
+    handoff_helper_path.read_text(encoding="utf-8")
+    if handoff_helper_path.exists()
+    else ""
+)
+for marker in (
+    "classifyPromptState",
+    "lastUserHash",
+    "receiptPath",
+    "leaseToken",
+    "SUBMIT_ATTEMPTED",
+    "SUBMITTED",
+):
+    if marker not in handoff_helper:
+        errors.append(f"handoff helper missing transaction marker: {marker}")
+
+if "\\${" in handoff_helper:
+    errors.append("handoff helper contains escaped template interpolation")
+if "\\`" in handoff_helper:
+    errors.append("handoff helper contains escaped template-literal delimiter")
+
+if handoff_helper.count("replace(/\\\\s+/g, '')") < 2:
+    errors.append("handoff helper browser hash normalization is over/under escaped")
 
 if errors:
     print("VALIDATION_FAILED")

@@ -1,6 +1,6 @@
 {
   "name": "webgpt-as-codex",
-  "version": "1.3.1",
+  "version": "1.3.2",
   "design": "direct-mcp-with-soft-routing",
   "roles": {
     "code_semantics": {
@@ -78,7 +78,11 @@
     "full_experience_ledger": true,
     "rdc_four_layer_health": true,
     "playwright_persistent_handoff_session": true,
-    "handoff_tab_lease_and_cleanup": true
+    "handoff_tab_lease_and_cleanup": true,
+    "handoff_prompt_hash_transaction": true,
+    "durable_handoff_receipt": true,
+    "handoff_write_ahead_attempt_receipt": true,
+    "single_handoff_mutation_owner": true
   },
   "invariants": [
     "prefer_structured_over_gui",
@@ -97,6 +101,10 @@
     "keep_session_scoped_browser_actions_in_one_mcp_session",
     "do_not_split_playwright_handoff_across_session_churning_connector_calls",
     "cleanup_only_agent_owned_duplicate_handoff_tabs",
+    "handoff_recovery_requires_exact_prompt_hash_or_receipt",
+    "submitted_handoff_receipt_forbids_resubmit",
+    "submit_attempt_receipt_blocks_blind_retry",
+    "single_handoff_mutation_owner",
     "absorb_reusable_failures_into_rules_and_evals",
     "convert_screenshot_image_coordinates_before_mouse_actions",
     "do_not_use_user_uploaded_image_pixels_as_click_coordinates",

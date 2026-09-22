@@ -2,7 +2,7 @@
 name: webgpt-as-codex
 description: 让网页端大模型通过 MCP 可靠接管本地代码与电脑工作流，覆盖多 MCP 路由、自动恢复、Loop Engineering、OAuth/Gateway、桌面一键启动与跨会话持续执行。
 metadata:
-  version: 1.3.1
+  version: 1.3.2
   portability: public-safe-local-first-gpt-web-ready
   secrets-policy: no-secrets-in-skill
 ---
@@ -14,7 +14,7 @@ metadata:
 ## 发行 / 本机一致性
 
 - `skills/webgpt-as-codex/` 是唯一 canonical portable Skill。
-- 本机 `.skills/webgpt-as-codex/` 使用同一个 `1.3.1` portable core，只额外保留 `environment.local.md`、`MCP-SKILLS-INVENTORY.*`、`state/` 等 machine-local overlay。
+- 本机 `.skills/webgpt-as-codex/` 使用同一个 `1.3.2` portable core，只额外保留 `environment.local.md`、`MCP-SKILLS-INVENTORY.*`、`state/` 等 machine-local overlay。
 - portable 文件不允许“本机先长、发行版以后再补”或反向漂移；使用 `scripts/sync_webgpt_skill.py --check` 验证。
 - 旧 `computer-agent` 仅作为迁移来源；最终发行包、本机主 Skill 和 README 都只暴露 WebGPT-as-Codex。
 - Experience Ledger、MCP 专项经验、GUI/Playwright/Loop Engineering 规则必须无损保留；本地端口、路径、账户态和 transient health 仍只放 machine-local overlay，不进入 portable release。
@@ -60,6 +60,7 @@ Gateway/OAuth、Manager、Bootstrap/Doctor/Repair、Runtime Supervisor 与发布
 29. **listener 活着不等于运行的是当前代码**：长期 Python/Node 服务在 source/static 更新后可能继续以旧 route table/旧模块驻留，形成“新磁盘资源 + 旧进程逻辑”的 mixed-version 状态。对 repository-owned 服务应同时校验 ownership、process identity、runtime generation/版本与关键 capability contract；确认 stale 且有 lifecycle authority 才刷新。未知/歧义 listener 即使端口正确也禁止 kill。
 30. **用户桌面 launcher 与浏览器自动化 profile 分离**：用户双击桌面 launcher 打开的本地 Manager/控制页，应优先复用用户已经运行的正常浏览器 profile；浏览器未运行时走 Windows 正常 URL handler/default browser。不得因为项目也使用 Playwright 就让桌面 launcher 创建 temp user-data-dir、isolated profile、InPrivate 或 automation-only 空白 profile。Playwright 的 Extension/shared-context 生命周期与桌面 URL opener 是两个独立职责。
 31. **Playwright handoff 必须防 session churn 与重复页**：若上一调用已成功创建 ChatGPT tab，但下一 connector 调用只看到 Extension Welcome，先把它分类为可能的 MCP session/observer churn，而不是“页面消失”。恢复时枚举 persistent context 中现存页面与 composer 后态，复用唯一可归因目标；禁止继续批量新建 tab、重复填 prompt 或重复 submit。handoff 成功后只清理当前 Agent 明确创建且未使用的空白/重复页，不关闭用户原有标签页。
+32. **Loop handoff 必须只有一个 mutation owner**：自动交棒的目标发现/复用、prompt fill、submit、post-state、receipt 由 canonical `scripts/chatgpt-loop-handoff.mjs`（或与其等价的一次事务化持久客户端）独占。普通网页 connector 在 helper 失败后只允许做只读诊断，不能再并行开页、重填或 submit。handoff transaction identity 是 whitespace-normalized prompt SHA-256；恢复只能复用 exact-hash 草稿/消息或本机 durable receipt。真实 submit side effect 前必须先落盘 `SUBMIT_ATTEMPTED` write-ahead receipt；只要 receipt 已进入 `SUBMIT_ATTEMPTED` 或更后状态，即使用户关闭 tab、connector 断线或 takeover 暂时不可见，也禁止盲目再次发送，只能先恢复/证明先前尝试的后态。exact submit 被证明后升级 `SUBMITTED`，takeover 被证明后升级 `HANDOFF_OK`。
 
 ## 首选路由
 

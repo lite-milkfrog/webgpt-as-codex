@@ -180,3 +180,14 @@ Programmatic DOM activation 只能替代已经授权、正常可执行但被页�
 - connector 无法保留 `mcp-session-id` 时，不要把 `new -> snapshot -> type -> submit -> verify` 拆成多次独立 connector calls；使用 `scripts/chatgpt-loop-handoff.mjs`、持久 local MCP client 或单次 persistent-context 调用。
 - 恢复前先检查所有可归因 ChatGPT 页：URL、是否空白、composer 是否已含完整 prompt、是否已形成 `/c/...`。composer 已经完整填入但未提交时，禁止再开页/再填一份；只在同一目标页执行 exactly-once submit。
 - 如果故障恢复过程已经多开空白页，成功交棒后只关闭本 Agent 明确创建且未使用的重复页；不关闭用户原有标签页，也不把“清理”变成 broad tab close。
+
+### Prompt-hash transaction / durable receipt
+
+Loop handoff 不能再靠“当前看见哪个 tab”推断事务状态。canonical `scripts/chatgpt-loop-handoff.mjs` 是默认唯一 mutation owner：
+
+- 每次 handoff 以完整 prompt 的 whitespace-normalized SHA-256 作为事务身份。已有 `/c/...` 页面只有在**最后一条 user message 的 normalized SHA-256 精确相同**时才算同一 handoff；“有 user message + composer 为空 + URL 是 `/c/`”不够。
+- helper 在新建页面前先枚举当前 Playwright context：若发现唯一 exact-hash 已提交消息，只做 takeover 验证；若发现唯一 exact-hash 未提交草稿，复用草稿；只有两者都不存在才允许创建一个新 tab。多个 exact-hash 候选属于歧义，fail closed。
+- 选中目标后写入 sessionStorage lease，并在 fill/submit 前重新验证；current tab 被其它窗口/Agent 抢走时，只能按 lease 在同一 MCP session 内恢复，lease 丢失则 fail closed。
+- 真正触发 Enter/click submit **之前**先写 machine-local `SUBMIT_ATTEMPTED` write-ahead receipt（默认 `%LOCALAPPDATA%\\WebGPT-as-Codex\\handoff-receipts\\<prompt-sha256>.json`）；exact submitted message 被证明后升级为 `SUBMITTED`，takeover 验证后升级为 `HANDOFF_OK`。这样可以覆盖“提交动作已经跨过副作用边界，但 helper 在确认后态/写 `SUBMITTED` 前崩溃”的窗口。
+- `SUBMIT_ATTEMPTED`/`SUBMITTED` receipt 都是 blind-resubmit barrier：即使用户手动关掉目标 tab、网页连接断开、helper 进程退出或下一 worker 暂时没有可见响应，也不得把“现场消失”解释为“没发”。`SUBMITTED` 可按 receipt conversation URL 做只读 exact-hash/takeover 复核；`SUBMIT_ATTEMPTED` 必须先恢复并证明上一尝试未产生副作用，无法证明时 fail closed，而不是再发一次。
+- 当 canonical helper 已开始该 handoff transaction 后，direct connector / Windows-MCP 不得成为第二个 mutation owner。它们可以做只读诊断；只有在 helper **尚未发生任何 submit side effect** 且明确不可执行时，才允许按既有授权选择单一 fallback transport。

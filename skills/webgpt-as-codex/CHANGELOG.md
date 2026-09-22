@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.3.2 — 2026-09-22
+
+- Promoted ChatGPT Loop handoff from a behavior-only rule set to a prompt-hash transaction: the canonical helper now identifies the exact handoff by whitespace-normalized SHA-256 instead of accepting any `/c/` conversation with a user message.
+- The helper preflights existing ChatGPT pages before opening a new one, reuses a unique exact-hash unsent draft or submitted message, pins the selected target with a sessionStorage lease, and fails closed on ambiguous duplicates.
+- Added durable machine-local `SUBMIT_ATTEMPTED -> SUBMITTED -> HANDOFF_OK` receipts keyed by prompt hash. `SUBMIT_ATTEMPTED` is written before the real submit primitive, closing the crash window between side-effect initiation and post-state confirmation; it and later states block blind resubmission even if the user closes the tab or the connector/session disappears.
+- Declared the canonical helper the single handoff mutation owner: direct connector/GUI recovery may diagnose state but must not independently create/fill/submit while the helper transaction exists.
+- Bumped the handoff Stable Core to `LE-STABLE-2026-09-22.2` and added R56 regression coverage for unrelated `/c/` conversations, user-closed tabs, exact prompt identity, and receipt-based recovery.
+
 ## 1.3.1 — 2026-09-22
 
 - Hardened Playwright/Loop Engineering handoff against connector session churn: a later Welcome-only tab list no longer implies that a previously created ChatGPT page disappeared.
