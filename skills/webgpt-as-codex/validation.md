@@ -57,8 +57,11 @@
 - 是否禁止使用“相关文件”“合适工具”“按需处理”等让下一 worker 猜测的表述？
 - next prompt 是否基于最新 HEAD/tests/dirty state/BLOCKED_ENV，而不是提前写死？
 - Playwright handoff 是否验证 prompt 完整性？
+- Playwright handoff 是否在同一 `mcp-session-id` / persistent context 内完成 target discovery、fill、submit、verify，而不是把 session-scoped 长链拆成会换 relay 的独立 connector calls？
+- 如果上一调用已成功创建 ChatGPT、下一调用只见 Welcome，是否先证明/排除 `OBSERVER_SESSION_CHURN`，而不是继续多开页面？
 - submit/click 超时后是否先查后态？
 - 是否验证下一 conversation 已接管？
+- 是否清理本轮 Agent 自己创建且未使用的空白/重复 handoff tabs，同时保留用户原有 tabs 和已接管 conversation？
 - 若本 stage 迭代了 Skill，下一 prompt 是否明确新版本、规则路径与新增 scenario，而不是只写“已优化”？
 
 ## Skill 本身验收

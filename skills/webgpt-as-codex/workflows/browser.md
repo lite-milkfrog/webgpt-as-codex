@@ -149,7 +149,7 @@ Programmatic DOM activation 只能替代已经授权、正常可执行但被页�
 1. 先完成当前 stage 的 docs/commit/next prompt；
 2. 读取 `workflows/handoff-template.md` 确认 prompt Zero-Guess 字段完整；
 3. 先读 `environment.local.md` 获取本机 Playwright locator；direct schema 未暴露时连接本机 MCP，不得直接判定不可用；
-4. 优先复用已登录 Edge Extension/shared context；Extension session 只见 `Welcome` 但显示 connected 时，先直接在**同一 MCP session** `browser_tabs new -> https://chatgpt.com/` 并验证登录态，不要求人工选择旧 tab；如果新 tab仍未登录，才按“登录态”章节继续 auth/shared-context fallback；
+4. 优先复用已登录 Edge Extension/shared context；Extension session 只见 `Welcome` 但显示 connected 时，先直接在**同一 MCP session** `browser_tabs new -> https://chatgpt.com/` 并验证登录态，不要求人工选择旧 tab；如果新 tab仍未登录，才按“登录态”章节继续 auth/shared-context fallback。若 direct connector 的下一次调用换了 MCP session/relay，禁止因此再次开 tab；改用持久本地 8931 session、单次 persistent-context/run-code 调用或 handoff helper；
 5. 使用这个已验证登录态的新 ChatGPT tab 作为空白新聊天；
 6. 从 Source of Truth 读取完整 handoff prompt；
 7. 填入后校验长度 + 首/中/尾片段；超长 prompt 可加 whitespace-normalized SHA-256；
@@ -157,6 +157,26 @@ Programmatic DOM activation 只能替代已经授权、正常可执行但被页�
 9. 若 submit/click/type 超时或报错，先查 conversation URL、composer、用户消息、send/stop/generating 后态；
 10. 只有确认未提交才允许换 Playwright 内策略；优先 Enter，再考虑已启用 send-button 的同语义 DOM activation；
 11. 验证 conversation URL 已形成、composer 清空、用户消息可见且下一会话已响应或开始 generating；
-12. Playwright 与 handoff-only Windows-MCP fallback 都不可用时，写 `STAGE_COMPLETE_HANDOFF_PENDING / PAUSED_HANDOFF_TRANSPORT`，但不得重做已完成产品 stage；恢复时只恢复 transport 层。
+12. handoff 成功后枚举当前 persistent context；只关闭本 Agent 本轮明确创建、且仍为空白/重复/未使用的 ChatGPT tab，保留已接管 conversation 与所有用户原有标签页；
+13. Playwright 与 handoff-only Windows-MCP fallback 都不可用时，写 `STAGE_COMPLETE_HANDOFF_PENDING / PAUSED_HANDOFF_TRANSPORT`，但不得重做已完成产品 stage；恢复时只恢复 transport 层。
 
 用户对自动 loop 的明确授权只覆盖该 loop 内 handoff prompt 的提交，不扩展到其它外部副作用。
+
+### Shared-browser tab lease
+
+当 Playwright Extension/shared context 与用户真实浏览器共享多个标签页时，handoff 不能把易变化的 tab index 当成长期身份。
+
+- 新建并选中 handoff ChatGPT tab 后，在该 tab 的 sessionStorage 写入随机 lease token；它只用于区分同源标签页，不包含 cookie、账号、OAuth 或其它 secret。
+- 在长 prompt 写入前、以及唯一一次 submit 前，重新验证当前 tab 的 lease；如果其它窗口/Agent 抢走 current tab，则在当前 Playwright MCP session 内枚举 ChatGPT tabs 并恢复到匹配 lease 的 tab。
+- lease 丢失时 fail closed，不猜测“最后一个 ChatGPT tab”，也不切到 Windows-MCP 盲点提交。
+- 不复制 agent-browser 的 daemon/CDP/session-state persistence；真实登录态继续由现有 Edge Extension/shared context 提供，避免新增 cookie/localStorage 持久化副本和服务重启面。
+
+### Connector session churn / duplicate-tab recovery
+
+某些网页端 connector/wrapper 会让**每一次 Playwright 工具调用重新建立 MCP session 或 Extension relay**。这时上一调用成功创建的 ChatGPT 页可能仍真实存在，但下一次 `browser_tabs list` 只显示新的 Welcome 页。
+
+- 把“上一调用 new 成功、下一调用只剩 Welcome”优先分类为 `OBSERVER_SESSION_CHURN`，不是 `PAGE_GONE`。
+- 在创建第二个 tab 之前，用同一个本地 Streamable HTTP MCP session 做 `initialize -> tools/list -> tabs/new -> tabs/list`，或用一次 persistent-context/run-code 调用检查 `context.pages()`；若旧 ChatGPT 页仍在，继续复用它。
+- connector 无法保留 `mcp-session-id` 时，不要把 `new -> snapshot -> type -> submit -> verify` 拆成多次独立 connector calls；使用 `scripts/chatgpt-loop-handoff.mjs`、持久 local MCP client 或单次 persistent-context 调用。
+- 恢复前先检查所有可归因 ChatGPT 页：URL、是否空白、composer 是否已含完整 prompt、是否已形成 `/c/...`。composer 已经完整填入但未提交时，禁止再开页/再填一份；只在同一目标页执行 exactly-once submit。
+- 如果故障恢复过程已经多开空白页，成功交棒后只关闭本 Agent 明确创建且未使用的重复页；不关闭用户原有标签页，也不把“清理”变成 broad tab close。

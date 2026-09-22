@@ -2,7 +2,7 @@
 name: webgpt-as-codex
 description: 让网页端大模型通过 MCP 可靠接管本地代码与电脑工作流，覆盖多 MCP 路由、自动恢复、Loop Engineering、OAuth/Gateway、桌面一键启动与跨会话持续执行。
 metadata:
-  version: 1.3.0
+  version: 1.3.1
   portability: public-safe-local-first-gpt-web-ready
   secrets-policy: no-secrets-in-skill
 ---
@@ -14,7 +14,7 @@ metadata:
 ## 发行 / 本机一致性
 
 - `skills/webgpt-as-codex/` 是唯一 canonical portable Skill。
-- 本机 `.skills/webgpt-as-codex/` 使用同一个 `1.3.0` portable core，只额外保留 `environment.local.md`、`MCP-SKILLS-INVENTORY.*`、`state/` 等 machine-local overlay。
+- 本机 `.skills/webgpt-as-codex/` 使用同一个 `1.3.1` portable core，只额外保留 `environment.local.md`、`MCP-SKILLS-INVENTORY.*`、`state/` 等 machine-local overlay。
 - portable 文件不允许“本机先长、发行版以后再补”或反向漂移；使用 `scripts/sync_webgpt_skill.py --check` 验证。
 - 旧 `computer-agent` 仅作为迁移来源；最终发行包、本机主 Skill 和 README 都只暴露 WebGPT-as-Codex。
 - Experience Ledger、MCP 专项经验、GUI/Playwright/Loop Engineering 规则必须无损保留；本地端口、路径、账户态和 transient health 仍只放 machine-local overlay，不进入 portable release。
@@ -44,7 +44,7 @@ Gateway/OAuth、Manager、Bootstrap/Doctor/Repair、Runtime Supervisor 与发布
 13. **Zero-Guess 交接**：下一阶段 prompt 不得让下一 worker 猜“有什么工具、看什么文件、文件在哪里、怎么读、怎么用”。这些信息必须显式写出，并遵循 `workflows/handoff-template.md`。
 14. **经验必须沉淀**：如果真实执行中遇到可复用的新坑，不只绕过去完成当前任务；任务恢复后必须判断是否需要更新 Skill / 项目执行协议 / eval。能普遍复用的经验要写回规则并加入 regression scenario，让后续 stage 默认绕开同类坑。
 15. **本机 Inventory 必须先读**：凡涉及本机 MCP / Skills / Remote bridge / tool routing，新 Agent / 新窗口先读 `MCP-SKILLS-INVENTORY.md`（或机器处理时解析 `MCP-SKILLS-INVENTORY.json`），再读 `environment.local.md` 获取机器特定启动/恢复细节。如果 direct tool schema 未暴露，不得把“未暴露”误报成“服务不存在”；Loop handoff prompt 必须把本 stage 真正需要的 MCP locator 实例化出来。
-16. **同一 MCP session 完成长链动作**：对 session-scoped MCP（尤其 Playwright tabs/shared context），`initialize -> tools/list -> tabs -> snapshot/type/submit -> verify` 应在同一 session 内完成；不要跨新 session 复用旧 tab index/ref。
+16. **同一 MCP session 完成长链动作**：对 session-scoped MCP（尤其 Playwright tabs/shared context），`initialize -> tools/list -> tabs -> snapshot/type/submit -> verify` 应在同一 session 内完成；不要跨新 session 复用旧 tab index/ref。若 connector/wrapper 的每次工具调用会重新 initialize 或换 relay/session，不得把 handoff 拆成多个独立 connector calls；改用持久本地 MCP session、单次 persistent-context/run-code 调用，或已验证的 handoff helper。
 17. **接力必须递归可续**：Loop worker 不能只保证 `Stage N -> Stage N+1`。每份 NEXT-WINDOW prompt 都必须完整携带 Recursive Handoff Invariant，明确 `CURRENT_STAGE / NEXT_STAGE / AFTER_NEXT_STAGE`，并要求下一 worker 在自己的收口中再次生成、提交并验证下下一棒。Batch 结束不是全局停止条件；用户主动叫停只能标记 `USER_STOPPED`，环境/权限硬阻塞只能标记 `PAUSED_EXTERNAL_BLOCKER`，两者都不等于 `GLOBAL_LOOP_COMPLETE`。
 18. **已知本地 MCP 默认先自恢复，再 fallback**：对于 `environment.local.md` 已登记、且当前任务确实有价值的 Serena / Desktop Commander / Playwright / Coding Tools，本会话 direct schema 未暴露、listener 消失或进程退出时，不得直接写成“不可用”。在用户已授权本机 MCP 启动/使用的范围内，先按 locator 检查进程/端口，必要时启动本地服务，再执行标准 MCP 握手（`initialize -> tools/list`）和一个最小只读实调；只有启动/握手/实调都失败或能力确实不匹配时，才进入 fallback。Windows-MCP 仍是按需 native GUI fallback，不为了证明“所有 MCP 都活着”而强制启动。
 19. **服务能力与账户态分开记**：特别是 Playwright，`MCP service available`、`browser automation available`、`authenticated shared browser context available` 是三个不同状态。Standalone 可用但未登录，不得误报成“Playwright 不可用”；需要已登录 ChatGPT/SSO 时再恢复 Extension/shared-context，若缺 token/login，准确标记 `AUTH_SHARED_CONTEXT_BLOCKED`，但代码阶段和无账户 Web 自动化仍可继续。
@@ -59,6 +59,7 @@ Gateway/OAuth、Manager、Bootstrap/Doctor/Repair、Runtime Supervisor 与发布
 28. **MCP 并发必须按状态模型判断**：不能把“支持多个请求”误写成“支持多个会话并行修改任意项目”。当前 Serena 标准 MCP 单进程有 process-wide active project；不同 ChatGPT 窗口并行切不同项目会互相影响，必须改用固定项目的独立 Serena 实例/slot，或只读多项目查询路径。Coding Tools 可以并行存在独立 command/session，但单 server 仍绑定一个 workspace；并行 writer 必须独立 worktree/workspace + ownership。Remote/Desktop Commander 的独立终端/文件操作可并行，真实 GUI 鼠标/键盘/焦点必须视为单机共享资源并串行。
 29. **listener 活着不等于运行的是当前代码**：长期 Python/Node 服务在 source/static 更新后可能继续以旧 route table/旧模块驻留，形成“新磁盘资源 + 旧进程逻辑”的 mixed-version 状态。对 repository-owned 服务应同时校验 ownership、process identity、runtime generation/版本与关键 capability contract；确认 stale 且有 lifecycle authority 才刷新。未知/歧义 listener 即使端口正确也禁止 kill。
 30. **用户桌面 launcher 与浏览器自动化 profile 分离**：用户双击桌面 launcher 打开的本地 Manager/控制页，应优先复用用户已经运行的正常浏览器 profile；浏览器未运行时走 Windows 正常 URL handler/default browser。不得因为项目也使用 Playwright 就让桌面 launcher 创建 temp user-data-dir、isolated profile、InPrivate 或 automation-only 空白 profile。Playwright 的 Extension/shared-context 生命周期与桌面 URL opener 是两个独立职责。
+31. **Playwright handoff 必须防 session churn 与重复页**：若上一调用已成功创建 ChatGPT tab，但下一 connector 调用只看到 Extension Welcome，先把它分类为可能的 MCP session/observer churn，而不是“页面消失”。恢复时枚举 persistent context 中现存页面与 composer 后态，复用唯一可归因目标；禁止继续批量新建 tab、重复填 prompt 或重复 submit。handoff 成功后只清理当前 Agent 明确创建且未使用的空白/重复页，不关闭用户原有标签页。
 
 ## 首选路由
 

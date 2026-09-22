@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.3.1 — 2026-09-22
+
+- Hardened Playwright/Loop Engineering handoff against connector session churn: a later Welcome-only tab list no longer implies that a previously created ChatGPT page disappeared.
+- Requires session-scoped handoff chains to stay inside one `mcp-session-id` / persistent context, or use the canonical `chatgpt-loop-handoff.mjs` helper instead of splitting `new -> type -> submit -> verify` across session-churning connector calls.
+- Added shared-browser tab lease guidance and explicit recovery rules for already-filled-but-unsent prompts, exactly-once submit, and cleanup of only Agent-owned unused duplicate tabs.
+- Bumped the handoff Stable Core to `LE-STABLE-2026-09-22.1` so future NEXT-WINDOW prompts inherit the stronger session-continuity and duplicate-tab contract.
+- Added regression scenario R55 for the real “new succeeded, next connector call only shows Welcome” failure mode.
+
 ## 1.3.0 — 2026-09-21
 
 - Unified the former Computer Agent core and WebGPT-as-Codex product profile into one canonical `webgpt-as-codex` Skill.

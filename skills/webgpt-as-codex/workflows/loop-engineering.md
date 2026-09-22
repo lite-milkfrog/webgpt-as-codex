@@ -152,6 +152,8 @@ Web 不应默认切 Windows-MCP 坐标操作。
 
 若 8931 未监听且用户已授权本机 MCP 启用：无账户态需求可自动启动 standalone；最终 ChatGPT handoff / 已登录后台优先 Extension/shared-context。Standalone 成功但页面未登录时，状态应写为 `BROWSER_AVAILABLE_AUTH_BLOCKED`，而不是 `PLAYWRIGHT_FAILED`。
 
+Loop handoff 是 session-scoped 长链：`initialize -> tools/list -> tabs -> target lease -> prompt fill -> exactly-once submit -> post-state verify -> duplicate-tab cleanup`。如果网页 connector 每次调用都会换 `mcp-session-id`/relay，不能继续逐调用 new/list/type；改用持久本地 MCP session、`scripts/chatgpt-loop-handoff.mjs` 或一次 persistent-context 调用。上一调用已开出 ChatGPT、下一调用只见 Welcome 时，先检查 persistent context 和现有 composer，禁止把 observer/session churn 误判成页面消失并连续多开窗口。
+
 ### Windows-MCP
 
 只用于 Windows/Obsidian 原生 GUI、浏览器 chrome、系统 dialog/file picker 等 DOM 外 UI。
@@ -372,7 +374,8 @@ P3 永远需要单独明确确认。
 - prompt 完整填入；
 - 只提交一次；
 - conversation URL/用户消息后态确认；
-- Stage N+1 已开始响应/接管。
+- Stage N+1 已开始响应/接管；
+- 本轮 Agent 自己创建的未使用空白/重复 handoff tab 已清理，用户原有 tabs 未受影响。
 
 如果产品工作完成但交棒失败：
 

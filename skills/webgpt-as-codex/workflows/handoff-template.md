@@ -2,7 +2,7 @@
 
 > 用于 Loop Engineering 每一棒生成下一棒 prompt。所有标记为 **REQUIRED** 的章节都必须实例化；不得只复制模板标题或使用“相关文件/合适工具/按需处理”等模糊词。
 
-`STABLE_CORE_VERSION = LE-STABLE-2026-09-17.2`
+`STABLE_CORE_VERSION = LE-STABLE-2026-09-22.1`
 
 ## Stable Core Contract — REQUIRED / DO NOT DRIFT
 
@@ -15,7 +15,7 @@ Stable Core 必须完整保留：
 3. Program state taxonomy：`ACTIVE / PAUSED_EXTERNAL_BLOCKER / USER_STOPPED / GLOBAL_LOOP_COMPLETE`；
 4. Single-writer + Git/dirty/tool-local-metadata safety；
 5. Known-local MCP Auto-Recovery 与 capability/auth-state 分层；
-6. prompt fill/submit/post-state integrity 与 duplicate-send 防护；
+6. prompt fill/submit/post-state integrity、session continuity、duplicate-send 与 agent-owned duplicate-tab cleanup；
 7. final hardening + mandatory tests + version/build + Obsidian installable trio + release ZIP 完成后，才允许项目级完成。
 8. Active-Recovery：普通 test/build/tool/browser/MCP 故障默认继续自主恢复，不得在仍有可执行路径时停工等待用户；
 9. Docs-before-prompt：所有受影响 live SoT/evidence/risk/environment/session/progress 文档必须先更新并完成检查，之后才能生成 next prompt；
@@ -319,8 +319,8 @@ Stage-specific 内容只属于 Variable Payload：Stage goal/out-of-scope、真�
 1. 先读 `.skills/webgpt-as-codex/workflows/browser.md` 与 `.skills/webgpt-as-codex/environment.local.md`；
 2. 确认 docs/commit/next prompt 完成；
 3. 明确 Playwright direct namespace 或 local endpoint + deployment root；若 direct schema 未暴露，先 local MCP `initialize -> tools/list`；
-4. local MCP 多步调用必须保持同一 `mcp-session-id`，不得跨 session 复用 tab index/ref；
-5. 找/建空白 ChatGPT 对话；
+4. local MCP 多步调用必须保持同一 `mcp-session-id`，不得跨 session 复用 tab index/ref；若 connector 每次调用会重新 initialize/换 relay，禁止继续逐调用 new/list/type，改用持久 local MCP session、`scripts/chatgpt-loop-handoff.mjs` 或单次 persistent-context/run-code；
+5. 找/建空白 ChatGPT 对话；若上一调用已成功 new、下一调用只见 Welcome，先按 `OBSERVER_SESSION_CHURN` 检查 persistent context 与现存 composer，禁止直接再开第二/第三个窗口；
 6. 从 repo 读取完整 prompt；
 7. 填入；长 prompt `type/fill` timeout 后先查 composer 后态，不盲重填；
 8. 校验长度 + 首/中/尾；必要时 whitespace-normalized SHA-256；
@@ -329,8 +329,9 @@ Stage-specific 内容只属于 Variable Payload：Stage goal/out-of-scope、真�
 11. 确认未提交才换 Playwright 内策略；优先 keyboard/Enter，随后可对已启用 send button 做同语义 DOM activation；
 12. 只有 DOM 外 UI 才 Windows-MCP；**例外仅限已授权 Loop handoff transport**：若 Playwright service/browser automation 正常但 authenticated shared context 无法恢复，且存在已登录用户浏览器，可按 `workflows/browser.md` 让 Windows-MCP 作为最后 transport fallback，必须 Snapshot、优先快捷键/可访问控件、只提交一次并验证后态；
 13. 验证 conversation URL、composer 清空、用户消息出现、下一会话 generating/已响应；
-14. 所有 transport 路径失败时写 `STAGE_COMPLETE_HANDOFF_PENDING / PAUSED_HANDOFF_TRANSPORT`，不得重做已完成产品 stage；
-15. 当前会话停止。
+14. handoff 成功后关闭本轮 Agent 明确创建且未使用的空白/重复 ChatGPT tab；不关闭用户原有 tabs，不关闭已接管 conversation；
+15. 所有 transport 路径失败时写 `STAGE_COMPLETE_HANDOFF_PENDING / PAUSED_HANDOFF_TRANSPORT`，不得重做已完成产品 stage；
+16. 当前会话停止。
 
 ## 14. 第一条用户可见执行更新 — REQUIRED
 
@@ -365,7 +366,7 @@ Stage-specific 内容只属于 Variable Payload：Stage goal/out-of-scope、真�
 5. `PRODUCT_STAGE_COMPLETE` 与 `HANDOFF_COMPLETE` 独立；handoff失败写 `STAGE_COMPLETE_HANDOFF_PENDING`，恢复只做 handoff 层；
 6. timeout/non-zero exit 后必须查后态，禁止重复发送；
 7. 长 prompt 强校验使用双方相同 whitespace normalization + SHA-256，UTF-8 bytes 不等于 JS characters；
-8. 每棒重新发现 MCP；Playwright local reconnect 保持同一 `mcp-session-id`；
+8. 每棒重新发现 MCP；Playwright local reconnect 保持同一 `mcp-session-id`；connector session churn 时必须切 persistent session/context，并清理仅由本轮 Agent 产生的未使用重复 tabs；
 9. Experience Absorption 按 `RECOVER -> DISTILL -> GENERALIZE -> PATCH -> EVAL -> VALIDATE -> PROPAGATE` 继续向后传播；
 10. Program state 必须区分 `ACTIVE / PAUSED_EXTERNAL_BLOCKER / USER_STOPPED / GLOBAL_LOOP_COMPLETE`；用户停止与不可恢复安全门都是未完成状态，只有 canonical Program Completion Gate 全部通过才允许 `GLOBAL_LOOP_COMPLETE`；
 11. 下一 worker 在生成下下一棒 prompt 时必须再次完整复制该 invariant；

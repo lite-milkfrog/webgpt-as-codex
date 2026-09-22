@@ -642,3 +642,17 @@ Protected lesson:
 - use an independent local Agent/RDC repair plane for restart + post-state evidence;
 - reacquire MCP/browser session references after restart;
 - once the user confirms a real external connector is configured successfully, freeze disruptive acceptance and prefer read-only verification unless a real defect requires mutation.
+
+## 2026-09-22 — Connector session churn can hide still-live ChatGPT pages
+
+Origin:
+- During a real Loop Engineering handoff, `browser_tabs new` successfully opened `https://chatgpt.com/`, but the next connector call listed only the Extension Welcome page.
+- Directly connecting to the local Playwright Streamable HTTP endpoint and keeping one `mcp-session-id` across `initialize -> tabs list -> tabs new -> tabs list` proved the ChatGPT page remained alive.
+- A persistent Playwright context later exposed multiple ChatGPT pages created by recovery attempts; Windows-MCP showed that one page already contained the full handoff prompt but had not yet been submitted.
+
+Protected lesson:
+- browser page lifetime and connector/MCP-session visibility are different state dimensions; a new connector session can lose page observability without closing the real page;
+- after `new` succeeds, a later Welcome-only view is `OBSERVER_SESSION_CHURN` until proven otherwise, not permission to open more tabs;
+- session-scoped handoff must use one persistent `mcp-session-id`, the canonical handoff helper, or one persistent-context call for target discovery, fill, exactly-once submit and verification;
+- before retrying, enumerate existing pages and inspect composer/URL post-state; if a full unsent prompt already exists, reuse that page and do not duplicate the prompt;
+- after successful handoff, clean up only blank/duplicate tabs that are provably owned by the current Agent; preserve the user's pre-existing tabs and the accepted conversation.
