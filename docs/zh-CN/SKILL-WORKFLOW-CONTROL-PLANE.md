@@ -2,13 +2,13 @@
 
 STATUS = ACTIVE_IMPLEMENTATION
 
-CURRENT_STAGE = WCP-01-REGISTRY-PLANNER-AND-RUN-STATE
-NEXT_STAGE = WCP-02-MANAGER-API-AND-HOST-INTEGRATION
-AFTER_NEXT_STAGE = WCP-03-WEB-MANAGER-UX
+CURRENT_STAGE = WCP-02-MANAGER-API-AND-HOST-INTEGRATION
+NEXT_STAGE = WCP-03-WEB-MANAGER-UX
+AFTER_NEXT_STAGE = WCP-04-WEB-MANAGER-BROWSER-ACCEPTANCE
 
 BASE_REPO = lite-milkfrog/webgpt-as-codex
-BASE_MAIN = 33b5bec3ca93204529172974cba77324bdeeae9c
-WORK_BRANCH = feat/skill-workflow-control-plane-20260922
+BASE_MAIN = c3884abecbb6644fb33c353f67fc76b895d44454
+WORK_BRANCH = feat/skill-workflow-control-plane-clean-20260922
 START_DATE = 2026-09-22
 
 ## 1. 产品目标
@@ -101,7 +101,7 @@ Workflow runs：
 
 “移动”分成两类，不能混淆。
 
-### Logical move — WCP-01 已允许
+### Logical move — 已实现
 
 在分类之间拖动/重新分类 Skill，只修改 machine-local overlay 和排序。
 
@@ -109,20 +109,21 @@ Workflow runs：
 
 原因：当前 category-router 使用指向平铺 shared Skill root 的相对路径。盲目物理移动会破坏 routes 与全局 junction。
 
-### Physical relocation — 尚未开放
+### Physical relocation — 已实现，等待真机验收
 
-跨 root 的真实文件移动必须是单独事务：
+跨 root 的真实文件移动现在采用两阶段安全事务：
 
-1. 检查 source 与 aliases；
-2. 计算受影响 category-router 引用；
-3. 验证目标 root 与冲突；
-4. 执行一次 move；
-5. 更新 routes；
-6. 验证所有 route 可解析；
-7. 验证 Skill pack；
-8. 任一步失败则 rollback。
+1. 只接受已扫描 Skill ID 与 target root ID；
+2. category router、link/junction、alias、多份同 slug 冲突直接拒绝；
+3. 计算受影响的 category-router references；
+4. 验证目标 root、目标 router 与路径冲突；
+5. 先返回只读 relocation plan；
+6. 真正写盘前必须 explicit confirmation；
+7. 单次 move，并同步 source/target routes；
+8. 重新扫描验证 entrypoint 与 route membership；
+9. 任一步失败回滚 routes、文件位置与 local overlay。
 
-Manager 不允许从浏览器传入任意 filesystem path 执行 relocation。
+Manager 仍不允许浏览器传入任意 filesystem path 执行 relocation。
 
 ## 5. Workflow 模型
 
@@ -226,7 +227,7 @@ Stage 1–7 稳定前，不开始新的管理端视觉层。
 
 ## 9. 当前证据
 
-Feature branch 已实现：
+Clean integration branch 已实现：
 
 - core：
   `src/webgpt_as_codex/skill_workflow.py`
@@ -236,19 +237,27 @@ Feature branch 已实现：
   `webgpt-codex skill-workflow ...`
 - loopback Manager Skills / Workflows / Runs API；
 - Workflow schema 与 WAC canonical routing 接线；
-- targeted tests 与 PR CI。
+- targeted tests 与专用 control-plane CI；
+- relocation plan + confirmed physical relocation transaction，并带 route patch 与 rollback。
+
+并发恢复事实：
+
+- 原 feature branch 被其它并发流程回拨到 `main`，PR #1 被关闭；
+- 已保留原提交对象，没有 force-push 覆盖别人的工作；
+- 当前从最新 `main` (`c3884ab...`) 重建 clean branch，并保留 WAC 1.3.1 / Playwright handoff 的最新规则。
 
 仍不得宣称完成：
 
 - 当前聊天无法直连本机 WAC developer MCP；
 - RDC execution plane 当前离线；
+- clean integration branch 还需要新的 PR CI 结果；
 - Windows 真实 Skill root 尚未通过新 scanner 做 host verification；
-- Explorer 打开动作尚未在用户 Windows 主机实测；
+- Explorer 打开动作与 physical relocation 尚未在用户 Windows 主机实测；
 - 新管理端前端尚未开始。
 
 ## 10. Exit criteria
 
-WCP-01 只有在以下条件满足后才关闭：
+WCP-01 的关闭条件：
 
 - Skill scanner 覆盖平铺 Skills、category routes、duplicate/junction aliases；
 - logical move/category state 可持久化；
@@ -257,6 +266,6 @@ WCP-01 只有在以下条件满足后才关闭：
 - targeted unit tests PASS；
 - full suite 中不存在由本次变更引入的回归。
 
-WCP-02 只有在 Manager API 安全合同通过，并且真实 Windows host open-folder/Skill scan 验证完成后关闭。
+WCP-02 只有在 clean branch CI 全绿，并且 Manager API、真实 Windows Skill scan、Explorer open-folder 与 relocation 安全路径都完成真机验证且不打断 WAC 后关闭。
 
-WCP-03 只能在 WCP-01 与 WCP-02 满足后开始。
+WCP-03 只能在 WCP-02 真机验收完成后开始。
