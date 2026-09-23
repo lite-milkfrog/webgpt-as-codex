@@ -142,6 +142,8 @@ Desktop launcher 是普通用户浏览入口，不是 Playwright runtime。已�
 
 只属于当前电脑的一键附加能力不得硬编码进 release launcher。手动 Desktop launcher 只识别一个固定本机扩展文件 `%LOCALAPPDATA%\WebGPT-as-Codex\local-launcher-overlay.cmd`，且只在 WebGPT 已经 READY 后调用；fresh install 默认没有该文件，Windows 登录 autostart 不调用它，overlay failure 也不会降级 WebGPT READY。
 
+受管 Desktop 安装还会写入 `%LOCALAPPDATA%\WebGPT-as-Codex\rdc-recover-webgpt.ps1`。它不是新的 public endpoint，也不获得新的 lifecycle ownership；它只用于已经健康的 RDC/本地 shell 作为独立 repair plane。脚本会检查 loopback Manager health，并对 Coding Tools `127.0.0.1:8766/mcp` 执行真实 MCP `initialize`。如果任一检查失败，只允许调用受管 `WebGPT-as-Codex-Autostart.cmd`，并通过 SHA-256 拒绝被修改过的 launcher；只有两项 loopback probe 都恢复后才返回成功。脚本不写入凭据，也不固化当前机器的公网 URL。
+
 ## Phase 9 — 最终人工步骤
 
 对于 fresh deployment，只剩真正 interactive 的账户/浏览器授权：

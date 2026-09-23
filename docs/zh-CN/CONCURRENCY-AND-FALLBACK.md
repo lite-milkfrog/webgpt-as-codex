@@ -81,6 +81,8 @@ Supplemental acceptance 的历史事故证明了这一点：device 可见、auth
 
 recovery owner 规则保持对称但不递归：healthy WebGPT 可 bounded repair unhealthy RDC；healthy RDC 可 bounded repair unhealthy WebGPT；unhealthy plane 不能被选为 active repair executor。两者都 down 时必须 local startup/reboot/human-local action。
 
+受管 Desktop 安装还会生成一个无凭据的本地恢复桥 `%LOCALAPPDATA%\WebGPT-as-Codex\rdc-recover-webgpt.ps1`。RDC 可通过自己独立的 host execution plane 调用它。恢复桥首先对 loopback Coding Tools 执行真实 MCP `initialize`，同时检查本地 Manager health；只有任一检查失败时，才会调用现有的受管 Windows Autostart launcher，并且只有两项检查都重新通过后才报告恢复成功。它会拒绝 unmanaged 或被修改过的 launcher，也不会接触 OAuth credential、public URL 或 Funnel 配置。反向恢复继续使用 WAC 已有的 RDC launcher/self-heal。WAC 在本地看到 RDC process/TCP 正常，仍不能据此宣称 RDC execution plane 已健康；该结论仍需 ChatGPT 侧真实 `ping`/`get_config` probe。
+
 ### 硬限制
 
 整个 public WebGPT endpoint 不可达时不能通过自身自救，必须选 independent RDC 或本地人工动作。RDC 若在 vendor relay 层 offline/unpaired，也不能假设能救援。

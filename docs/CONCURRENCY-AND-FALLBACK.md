@@ -106,6 +106,8 @@ A historical Supplemental acceptance incident showed why this distinction matter
 
 The recovery owner rule remains symmetric but non-recursive: a healthy WebGPT plane may attempt bounded repair of unhealthy RDC, and a healthy RDC plane may attempt bounded repair of unhealthy WebGPT. An unhealthy plane is never selected as the active repair executor. If both are down, recovery requires local startup/reboot/human-local action.
 
+The managed Desktop install also provisions a credential-free local bridge at `%LOCALAPPDATA%\\WebGPT-as-Codex\\rdc-recover-webgpt.ps1`. RDC may invoke this script through its independent host execution plane. The bridge first performs a real MCP `initialize` against loopback Coding Tools plus the loopback Manager health check. Only when either check fails does it invoke the existing managed Windows Autostart launcher, and it then requires both checks to pass again before reporting recovery. It refuses an unmanaged launcher and never touches OAuth credentials, public URLs or Funnel configuration. The reverse direction remains the existing WAC-managed RDC launcher/self-heal. Local WAC process/TCP evidence still does not upgrade RDC to execution-plane healthy; ChatGPT-side `ping`/`get_config` remains required for that claim.
+
 ### Hard limitation
 
 If the entire public WebGPT endpoint is unreachable, that same endpoint cannot rescue itself. The Agent must choose the independent Remote Desktop Commander path or a local human action.

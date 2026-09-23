@@ -322,6 +322,25 @@ def test_rdc_remote_launcher_content_is_proxy_aware_and_self_healing() -> None:
     assert "Waiting for authorization" in content
 
 
+def test_rdc_to_webgpt_recovery_bridge_uses_real_mcp_initialize() -> None:
+    content = launcher._rdc_webgpt_recovery_content()
+
+    assert launcher._RDC_WAC_RECOVERY_MARKER in content
+    assert "http://127.0.0.1:9200/healthz" in content
+    assert "http://127.0.0.1:8766/mcp" in content
+    assert '"method":"initialize"' in content
+    assert '"protocolVersion":"2025-06-18"' in content
+    assert "application/json, text/event-stream" in content
+    assert "coding-tools-mcp" in content
+    assert "WebGPT-as-Codex-Autostart.cmd" in content
+    assert "REM WebGPT-as-Codex managed launcher" in content
+    assert "Get-FileHash -Algorithm SHA256" in content
+    assert "refuse-unmanaged-autostart" in content
+    assert "refuse-modified-autostart" in content
+    assert "requires ChatGPT-side RDC ping/get_config probe" in content
+    assert "https://" not in content
+
+
 def test_desktop_launcher_install_creates_rdc_helper_and_preserves_unmanaged(
     monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,
@@ -329,21 +348,29 @@ def test_desktop_launcher_install_creates_rdc_helper_and_preserves_unmanaged(
     desktop = tmp_path / "Desktop"
     logs = tmp_path / "logs"
     rdc_launcher = tmp_path / "DesktopCommander" / "start-remote.ps1"
+    recovery_bridge = tmp_path / "WebGPT-as-Codex" / "rdc-recover-webgpt.ps1"
     monkeypatch.setenv("WEBGPT_CODEX_DESKTOP_DIR", str(desktop))
     monkeypatch.setenv("WEBGPT_CODEX_LAUNCH_LOG_DIR", str(logs))
     monkeypatch.setenv("WEBGPT_CODEX_RDC_LAUNCHER_PATH", str(rdc_launcher))
+    monkeypatch.setenv("WEBGPT_CODEX_RDC_WAC_RECOVERY_PATH", str(recovery_bridge))
 
     installed = launcher.desktop_launcher("install")
     assert installed["ok"] is True
     assert installed["rdc_launcher"]["status"] == "installed"
+    assert installed["rdc_webgpt_recovery"]["status"] == "installed"
     assert launcher._RDC_REMOTE_LAUNCHER_MARKER in rdc_launcher.read_text(encoding="utf-8")
+    assert launcher._RDC_WAC_RECOVERY_MARKER in recovery_bridge.read_text(encoding="utf-8")
 
     user_owned = "# user-managed RDC launcher\n"
     rdc_launcher.write_text(user_owned, encoding="utf-8")
+    user_owned_bridge = "# user-managed recovery bridge\n"
+    recovery_bridge.write_text(user_owned_bridge, encoding="utf-8")
     updated = launcher.desktop_launcher("install")
     assert updated["ok"] is True
     assert updated["rdc_launcher"]["status"] == "preserved-existing-unmanaged-file"
+    assert updated["rdc_webgpt_recovery"]["status"] == "preserved-existing-unmanaged-file"
     assert rdc_launcher.read_text(encoding="utf-8") == user_owned
+    assert recovery_bridge.read_text(encoding="utf-8") == user_owned_bridge
 
 
 def test_immediately_previous_prestart_generation_is_upgradeable(

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 import ctypes
+import hashlib
 import json
 import os
 import re
@@ -30,6 +31,8 @@ _DESKTOP_RECOVERY_SECONDS = 180
 _AUTOSTART_RECOVERY_SECONDS = 300
 _RDC_REMOTE_LAUNCHER_MARKER = "# WebGPT-as-Codex managed RDC launcher"
 _RDC_REMOTE_LAUNCHER_ENV = "WEBGPT_CODEX_RDC_LAUNCHER_PATH"
+_RDC_WAC_RECOVERY_MARKER = "# WebGPT-as-Codex managed RDC-to-WAC recovery bridge"
+_RDC_WAC_RECOVERY_ENV = "WEBGPT_CODEX_RDC_WAC_RECOVERY_PATH"
 
 
 def _expand_shell_value(value: str) -> Path:
@@ -252,6 +255,132 @@ def _ensure_rdc_remote_launcher() -> dict[str, Any]:
         except OSError as exc:
             return {"ok": False, "status": "read-failed", "path": str(path), "error": str(exc)}
         if _RDC_REMOTE_LAUNCHER_MARKER not in current:
+            return {"ok": True, "status": "preserved-existing-unmanaged-file", "path": str(path)}
+        if current.replace("\r\n", "\n") == expected.replace("\r\n", "\n"):
+            return {"ok": True, "status": "present", "path": str(path)}
+        operation = "updated"
+    else:
+        operation = "installed"
+    path.write_text(expected, encoding="utf-8", newline="")
+    return {"ok": True, "status": operation, "path": str(path)}
+
+
+def _rdc_webgpt_recovery_path() -> Path:
+    override = os.getenv(_RDC_WAC_RECOVERY_ENV)
+    if override:
+        return Path(override).expanduser().resolve()
+    local_appdata = os.getenv("LOCALAPPDATA")
+    root = (
+        Path(local_appdata)
+        if local_appdata
+        else user_home() / "AppData" / "Local"
+    )
+    return root / "WebGPT-as-Codex" / "rdc-recover-webgpt.ps1"
+
+
+def _rdc_webgpt_recovery_content() -> str:
+    expected_autostart_sha256 = hashlib.sha256(
+        _launcher_content(open_browser=False).encode("utf-8")
+    ).hexdigest()
+    lines = [
+        _RDC_WAC_RECOVERY_MARKER,
+        "$ErrorActionPreference = 'SilentlyContinue'",
+        "",
+        "$base = Split-Path -Parent $MyInvocation.MyCommand.Path",
+        "$log = Join-Path $base 'rdc-recovery-bridge.log'",
+        "$managerUrl = 'http://127.0.0.1:9200/healthz'",
+        "$mcpUrl = 'http://127.0.0.1:8766/mcp'",
+        "$startup = Join-Path ([Environment]::GetFolderPath('Startup')) 'WebGPT-as-Codex-Autostart.cmd'",
+        f"$expectedLauncherSha256 = '{expected_autostart_sha256}'",
+        "",
+        "function Test-ManagerHealth {",
+        "    try {",
+        "        $response = Invoke-WebRequest -UseBasicParsing -Uri $managerUrl -Method GET -TimeoutSec 3",
+        "        return [bool]($response.StatusCode -eq 200)",
+        "    } catch {",
+        "        return $false",
+        "    }",
+        "}",
+        "",
+        "function Test-CodingToolsMcp {",
+        "    try {",
+        "        $body = '{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"initialize\",\"params\":{\"protocolVersion\":\"2025-06-18\",\"capabilities\":{},\"clientInfo\":{\"name\":\"rdc-recovery-bridge\",\"version\":\"1.0\"}}}'",
+        "        $headers = @{ Accept = 'application/json, text/event-stream' }",
+        "        $response = Invoke-WebRequest -UseBasicParsing -Uri $mcpUrl -Method POST -Headers $headers -ContentType 'application/json' -Body $body -TimeoutSec 5",
+        "        if ($response.StatusCode -ne 200) { return $false }",
+        "        $payload = $response.Content | ConvertFrom-Json",
+        "        return [bool]($payload.result.serverInfo.name -eq 'coding-tools-mcp')",
+        "    } catch {",
+        "        return $false",
+        "    }",
+        "}",
+        "",
+        "function Write-BridgeResult([bool]$Ok, [string]$Status, [bool]$Manager, [bool]$Mcp, [object]$LauncherExit) {",
+        "    [ordered]@{",
+        "        ok = $Ok",
+        "        status = $Status",
+        "        manager_health = $Manager",
+        "        coding_tools_mcp_initialize = $Mcp",
+        "        launcher_exit = $LauncherExit",
+        "        rdc_execution_plane = 'requires ChatGPT-side RDC ping/get_config probe'",
+        "    } | ConvertTo-Json -Compress | Write-Output",
+        "}",
+        "",
+        "$managerHealthy = Test-ManagerHealth",
+        "$mcpHealthy = Test-CodingToolsMcp",
+        "if ($managerHealthy -and $mcpHealthy) {",
+        "    Write-BridgeResult $true 'healthy' $managerHealthy $mcpHealthy $null",
+        "    exit 0",
+        "}",
+        "",
+        "if (-not (Test-Path -LiteralPath $startup)) {",
+        "    Write-BridgeResult $false 'managed-autostart-missing' $managerHealthy $mcpHealthy $null",
+        "    exit 2",
+        "}",
+        "if (-not (Select-String -LiteralPath $startup -SimpleMatch 'REM WebGPT-as-Codex managed launcher' -Quiet)) {",
+        "    Write-BridgeResult $false 'refuse-unmanaged-autostart' $managerHealthy $mcpHealthy $null",
+        "    exit 3",
+        "}",
+        "$actualLauncherSha256 = (Get-FileHash -Algorithm SHA256 -LiteralPath $startup).Hash.ToLowerInvariant()",
+        "if ($actualLauncherSha256 -ne $expectedLauncherSha256) {",
+        "    Write-BridgeResult $false 'refuse-modified-autostart' $managerHealthy $mcpHealthy $null",
+        "    exit 3",
+        "}",
+        "",
+        "New-Item -ItemType Directory -Force $base | Out-Null",
+        "Add-Content -LiteralPath $log -Value ('[' + (Get-Date -Format o) + '] RDC requested bounded WebGPT recovery.')",
+        "& $startup | Out-Null",
+        "$launcherExit = $LASTEXITCODE",
+        "",
+        "$deadline = (Get-Date).AddSeconds(30)",
+        "do {",
+        "    $managerHealthy = Test-ManagerHealth",
+        "    $mcpHealthy = Test-CodingToolsMcp",
+        "    if ($managerHealthy -and $mcpHealthy) {",
+        "        Add-Content -LiteralPath $log -Value ('[' + (Get-Date -Format o) + '] WebGPT recovery verified by Manager + MCP initialize.')",
+        "        Write-BridgeResult $true 'recovered' $managerHealthy $mcpHealthy $launcherExit",
+        "        exit 0",
+        "    }",
+        "    Start-Sleep -Seconds 1",
+        "} while ((Get-Date) -lt $deadline)",
+        "",
+        "Add-Content -LiteralPath $log -Value ('[' + (Get-Date -Format o) + '] WebGPT recovery verification failed.')",
+        "Write-BridgeResult $false 'recovery-not-verified' $managerHealthy $mcpHealthy $launcherExit",
+        "exit 4",
+    ]
+    return "\r\n".join(lines) + "\r\n"
+
+
+def _ensure_rdc_webgpt_recovery_bridge() -> dict[str, Any]:
+    path = _rdc_webgpt_recovery_path()
+    expected = _rdc_webgpt_recovery_content()
+    path.parent.mkdir(parents=True, exist_ok=True)
+    if path.exists():
+        try:
+            current = path.read_text(encoding="utf-8")
+        except OSError as exc:
+            return {"ok": False, "status": "read-failed", "path": str(path), "error": str(exc)}
+        if _RDC_WAC_RECOVERY_MARKER not in current:
             return {"ok": True, "status": "preserved-existing-unmanaged-file", "path": str(path)}
         if current.replace("\r\n", "\n") == expected.replace("\r\n", "\n"):
             return {"ok": True, "status": "present", "path": str(path)}
@@ -883,6 +1012,7 @@ def desktop_launcher(action: str) -> dict[str, Any]:
         result = _install(path, expected, legacy_matcher=legacy_matcher)
         if result.get("ok"):
             result["rdc_launcher"] = _ensure_rdc_remote_launcher()
+            result["rdc_webgpt_recovery"] = _ensure_rdc_webgpt_recovery_bridge()
         return result
     if action == "uninstall":
         return _uninstall(path, expected, legacy_matcher=legacy_matcher)
