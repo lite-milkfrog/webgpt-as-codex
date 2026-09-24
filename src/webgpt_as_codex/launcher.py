@@ -1101,7 +1101,6 @@ def _start_all_until_ready(supervisor: RuntimeSupervisor) -> dict[str, Any]:
     return result
 
 
-
 def _start_rdc_external_backend() -> dict[str, Any]:
     """Best-effort Windows RDC recovery that never gates WebGPT readiness."""
     if not sys.platform.startswith("win"):
@@ -1184,6 +1183,7 @@ def _start_rdc_external_backend() -> dict[str, Any]:
         ),
         "returncode": completed.returncode,
     }
+
 
 def _wait_public_remote_ready() -> tuple[bool | None, dict[str, Any]]:
     health, evidence = probe_public_remote()
