@@ -34,6 +34,16 @@ Supplemental chain (user requirements added after the accepted TERMINAL state):
 
 The supplemental chain does not invalidate the accepted Stage 1-12 evidence. It owns only the later one-repository deployment, production unified Gateway, fresh-machine dependency/bootstrap, complementary Remote Desktop Commander recovery, multi-window concurrency, bilingual Manager/desktop experience and complete Chinese mirror requirements.
 
+2026-09-23 Playwright exactly-once handoff hotfix evidence:
+- live host check found exactly one `127.0.0.1:8931` Playwright MCP listener; the duplicate-tab/duplicate-submit defect was therefore treated as multi-client/browser-writer concurrency rather than “two servers”;
+- `playwright_handoff.py` now composes a machine-level GUI single-writer, persistent prompt-SHA state machine and the existing sessionStorage tab lease;
+- browser selection is RECOVER > REUSE > CREATE; one unique blank ChatGPT tab is reused instead of creating another;
+- `SUBMIT_ATTEMPTED` is atomically persisted before Enter, and any uncertain post-Enter result is recovery-only rather than retry permission;
+- a crashed GUI lease owner can be reclaimed by process identity before TTL expiry; live competing writers remain fail-closed;
+- real-browser single smoke `PLAYWRIGHT-EXACTLY-ONCE-SMOKE-20260923T220446` has exactly 1 matching user message and 1 matching ACK in its conversation;
+- real-browser concurrent smoke `PLAYWRIGHT-EXACTLY-ONCE-CONCURRENT-20260923T221106` also has exactly 1 matching user message and 1 matching ACK; the winning process submitted successfully while the competing process failed closed at `MachineGuiLease` with no second Enter;
+- current targeted regression gate: Playwright handoff + Stage10 + Stage16 + reboot recovery + handoff contract = 84 PASS.
+
 Stage 13 live implementation evidence so far:
 - fresh-machine environment reporting now distinguishes Windows/Python/winget/Tailscale installed/version/login/online/MagicDNS/Funnel state plus WebGPT private runtime-binary readiness;
 - current host verified Tailscale 1.102.2, online state, MagicDNS and configured Funnel evidence, with `ready_for_edge=true`;

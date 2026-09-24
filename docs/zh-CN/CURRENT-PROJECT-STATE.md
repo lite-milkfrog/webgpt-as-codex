@@ -23,6 +23,17 @@ Stage 1-12、Final Overall Acceptance、Project Complete 均为 `CLOSED_LOCAL_VE
 - Stage 19: `CLOSED_LOCAL_VERIFIED`；并完成 REAL_HOST_VERIFIED + REAL_CHATGPT_VERIFIED
 - Supplemental Final Acceptance: `CLOSED_LOCAL_VERIFIED + REAL_HOST_VERIFIED`
 
+## 2026-09-23 Playwright Exactly-Once Handoff 热修复
+
+- 当前主机实测 `127.0.0.1:8931` 只有 1 个 Playwright MCP listener，因此重复开窗/重复提交按“多个 client / handoff writer 并发操作同一 shared Edge context”处理，而不是简单归因于两个 MCP server。
+- `playwright_handoff.py` 现在组合三层保护：机器级 GUI single-writer、持久化 prompt-SHA 幂等状态机、已有 sessionStorage tab lease。
+- tab 选择遵循 **RECOVER > REUSE > CREATE**：能恢复旧 lease 就恢复；只有一个空白 ChatGPT tab 时直接复用；最后才新建。
+- Enter 前必须 atomic write `SUBMIT_ATTEMPTED`；Enter 后任何 timeout/session loss 都只能恢复后态，不能第二次 Enter。
+- GUI lease 记录进程身份；writer 崩溃后可在 TTL 到期前安全回收，活着的竞争 writer 仍 fail closed。
+- 真实单次 smoke `PLAYWRIGHT-EXACTLY-ONCE-SMOKE-20260923T220446` 的目标会话中只有 1 条匹配 user message 和 1 条 ACK。
+- 真实并发 smoke `PLAYWRIGHT-EXACTLY-ONCE-CONCURRENT-20260923T221106` 同样只有 1 条匹配 user message 和 1 条 ACK；胜出的进程完成提交，竞争进程在 `MachineGuiLease` 处 fail closed，没有第二次 Enter。
+- 当前定向回归门：Playwright handoff + Stage10 + Stage16 + reboot recovery + handoff contract 共 84 PASS。
+
 ## Stage 13 证据
 
 - fresh-machine 环境报告区分 Windows/Python/winget/Tailscale installed/version/login/online/MagicDNS/Funnel，以及 WebGPT 私有 runtime binary readiness。

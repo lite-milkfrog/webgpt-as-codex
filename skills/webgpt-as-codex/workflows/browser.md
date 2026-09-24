@@ -57,7 +57,7 @@
 - **桌面 launcher / 本地控制页例外**：用户双击桌面入口打开 Manager、Dashboard 等普通页面时，它不是 Playwright 自动化会话。若用户正常浏览器已经运行，优先让 URL 进入该浏览器当前正常 profile；浏览器未运行时使用 Windows 默认 URL handler。不得把 Playwright 的 temp/isolated/automation profile 创建逻辑复用给桌面 launcher，也不得默认 InPrivate。桌面 opener 与 Playwright Extension/shared-context 分开验证、分开维护。
 - 密码/Token 不写入 Skill 或普通日志；可让用户在浏览器内完成敏感输入。
 - 对 Loop handoff 必须把 `Playwright service`、`browser automation`、`authenticated ChatGPT context` 分开判定。前两者正常、只有账户态缺失时，不得把整个 Playwright 写成 FAILED。
-- Extension token 已建立连接但当前 session 只看到扩展 `Welcome` 页时，**不要要求用户手动点旧的 `Allow & select`**。先在同一 MCP session 直接 `browser_tabs new` 打开 `https://chatgpt.com/`；若新 tab 能看到账号资料/历史记录/composer，即视为已成功继承同一 Edge 登录态，直接使用这个新 tab 完成 handoff。只有新建 ChatGPT tab 仍未认证时，才进入 shared-context/tab-group/auth 恢复或 handoff-only Windows-MCP fallback。
+- Extension token 已建立连接但当前 session 只看到扩展 `Welcome` 页时，**不要要求用户手动点旧的 `Allow & select`**。先枚举当前 tabs：优先恢复已有 handoff tab lease，其次复用唯一空白 ChatGPT tab；只有不存在安全可复用目标时，才在同一 MCP session `browser_tabs new -> https://chatgpt.com/`。若目标 tab 能看到账号资料/历史记录/composer，即视为已成功继承同一 Edge 登录态。只有 ChatGPT 目标仍未认证时，才进入 shared-context/tab-group/auth 恢复或 handoff-only Windows-MCP fallback。
 - 如果 Extension/shared context 因缺 token/未登录而不能复用账户态，先检查是否存在**已运行且已登录的用户浏览器窗口**。用户已经明确授权自动 handoff 时，可把 Windows-MCP 作为**仅限 handoff transport 的最后 fallback**：重新 Snapshot 现有浏览器，确认是 ChatGPT 且已登录，再通过原生键盘/可访问控件打开新对话、粘贴完整 prompt、只提交一次并验证新 user message/assistant generating。不得读取密码/Token、不得修改浏览器账户安全设置、不得用坐标盲点绕过登录。
 
 ## 外部副作用
@@ -149,16 +149,17 @@ Programmatic DOM activation 只能替代已经授权、正常可执行但被页�
 1. 先完成当前 stage 的 docs/commit/next prompt；
 2. 读取 `workflows/handoff-template.md` 确认 prompt Zero-Guess 字段完整；
 3. 先读 `environment.local.md` 获取本机 Playwright locator；direct schema 未暴露时连接本机 MCP，不得直接判定不可用；
-4. 优先复用已登录 Edge Extension/shared context；Extension session 只见 `Welcome` 但显示 connected 时，先直接在**同一 MCP session** `browser_tabs new -> https://chatgpt.com/` 并验证登录态，不要求人工选择旧 tab；如果新 tab仍未登录，才按“登录态”章节继续 auth/shared-context fallback。若 direct connector 的下一次调用换了 MCP session/relay，禁止因此再次开 tab；改用持久本地 8931 session、单次 persistent-context/run-code 调用或 handoff helper；
-5. 使用这个已验证登录态的新 ChatGPT tab 作为空白新聊天；
-6. 从 Source of Truth 读取完整 handoff prompt；
-7. 填入后校验长度 + 首/中/尾片段；超长 prompt 可加 whitespace-normalized SHA-256；
-8. 只提交一次；
-9. 若 submit/click/type 超时或报错，先查 conversation URL、composer、用户消息、send/stop/generating 后态；
-10. 只有确认未提交才允许换 Playwright 内策略；优先 Enter，再考虑已启用 send-button 的同语义 DOM activation；
-11. 验证 conversation URL 已形成、composer 清空、用户消息可见且下一会话已响应或开始 generating；
-12. handoff 成功后枚举当前 persistent context；只关闭本 Agent 本轮明确创建、且仍为空白/重复/未使用的 ChatGPT tab，保留已接管 conversation 与所有用户原有标签页；
-13. Playwright 与 handoff-only Windows-MCP fallback 都不可用时，写 `STAGE_COMPLETE_HANDOFF_PENDING / PAUSED_HANDOFF_TRANSPORT`，但不得重做已完成产品 stage；恢复时只恢复 transport 层。
+4. 在任何浏览器 mutation 前先取得机器级 GUI single-writer；多个 Agent / handoff process 不能同时操作同一个 Edge/shared context；
+5. 以完整 prompt 的 SHA-256 作为持久化事务/幂等键；canonical helper / Python handoff ledger 都必须先检查已有 receipt，已跨过 submit side-effect boundary 的事务只能恢复与验证，禁止再次提交；
+6. 优先复用已登录 Edge Extension/shared context，并保持同一个持久 MCP session。目标选择遵循 **RECOVER > REUSE > CREATE**：先恢复 exact-hash 已提交消息、未提交草稿或已记录 tab lease；其次复用唯一空白 ChatGPT tab；最后才新建。若 connector 下一调用只剩 Welcome，先按 OBSERVER_SESSION_CHURN 处理，不能据此再开 tab；
+7. 从 Source of Truth 读取完整 handoff prompt；
+8. 填入后校验长度 + 首/中/尾片段；超长 prompt 可加 whitespace-normalized SHA-256，并在 submit 前重新验证 tab lease / exact prompt identity；
+9. **任何真实 submit primitive 前必须原子持久化 SUBMIT_ATTEMPTED**；Enter/click 是不可安全重试的 side effect；
+10. 若 Enter / click 返回 timeout、MCP error、session lost 或进程崩溃，只能恢复 URL、composer、exact last-user-message hash、assistant/generating 后态；绝不能直接第二次 Enter，也不能让 direct connector / Windows-MCP 成为并行 mutation owner；
+11. 验证 conversation URL 已形成、composer 清空、目标 user message 的 exact/normalized hash 一致且下一会话已响应或开始 generating 后，再升级为已验证提交状态（Python ledger 为 SUBMITTED_VERIFIED；canonical helper receipt 继续按其 SUBMITTED/HANDOFF_OK 契约）；
+12. 后态仍不确定时保持 ambiguous / attempted receipt 并 fail closed；只有能证明未越过 side-effect boundary 的 FAILED_BEFORE_SIDE_EFFECT 才允许自然 retry；
+13. handoff 成功后只关闭本 Agent 本轮明确创建、且仍为空白/重复/未使用的 ChatGPT tab；保留已接管 conversation 与用户原有标签页；
+14. Playwright 与 handoff-only Windows-MCP fallback 都不可用时，写 `STAGE_COMPLETE_HANDOFF_PENDING / PAUSED_HANDOFF_TRANSPORT`，但不得重做已完成产品 stage；恢复时只恢复 transport 层。
 
 用户对自动 loop 的明确授权只覆盖该 loop 内 handoff prompt 的提交，不扩展到其它外部副作用。
 
@@ -191,3 +192,13 @@ Loop handoff 不能再靠“当前看见哪个 tab”推断事务状态。canoni
 - 真正触发 Enter/click submit **之前**先写 machine-local `SUBMIT_ATTEMPTED` write-ahead receipt（默认 `%LOCALAPPDATA%\\WebGPT-as-Codex\\handoff-receipts\\<prompt-sha256>.json`）；exact submitted message 被证明后升级为 `SUBMITTED`，takeover 验证后升级为 `HANDOFF_OK`。这样可以覆盖“提交动作已经跨过副作用边界，但 helper 在确认后态/写 `SUBMITTED` 前崩溃”的窗口。
 - `SUBMIT_ATTEMPTED`/`SUBMITTED` receipt 都是 blind-resubmit barrier：即使用户手动关掉目标 tab、网页连接断开、helper 进程退出或下一 worker 暂时没有可见响应，也不得把“现场消失”解释为“没发”。`SUBMITTED` 可按 receipt conversation URL 做只读 exact-hash/takeover 复核；`SUBMIT_ATTEMPTED` 必须先恢复并证明上一尝试未产生副作用，无法证明时 fail closed，而不是再发一次。
 - 当 canonical helper 已开始该 handoff transaction 后，direct connector / Windows-MCP 不得成为第二个 mutation owner。它们可以做只读诊断；只有在 helper **尚未发生任何 submit side effect** 且明确不可执行时，才允许按既有授权选择单一 fallback transport。
+
+### Machine-level exactly-once handoff
+
+Tab lease 只解决“当前 handoff 不要跑错 tab”，不能解决两个独立进程同时各自拥有一个合法 tab。因此正确性必须位于 prompt/Skill 层以下：
+
+- **Machine GUI lease**：任何 `new tab / type / Enter / browser mutation` 前先取得机器级独占 writer；第二个 handoff fail closed，不能并行写同一个 Edge/shared context。
+- **Persistent prompt ledger**：`prompt_sha256` 是跨进程幂等键，状态至少包括 `PREPARED / SUBMIT_ATTEMPTED / SUBMITTED_VERIFIED / AMBIGUOUS_AFTER_SIDE_EFFECT / FAILED_BEFORE_SIDE_EFFECT`。
+- **Atomic side-effect barrier**：`SUBMIT_ATTEMPTED` 必须 atomic write 成功后才允许 Enter。Enter 返回异常不等于“没发出去”。
+- **Crash recovery**：进程死在 `SUBMIT_ATTEMPTED` 后，下一次只能恢复 tab + 查后态；不能重新填 prompt 再提交。
+- **Safety lives below the prompt layer**：Skill 负责说明和路由，exactly-once correctness 不能依赖“提示词里写一句不要重复提交”。

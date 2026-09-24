@@ -385,9 +385,10 @@ def test_open_tab_reuses_unique_blank_after_pre_submit_recovery() -> None:
         first_request_id=2,
         recoveries=recoveries,
     )
-    assert next_id == 7
+    assert next_id == 4
+    assert ("browser_tabs", {"action": "new", "url": "https://chatgpt.com/"}) not in client.calls
     assert client.calls[-1] == ("browser_tabs", {"action": "select", "index": 1})
-    assert recoveries == ["tab-selection-refresh", "unique-blank-tab-reuse"]
+    assert recoveries == []
 
 
 def test_closure_state_reopen_invalidates_stale_prompt() -> None:

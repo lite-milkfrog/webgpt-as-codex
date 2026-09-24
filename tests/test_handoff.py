@@ -23,7 +23,9 @@ def test_stable_handoff_contains_required_contract() -> None:
     assert "## Self-evolving execution contract" in text
     assert "20-minute soft stage budget" in text
     assert "real active composer" in text
-    assert "explicitly select that new ChatGPT tab" in text
+    assert "RECOVER > REUSE > CREATE" in text
+    assert "SUBMIT_ATTEMPTED" in text
+    assert "must never trigger a second Enter" in text
     assert "Routing decides WHICH capability" in text
 
 

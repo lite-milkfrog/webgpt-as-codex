@@ -503,10 +503,26 @@ class MachineGuiLease:
         self._lease = _JsonLease(path, lease_seconds=lease_seconds)
 
     def acquire(self, owner_id: str, *, action: str) -> dict[str, Any]:
-        return self._lease.acquire(
-            owner_id,
-            metadata={"kind": "machine-gui", "action": action},
-        )
+        identity = _process_identity(os.getpid()) or {"pid": os.getpid()}
+        metadata = {"kind": "machine-gui", "action": action, **identity}
+        try:
+            return self._lease.acquire(owner_id, metadata=metadata)
+        except LeaseBusy:
+            # A crashed GUI writer must not block recovery until the TTL expires.
+            # Reclaim only when the receipt carries a verifiable process identity
+            # and that exact process is no longer alive.
+            with _exclusive_guard(self._lease.guard):
+                current = _read_json(self._lease.path)
+                if (
+                    current
+                    and current.get("kind") == "machine-gui"
+                    and current.get("birth_token")
+                    and not _identity_matches(current)
+                ):
+                    self._lease.path.unlink(missing_ok=True)
+                else:
+                    raise
+            return self._lease.acquire(owner_id, metadata=metadata)
 
     def heartbeat(self, owner_id: str) -> dict[str, Any]:
         return self._lease.heartbeat(owner_id)

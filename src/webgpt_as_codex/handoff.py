@@ -203,12 +203,14 @@ This handoff rule is recursive and MUST be inherited by every subsequent window:
 Automatic continuation is authorized.
 After closure, use Playwright MCP with the logged-in ChatGPT browser state:
 1. keep one MCP session and reuse the already authenticated browser context; do not create a fresh isolated profile merely to get a new conversation;
-2. open a new ChatGPT tab/page, enumerate the tabs and explicitly select that new ChatGPT tab in the same MCP session; do not assume the extension focused it;
-3. reacquire fresh DOM evidence from the selected tab and wait for the real active composer; an initial hidden hydration fallback textarea is not a valid target;
-4. enter the exact validated prompt file and submit once;
-5. verify the prompt appears as a sent user message containing SOURCE_HEAD;
-6. verify the URL is /c/... and a new assistant run/response begins;
-7. only then mark the handoff successful.
+2. acquire the machine-level GUI single-writer before any tab creation, typing, Enter, or other browser mutation;
+3. use the exact prompt SHA-256 as a persistent idempotency key; recover a pending/ambiguous submission before considering any new tab or draft;
+4. select the browser target with RECOVER > REUSE > CREATE: restore the persisted tab lease first, otherwise reuse one unique blank ChatGPT tab, and create a new tab only as the last safe option;
+5. reacquire fresh DOM evidence from the selected tab and wait for the real active composer; an initial hidden hydration fallback textarea is not a valid target;
+6. enter the exact validated prompt file with submit disabled;
+7. atomically persist SUBMIT_ATTEMPTED before the one allowed Enter; after that barrier, timeout/session loss is recovery-only and must never trigger a second Enter;
+8. verify the prompt appears as a sent user message containing SOURCE_HEAD, the URL is /c/..., the composer is clear, and a new assistant run/response begins;
+9. persist SUBMITTED_VERIFIED only after those post-state checks; otherwise preserve AMBIGUOUS_AFTER_SIDE_EFFECT and fail closed.
 A populated textbox, click, navigation, or prompt file alone is NOT proof of handoff.
 
 Continue Loop Engineering recursively until the full project and final overall acceptance are complete.

@@ -671,3 +671,19 @@ Protected lesson:
 - write a machine-local `SUBMIT_ATTEMPTED` receipt immediately before invoking any real submit primitive, then upgrade it to `SUBMITTED` only after exact submit is proven and to `HANDOFF_OK` only after takeover is observed; this write-ahead boundary covers a crash/connection-loss window between the side effect and its post-state confirmation;
 - once `SUBMITTED` exists, user tab closure, connector failure or missing live browser state cannot authorize another submit; recovery is read-only verification against the receipt's conversation URL;
 - direct connector/Windows GUI may diagnose a helper failure, but cannot become a parallel mutation owner for the same transaction.
+
+## 2026-09-23 — Tab lease is not machine ownership; handoff needs three independent guards
+
+Origin:
+- repeated Loop Engineering handoffs sometimes opened multiple ChatGPT tabs and typed/submitted the same prompt more than once;
+- live host evidence showed one Playwright MCP listener on 8931, so duplicate behavior was not explained by two MCP servers;
+- the existing sessionStorage tab lease correctly restored one handoff to its own tab, but two independent handoff processes could each mint a valid lease and mutate the same shared Edge context.
+
+Protected lesson:
+- model exactly-once handoff as three layers: machine GUI single-writer + persistent prompt-SHA idempotency ledger + browser tab lease;
+- choose browser targets with RECOVER > REUSE > CREATE; a unique blank ChatGPT tab is reusable and a new tab is the last safe option;
+- atomically persist `SUBMIT_ATTEMPTED` before Enter; once that barrier exists, timeout/session loss is ambiguous post-side-effect state, never evidence that Enter is safe to retry;
+- `SUBMITTED_VERIFIED` suppresses duplicate execution and may return its existing receipt; `SUBMIT_ATTEMPTED` / `AMBIGUOUS_AFTER_SIDE_EFFECT` are recovery-only; only `FAILED_BEFORE_SIDE_EFFECT` is naturally retryable;
+- machine GUI leases carry process identity so a crashed writer can be reclaimed without waiting for the full TTL, while a live competing writer still fails closed;
+- real-browser proof must count the target token in the resulting conversation, not infer success from two smoke windows being visible: the single and concurrent smoke conversations each contained exactly one matching user message; in the concurrent run the loser stopped at `MachineGuiLease` before browser mutation;
+- keep this correctness below Skill/prompt instructions: documentation can route behavior, but it cannot be the concurrency primitive.

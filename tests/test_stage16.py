@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+import json
 import threading
+import time
 from pathlib import Path
 
 import pytest
@@ -266,6 +268,34 @@ def test_gui_simultaneous_acquire_has_single_winner(
         thread.join()
 
     assert len(results) == 1
+
+
+def test_gui_lease_reclaims_crashed_writer_before_ttl(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    state = tmp_path / "state"
+    monkeypatch.setenv("WEBGPT_CODEX_STATE_DIR", str(state))
+    path = state / "concurrency" / "gui-lease.json"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(
+        json.dumps(
+            {
+                "schema_version": 1,
+                "kind": "machine-gui",
+                "action": "chatgpt-handoff",
+                "owner_id": "dead-writer",
+                "pid": 999999,
+                "birth_token": "dead-birth",
+                "expires_at": time.time() + 3600,
+            }
+        ),
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(concurrency, "_identity_matches", lambda _receipt: False)
+    lease = MachineGuiLease(lease_seconds=30)
+    acquired = lease.acquire("replacement", action="chatgpt-handoff")
+    assert acquired["owner_id"] == "replacement"
+    assert acquired["status"] == "acquired"
 
 
 @pytest.mark.parametrize(
