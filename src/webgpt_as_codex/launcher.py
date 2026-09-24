@@ -29,6 +29,7 @@ _EXTERNAL_BACKEND_POLL = 2.0
 _BOOT_RECOVERY_POLL = 10.0
 _DESKTOP_RECOVERY_SECONDS = 180
 _AUTOSTART_RECOVERY_SECONDS = 300
+_RDC_START_TIMEOUT_SECONDS = 70.0
 _RDC_REMOTE_LAUNCHER_MARKER = "# WebGPT-as-Codex managed RDC launcher"
 _RDC_REMOTE_LAUNCHER_ENV = "WEBGPT_CODEX_RDC_LAUNCHER_PATH"
 _RDC_WAC_RECOVERY_MARKER = "# WebGPT-as-Codex managed RDC-to-WAC recovery bridge"
@@ -137,6 +138,10 @@ def _rdc_remote_launcher_content() -> str:
         "$existing = Get-RemoteDesktopCommanderProcess",
         "if ($existing) {",
         "    if (Test-RemoteDesktopCommanderHealthy $existing.ProcessId) {",
+        "        $existing.ProcessId | Set-Content -LiteralPath $pidFile",
+        "        exit 0",
+        "    }",
+        "    if (Select-String -LiteralPath $log -Pattern 'Waiting for authorization' -Quiet -ErrorAction SilentlyContinue) {",
         "        $existing.ProcessId | Set-Content -LiteralPath $pidFile",
         "        exit 0",
         "    }",
@@ -1095,6 +1100,85 @@ def _start_all_until_ready(supervisor: RuntimeSupervisor) -> dict[str, Any]:
     return result
 
 
+
+def _start_rdc_external_backend() -> dict[str, Any]:
+    """Best-effort Windows RDC recovery that never gates WebGPT readiness."""
+    if not sys.platform.startswith("win"):
+        return {"ok": True, "attempted": False, "status": "not-windows"}
+
+    helper = _ensure_rdc_remote_launcher()
+    path = _rdc_remote_launcher_path()
+    base: dict[str, Any] = {
+        "ok": bool(helper.get("ok")),
+        "attempted": False,
+        "status": "helper-not-ready",
+        "path": str(path),
+        "helper": helper,
+        "gates_webgpt_ready": False,
+    }
+    if not helper.get("ok"):
+        return base
+    if helper.get("status") == "preserved-existing-unmanaged-file":
+        return {
+            **base,
+            "ok": True,
+            "status": "preserved-unmanaged-helper",
+        }
+    if not path.exists():
+        return {
+            **base,
+            "ok": False,
+            "status": "helper-missing-after-ensure",
+        }
+
+    command = [
+        "powershell.exe",
+        "-NoProfile",
+        "-NonInteractive",
+        "-WindowStyle",
+        "Hidden",
+        "-ExecutionPolicy",
+        "Bypass",
+        "-File",
+        str(path),
+    ]
+    try:
+        completed = subprocess.run(
+            command,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            timeout=_RDC_START_TIMEOUT_SECONDS,
+            check=False,
+            creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
+        )
+    except FileNotFoundError:
+        return {
+            **base,
+            "ok": False,
+            "attempted": True,
+            "status": "powershell-not-found",
+        }
+    except subprocess.TimeoutExpired:
+        return {
+            **base,
+            "ok": False,
+            "attempted": True,
+            "status": "start-timeout",
+            "timeout_seconds": _RDC_START_TIMEOUT_SECONDS,
+        }
+
+    return {
+        **base,
+        "ok": completed.returncode == 0,
+        "attempted": True,
+        "status": (
+            "started-or-already-healthy"
+            if completed.returncode == 0
+            else "start-failed"
+        ),
+        "returncode": completed.returncode,
+    }
+
 def _wait_public_remote_ready() -> tuple[bool | None, dict[str, Any]]:
     health, evidence = probe_public_remote()
     attempts = 1
@@ -1137,6 +1221,15 @@ def run_launcher(*, open_browser: bool = True, start_all: bool = True) -> dict[s
     public_ready = public_remote_ready is not False
     browser_ready = (not open_browser) or opened
     fully_ready = runtimes_ready and public_ready
+    remote_desktop_commander: dict[str, Any] = {
+        "ok": True,
+        "attempted": False,
+        "status": "skipped",
+        "reason": "start-all-disabled" if not start_all else "webgpt-not-ready",
+        "gates_webgpt_ready": False,
+    }
+    if start_all and fully_ready:
+        remote_desktop_commander = _start_rdc_external_backend()
     return {
         "ok": bool(manager.get("ok")) and fully_ready and browser_ready,
         "fully_ready": fully_ready,
@@ -1148,6 +1241,7 @@ def run_launcher(*, open_browser: bool = True, start_all: bool = True) -> dict[s
         "browser_open_dispatched": opened,
         "browser_open_mode": browser_mode,
         "runtime_lifetime_independent_of_browser": True,
+        "remote_desktop_commander": remote_desktop_commander,
     }
 
 def cli_launcher(argv: list[str]) -> int:
