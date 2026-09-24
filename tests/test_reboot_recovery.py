@@ -316,6 +316,8 @@ def test_rdc_remote_launcher_content_is_proxy_aware_and_self_healing() -> None:
     assert "ProxyEnable" in content
     assert "HTTP_PROXY" in content
     assert "HTTPS_PROXY" in content
+    assert "$env:NO_PROXY = '127.0.0.1,localhost,::1,mcp.desktopcommander.app'" in content
+    assert "supabase.co" not in content
     assert "NODE_USE_ENV_PROXY" in content
     assert "--use-env-proxy" in content
     assert "Test-NetConnection" in content

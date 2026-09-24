@@ -213,7 +213,7 @@ def _rdc_remote_launcher_content() -> str:
         "    }",
         "    $env:HTTP_PROXY = $proxyValue",
         "    $env:HTTPS_PROXY = $proxyValue",
-        "    $env:NO_PROXY = '127.0.0.1,localhost,::1'",
+        "    $env:NO_PROXY = '127.0.0.1,localhost,::1,mcp.desktopcommander.app'",
         "    $env:NODE_USE_ENV_PROXY = '1'",
         '    $nodeHelp = (& $node --help 2>$null) -join "`n"',
         "    if ($nodeHelp -match '--use-env-proxy') {",

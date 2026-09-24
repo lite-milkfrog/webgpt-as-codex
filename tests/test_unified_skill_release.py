@@ -27,10 +27,10 @@ def test_canonical_skill_version_and_name() -> None:
     manifest = json.loads((WAC_SKILL / "manifest.json").read_text(encoding="utf-8"))
     skill = (WAC_SKILL / "SKILL.md").read_text(encoding="utf-8")
     assert manifest["name"] == "webgpt-as-codex"
-    assert manifest["version"] == "1.3.0"
+    assert manifest["version"] == "1.3.2"
     assert manifest["canonical_skill"] is True
     assert "name: webgpt-as-codex" in skill
-    assert "version: 1.3.0" in skill
+    assert "version: 1.3.2" in skill
 
 
 def test_experience_and_regressions_are_preserved() -> None:
