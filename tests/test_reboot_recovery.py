@@ -320,6 +320,77 @@ def test_rdc_remote_launcher_content_is_proxy_aware_and_self_healing() -> None:
     assert "--use-env-proxy" in content
     assert "Test-NetConnection" in content
     assert "Waiting for authorization" in content
+    assert content.index("Waiting for authorization") < content.index(
+        "Launcher self-heal: stale RDC remote process"
+    )
+
+
+def test_rdc_runtime_start_self_heals_helper(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    helper = tmp_path / "DesktopCommander" / "start-remote.ps1"
+    monkeypatch.setenv("WEBGPT_CODEX_RDC_LAUNCHER_PATH", str(helper))
+    monkeypatch.setattr(launcher.sys, "platform", "win32")
+
+    calls: list[tuple[list[str], dict]] = []
+
+    class Completed:
+        returncode = 0
+
+    def fake_run(command: list[str], **kwargs: object) -> Completed:
+        calls.append((command, dict(kwargs)))
+        return Completed()
+
+    monkeypatch.setattr(launcher.subprocess, "run", fake_run)
+
+    result = launcher._start_rdc_external_backend()
+
+    assert result["ok"] is True
+    assert result["attempted"] is True
+    assert result["status"] == "started-or-already-healthy"
+    assert result["gates_webgpt_ready"] is False
+    assert helper.exists()
+    assert launcher._RDC_REMOTE_LAUNCHER_MARKER in helper.read_text(encoding="utf-8")
+    assert calls and calls[0][0][-1] == str(helper)
+
+
+def test_rdc_runtime_failure_does_not_downgrade_webgpt_ready(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    class FakeSupervisor:
+        def start(self, component_id: str) -> dict:
+            assert component_id == "manager"
+            return {"ok": True}
+
+    monkeypatch.setattr(launcher, "RuntimeSupervisor", FakeSupervisor)
+    monkeypatch.setattr(
+        launcher,
+        "_start_all_until_ready",
+        lambda _supervisor: {"ok": True, "fully_ready": True},
+    )
+    monkeypatch.setattr(
+        launcher,
+        "_wait_public_remote_ready",
+        lambda: (True, {"attempted": True}),
+    )
+    monkeypatch.setattr(
+        launcher,
+        "_start_rdc_external_backend",
+        lambda: {
+            "ok": False,
+            "attempted": True,
+            "status": "start-failed",
+            "gates_webgpt_ready": False,
+        },
+    )
+
+    result = launcher.run_launcher(open_browser=False, start_all=True)
+
+    assert result["ok"] is True
+    assert result["fully_ready"] is True
+    assert result["remote_desktop_commander"]["ok"] is False
+    assert result["remote_desktop_commander"]["status"] == "start-failed"
 
 
 def test_rdc_to_webgpt_recovery_bridge_uses_real_mcp_initialize() -> None:
