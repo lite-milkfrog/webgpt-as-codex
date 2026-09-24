@@ -141,7 +141,8 @@ def _rdc_remote_launcher_content() -> str:
         "        $existing.ProcessId | Set-Content -LiteralPath $pidFile",
         "        exit 0",
         "    }",
-        "    if (Select-String -LiteralPath $log -Pattern 'Waiting for authorization' -Quiet -ErrorAction SilentlyContinue) {",
+        "    $recentAuthorizationWait = $existing.CreationDate -and $existing.CreationDate -gt (Get-Date).AddMinutes(-2) -and (Select-String -LiteralPath $log -Pattern 'Waiting for authorization' -Quiet -ErrorAction SilentlyContinue)",
+        "    if ($recentAuthorizationWait) {",
         "        $existing.ProcessId | Set-Content -LiteralPath $pidFile",
         "        exit 0",
         "    }",
@@ -1104,7 +1105,12 @@ def _start_all_until_ready(supervisor: RuntimeSupervisor) -> dict[str, Any]:
 def _start_rdc_external_backend() -> dict[str, Any]:
     """Best-effort Windows RDC recovery that never gates WebGPT readiness."""
     if not sys.platform.startswith("win"):
-        return {"ok": True, "attempted": False, "status": "not-windows"}
+        return {
+            "ok": True,
+            "attempted": False,
+            "status": "not-windows",
+            "gates_webgpt_ready": False,
+        }
 
     helper = _ensure_rdc_remote_launcher()
     path = _rdc_remote_launcher_path()
