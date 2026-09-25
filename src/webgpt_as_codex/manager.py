@@ -330,6 +330,27 @@ class ManagerRequestHandler(BaseHTTPRequestHandler):
             else:
                 migration_state = "external-preserved"
             status = status_rows.get(component.id) or {}
+            health = status.get("health") if isinstance(status.get("health"), dict) else {}
+            ownership_mode = component.raw.get("ownership_mode")
+            if not isinstance(ownership_mode, str) or not ownership_mode:
+                if component.id in {"mcpjungle", "mcp-auth-proxy"}:
+                    ownership_mode = "wac_owned"
+                elif component.transport == "vendor_remote":
+                    ownership_mode = "remote_connector"
+                else:
+                    ownership_mode = "external_local"
+            if component.transport == "streamable_http":
+                ready = health.get("listener") is True and health.get("protocol") is True
+            elif component.role == "oauth_edge":
+                ready = health.get("listener") is True and health.get("oauth") is True
+            else:
+                ready = health.get("process") is True
+            if ready:
+                lifecycle_state = "READY" if ownership_mode == "wac_owned" else "READY_EXTERNAL"
+            elif any(value is True for value in health.values()):
+                lifecycle_state = "DEGRADED"
+            else:
+                lifecycle_state = "DOWN"
             builtin = (resource_root() / "components" / f"{component.id}.json").exists()
             rows.append(
                 {
@@ -343,6 +364,11 @@ class ManagerRequestHandler(BaseHTTPRequestHandler):
                     "custom": not builtin,
                     "lifecycle_authority": False if not builtin else None,
                     "route_applied": False if not builtin else None,
+                    "ownership_mode": ownership_mode,
+                    "lifecycle_state": lifecycle_state,
+                    "required": component.required,
+                    "auto_start": component.enabled_by_default,
+                    "readiness_contract": component.raw.get("readiness_contract"),
                 }
             )
         password_status = oauth_password_status()

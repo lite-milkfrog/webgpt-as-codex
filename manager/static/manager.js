@@ -109,8 +109,9 @@ function renderOAuth(){
 function renderComponents(){
   if(!state.config)return;
   document.querySelector("#components").innerHTML=(state.config.components||[]).map(c=>{
-    const remove=c.custom?'<button type="button" class="danger" data-mutation data-remove="'+esc(c.id)+'">'+esc(t("remove"))+'</button>':"";
-    return '<article class="component"><div class="component-head"><div><strong>'+esc(c.display_name)+'</strong><div class="muted">'+esc(c.id)+' · '+esc(c.role)+'</div></div><div>'+remove+'</div></div><div class="component-meta"><span class="chip">'+esc(c.custom?t("custom"):t("builtin"))+'</span><span class="chip">'+esc(t("migration"))+': '+esc(c.migration_state)+'</span><span class="chip">'+esc(t("version"))+': '+esc(c.version||"unknown")+'</span><span class="chip">'+esc(c.transport)+'</span></div><div class="value">'+esc(c.endpoint||"")+'</div></article>';
+    const remove=c.custom&&!c.required?'<button type="button" class="danger" data-mutation data-remove="'+esc(c.id)+'">'+esc(t("remove"))+'</button>':"";
+    const action=(c.lifecycle_state==="READY"||c.lifecycle_state==="READY_EXTERNAL")?(LANG==="zh-CN"?"无需处理":"No action needed"):(LANG==="zh-CN"?"检查本地启动器":"Check local launcher");
+    return '<article class="component"><div class="component-head"><div><strong>'+esc(c.display_name)+'</strong><div class="muted">'+esc(c.id)+' · '+esc(c.role)+'</div></div><div>'+remove+'</div></div><div class="component-meta"><span class="chip">'+esc(c.lifecycle_state||"DOWN")+'</span><span class="chip">'+esc(c.ownership_mode||"external_local")+'</span><span class="chip">'+esc(c.auto_start?(LANG==="zh-CN"?"自动启动":"Auto start"):(LANG==="zh-CN"?"手动":"Manual"))+'</span><span class="chip">'+esc(c.custom?t("custom"):t("builtin"))+'</span><span class="chip">'+esc(t("version"))+': '+esc(c.version||"unknown")+'</span></div><div class="muted">'+esc(action)+'</div><div class="value">'+esc(c.endpoint||"")+'</div></article>';
   }).join("");
   document.querySelectorAll("[data-remove]").forEach(button=>button.onclick=async()=>{
     if(!window.confirm(t("confirmChange")))return;

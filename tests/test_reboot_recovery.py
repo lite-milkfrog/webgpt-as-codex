@@ -84,7 +84,7 @@ def test_start_all_waits_for_edge_prerequisites_until_ready(
     result = supervisor.start_all(edge_prereq_wait=1.0)
     by_id = {row["component_id"]: row for row in result["results"]}
 
-    assert starts == ["mcp-auth-proxy"]
+    assert starts == ["mcpjungle", "mcp-auth-proxy"]
     assert by_id["mcp-auth-proxy"]["status"] == "started"
     assert result["fully_ready"] is False or result["ok"] is True
 
@@ -298,12 +298,10 @@ def test_desktop_launcher_content_reports_ready_and_failure_paths() -> None:
     assert "desktop-launcher-v2.log" in desktop
     assert "autostart-v2.log" in autostart
     assert "Python runtime not found" in desktop
+    assert "Remote Desktop Commander" not in desktop
     assert "Remote Desktop Commander" not in autostart
     assert desktop.index("Python runtime not found") < desktop.index("local-prestart.cmd")
     assert desktop.index("local-prestart.cmd") < desktop.index("--open --start-all")
-    assert desktop.index("WebGPT-as-Codex is READY") < desktop.index(
-        "Remote Desktop Commander start requested successfully."
-    )
 
 
 def test_rdc_remote_launcher_content_is_proxy_aware_and_self_healing() -> None:
@@ -357,7 +355,7 @@ def test_rdc_runtime_start_self_heals_helper(
     assert calls and calls[0][0][-1] == str(helper)
 
 
-def test_rdc_runtime_failure_does_not_downgrade_webgpt_ready(
+def test_rdc_status_is_integrated_into_start_all(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     class FakeSupervisor:
@@ -369,30 +367,34 @@ def test_rdc_runtime_failure_does_not_downgrade_webgpt_ready(
     monkeypatch.setattr(
         launcher,
         "_start_all_until_ready",
-        lambda _supervisor: {"ok": True, "fully_ready": True},
+        lambda _supervisor: {
+            "ok": True,
+            "fully_ready": True,
+            "results": [
+                {
+                    "component_id": "remote-desktop-commander",
+                    "ok": True,
+                    "status": "preserved-external",
+                    "state": "READY_EXTERNAL",
+                    "ownership_mode": "remote_connector",
+                }
+            ],
+        },
     )
     monkeypatch.setattr(
         launcher,
         "_wait_public_remote_ready",
         lambda: (True, {"attempted": True}),
     )
-    monkeypatch.setattr(
-        launcher,
-        "_start_rdc_external_backend",
-        lambda: {
-            "ok": False,
-            "attempted": True,
-            "status": "start-failed",
-            "gates_webgpt_ready": False,
-        },
-    )
 
     result = launcher.run_launcher(open_browser=False, start_all=True)
 
     assert result["ok"] is True
     assert result["fully_ready"] is True
-    assert result["remote_desktop_commander"]["ok"] is False
-    assert result["remote_desktop_commander"]["status"] == "start-failed"
+    assert result["remote_desktop_commander"]["ok"] is True
+    assert result["remote_desktop_commander"]["status"] == "integrated-start-all"
+    assert result["remote_desktop_commander"]["runtime_status"] == "preserved-external"
+    assert result["remote_desktop_commander"]["gates_webgpt_ready"] is True
 
 
 def test_rdc_to_webgpt_recovery_bridge_uses_real_mcp_initialize() -> None:
@@ -739,7 +741,7 @@ def test_installed_visible_ready_generation_launcher_is_upgradeable(
     assert install["ok"] is True
     assert install["status"] == "updated"
     updated = target.read_text(encoding="utf-8")
-    assert "Remote Desktop Commander start requested successfully." in updated
+    assert "Remote Desktop Commander start requested successfully." not in updated
 
 
 def test_installed_isolated_rdc_suffix_launcher_is_upgradeable(
@@ -791,8 +793,8 @@ def test_installed_isolated_rdc_suffix_launcher_is_upgradeable(
     assert install["status"] == "updated"
     updated = target.read_text(encoding="utf-8")
     assert "WebGPT-as-Codex is READY" in updated
-    assert "Remote Desktop Commander start requested successfully." in updated
-    assert "%LOCALAPPDATA%\\DesktopCommander\\start-remote.ps1" in updated
+    assert "Remote Desktop Commander start requested successfully." not in updated
+    assert "%LOCALAPPDATA%\\DesktopCommander\\start-remote.ps1" not in updated
 
 
 def test_doctor_includes_edge_prerequisites_when_edge_listener_down(

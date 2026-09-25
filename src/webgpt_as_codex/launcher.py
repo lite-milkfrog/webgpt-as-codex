@@ -642,17 +642,7 @@ def _launcher_content(*, open_browser: bool) -> str:
         success = (
             "echo WebGPT-as-Codex is READY. Manager: http://127.0.0.1:9200/\r\n"
         )
-        remote_desktop_commander = (
-            'if exist "%LOCALAPPDATA%\\DesktopCommander\\start-remote.ps1" (\r\n'
-            '  powershell -NoProfile -WindowStyle Hidden -ExecutionPolicy Bypass -File "%LOCALAPPDATA%\\DesktopCommander\\start-remote.ps1"\r\n'
-            "  if errorlevel 1 (\r\n"
-            "    echo Remote Desktop Commander start failed. WebGPT-as-Codex remains READY.\r\n"
-            "    echo RDC log: %LOCALAPPDATA%\\DesktopCommander\\remote-agent.log\r\n"
-            "  ) else (\r\n"
-            "    echo Remote Desktop Commander start requested successfully.\r\n"
-            "  )\r\n"
-            ")\r\n"
-        )
+        remote_desktop_commander = ""
         local_overlay = (
             'if exist "%LOCALAPPDATA%\\WebGPT-as-Codex\\local-launcher-overlay.cmd" (\r\n'
             '  call "%LOCALAPPDATA%\\WebGPT-as-Codex\\local-launcher-overlay.cmd"\r\n'
@@ -917,6 +907,24 @@ def _isolated_rdc_suffix_generation_matches(content: str) -> bool:
     return re.fullmatch(pattern, normalized, flags=re.IGNORECASE) is not None
 
 
+def _immediately_previous_rdc_launcher_matches(content: str) -> bool:
+    """Recognize the managed launcher generation that appended RDC after READY."""
+    suffix = (
+        'if exist "%LOCALAPPDATA%\\DesktopCommander\\start-remote.ps1" (\r\n'
+        '  powershell -NoProfile -WindowStyle Hidden -ExecutionPolicy Bypass -File "%LOCALAPPDATA%\\DesktopCommander\\start-remote.ps1"\r\n'
+        "  if errorlevel 1 (\r\n"
+        "    echo Remote Desktop Commander start failed. WebGPT-as-Codex remains READY.\r\n"
+        "    echo RDC log: %LOCALAPPDATA%\\DesktopCommander\\remote-agent.log\r\n"
+        "  ) else (\r\n"
+        "    echo Remote Desktop Commander start requested successfully.\r\n"
+        "  )\r\n"
+        ")\r\n"
+    )
+    expected = _launcher_content(open_browser=True)
+    previous = expected.replace("endlocal\r\n", suffix + "endlocal\r\n", 1)
+    return content.replace("\r\n", "\n") == previous.replace("\r\n", "\n")
+
+
 def _managed_file_status(
     path: Path,
     expected: str,
@@ -1007,6 +1015,7 @@ def desktop_launcher(action: str) -> dict[str, Any]:
         or _redirect_generation_matches(content, open_browser=True)
         or _visible_ready_generation_matches(content)
         or _isolated_rdc_suffix_generation_matches(content)
+        or _immediately_previous_rdc_launcher_matches(content)
     )
     if action == "status":
         return {
@@ -1231,11 +1240,26 @@ def run_launcher(*, open_browser: bool = True, start_all: bool = True) -> dict[s
         "ok": True,
         "attempted": False,
         "status": "skipped",
-        "reason": "start-all-disabled" if not start_all else "webgpt-not-ready",
-        "gates_webgpt_ready": False,
+        "reason": "start-all-disabled" if not start_all else "not-present-in-start-all",
+        "gates_webgpt_ready": bool(start_all),
     }
-    if start_all and fully_ready:
-        remote_desktop_commander = _start_rdc_external_backend()
+    if start_all and isinstance(runtimes, dict):
+        row = next(
+            (
+                item
+                for item in runtimes.get("results", [])
+                if item.get("component_id") == "remote-desktop-commander"
+            ),
+            None,
+        )
+        if row is not None:
+            remote_desktop_commander = {
+                **row,
+                "attempted": True,
+                "status": "integrated-start-all",
+                "runtime_status": row.get("status"),
+                "gates_webgpt_ready": True,
+            }
     return {
         "ok": bool(manager.get("ok")) and fully_ready and browser_ready,
         "fully_ready": fully_ready,
