@@ -24,7 +24,16 @@ _CUSTOM_COMPONENT_KEYS = {
     "default_endpoint",
     "safe_tool",
     "upstream",
+    "ownership_mode",
+    "startup_priority",
+    "dependencies",
+    "readiness_contract",
+    "gateway_exposure",
+    "refresh_registration",
+    "process_contains",
+    "safe_tool_args",
 }
+_OWNERSHIP_MODES = {"wac_owned", "external_local", "remote_connector", "gateway_only"}
 
 
 @dataclass(frozen=True)
@@ -56,6 +65,24 @@ def _component_from_dict(data: dict[str, Any], *, custom: bool = False) -> Compo
     endpoint = data.get("default_endpoint")
     if endpoint is not None and not isinstance(endpoint, str):
         raise TypeError("default_endpoint must be a string or null")
+    ownership_mode = data.get("ownership_mode")
+    if ownership_mode is not None and ownership_mode not in _OWNERSHIP_MODES:
+        raise ValueError("ownership_mode is invalid")
+    startup_priority = data.get("startup_priority")
+    if startup_priority is not None and (
+        isinstance(startup_priority, bool)
+        or not isinstance(startup_priority, int)
+        or not 0 <= startup_priority <= 1000
+    ):
+        raise ValueError("startup_priority must be an integer from 0 to 1000")
+    dependencies = data.get("dependencies")
+    if dependencies is not None and (
+        not isinstance(dependencies, list)
+        or any(not isinstance(value, str) or not _COMPONENT_ID_RE.fullmatch(value) for value in dependencies)
+    ):
+        raise ValueError("dependencies must contain component ids")
+    if data.get("refresh_registration") not in (None, True, False):
+        raise ValueError("refresh_registration must be boolean")
     if custom:
         unknown = sorted(set(data) - _CUSTOM_COMPONENT_KEYS)
         if unknown:

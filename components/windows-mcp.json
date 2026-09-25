@@ -8,15 +8,35 @@
   "license": "MIT",
   "transport": "streamable_http",
   "default_endpoint": "http://127.0.0.1:8001/mcp",
-  "version_command": ["windows-mcp", "--version"],
-  "process_contains": ["windows-mcp"],
+  "version_command": [
+    "windows-mcp",
+    "--version"
+  ],
+  "process_contains": [
+    "windows-mcp"
+  ],
   "install_hint": "uv tool install windows-mcp",
   "install": {
     "strategy": "uv-tool",
     "package": "windows-mcp",
-    "latest": {"source": "pypi", "package": "windows-mcp"},
-    "requirements": ["uv"],
-    "compatibility": {"min_version": "0.8.5", "max_version_exclusive": "1.0.0"}
+    "latest": {
+      "source": "pypi",
+      "package": "windows-mcp"
+    },
+    "requirements": [
+      "uv"
+    ],
+    "compatibility": {
+      "min_version": "0.8.5",
+      "max_version_exclusive": "1.0.0"
+    }
   },
-  "safe_tool": "DisplayInventory"
+  "safe_tool": "DisplayInventory",
+  "ownership_mode": "external_local",
+  "startup_priority": 40,
+  "dependencies": [
+    "mcpjungle"
+  ],
+  "readiness_contract": "mcp-initialize-tools-list",
+  "gateway_exposure": "gateway"
 }

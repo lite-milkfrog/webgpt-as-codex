@@ -19,9 +19,12 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
-from .discovery import discover_all, process_health, process_snapshot
+from .discovery import discover_all, discover_component, process_health, process_snapshot
 from .edge import funnel_proxy_for_port
 from .gateway import mcpjungle_binary
+from .mcp import initialize as mcp_initialize
+from .mcp import rpc as mcp_rpc
+from .mcp import session_id as mcp_session_id
 from .paths import ensure_state_dirs, resource_root, state_root
 from .registry import load_components
 from .stateio import atomic_write_json
@@ -34,6 +37,10 @@ ContractProbe = Callable[[], bool]
 EDGE_PREREQ_WAIT_ENV = "WEBGPT_CODEX_EDGE_PREREQ_WAIT_SECONDS"
 EDGE_PREREQ_WAIT_DEFAULT = 180.0
 EDGE_PREREQ_POLL_INTERVAL = 3.0
+OWNED_WARMUP_WAIT_SECONDS = 20.0
+OWNED_WARMUP_POLL_INTERVAL = 0.25
+EXTERNAL_ENSURE_TIMEOUT_SECONDS = 45.0
+EXTERNAL_ENSURE_POLL_INTERVAL = 0.5
 
 
 def _auth_edge_public_route_ready() -> bool:
@@ -655,6 +662,29 @@ def _wait_ready(spec: RuntimeSpec, pid: int, timeout: float = 20.0) -> bool:
     return False
 
 
+def _observe_owned_warmup(
+    spec: RuntimeSpec,
+    pid: int,
+    *,
+    timeout: float = OWNED_WARMUP_WAIT_SECONDS,
+    sleep: Callable[[float], None] = time.sleep,
+    monotonic: Callable[[], float] = time.monotonic,
+) -> str:
+    """Observe an existing owned process without ever creating a duplicate."""
+    deadline = monotonic() + max(0.0, timeout)
+    while True:
+        if not _pid_exists(pid):
+            return "exited"
+        if _listener_up(spec.endpoint) and _health_ready(spec.health_url):
+            contract_ready = _runtime_contract_ready(spec)
+            if contract_ready is not False:
+                return "ready"
+        now = monotonic()
+        if now >= deadline:
+            return "timeout"
+        sleep(min(OWNED_WARMUP_POLL_INTERVAL, deadline - now))
+
+
 def _wait_dead(pid: int, timeout: float) -> bool:
     deadline = time.monotonic() + timeout
     while time.monotonic() < deadline:
@@ -722,6 +752,131 @@ def _wait_for_edge_prerequisites(
         if environment.get("ready_for_edge"):
             return environment, monotonic() - started
     return environment, monotonic() - started
+
+
+def _component_metadata(component: Any) -> dict[str, Any]:
+    raw = getattr(component, "raw", {})
+    return raw if isinstance(raw, dict) else {}
+
+
+def _component_ownership(component: Any, managed: bool) -> str:
+    configured = _component_metadata(component).get("ownership_mode")
+    if isinstance(configured, str) and configured:
+        return configured
+    if managed:
+        return "wac_owned"
+    if getattr(component, "transport", None) == "vendor_remote":
+        return "remote_connector"
+    return "external_local"
+
+
+def _component_priority(component: Any, component_id: str | None = None) -> int:
+    value = _component_metadata(component).get("startup_priority")
+    if isinstance(value, int) and not isinstance(value, bool):
+        return value
+    resolved_id = component_id or getattr(component, "id", "")
+    return {"tailscale": 10, "mcpjungle": 20, "mcp-auth-proxy": 90}.get(
+        resolved_id, 100
+    )
+
+
+def _external_ensure_launcher(component_id: str) -> Path | None:
+    root = ensure_state_dirs() / "external-ensure"
+    for suffix in (".ps1", ".cmd"):
+        path = root / f"{component_id}{suffix}"
+        if path.is_file():
+            return path
+    return None
+
+
+def _external_mcp_contract_ready(component: Any) -> bool:
+    if component.transport != "streamable_http" or not component.default_endpoint:
+        return False
+    try:
+        initialized = mcp_initialize(component.default_endpoint)
+        sid = mcp_session_id(initialized)
+        listed = mcp_rpc(component.default_endpoint, "tools/list", request_id=2, session_id=sid, timeout=5)
+        tools = listed.body.get("result", {}).get("tools")
+        return initialized.status == 200 and listed.status == 200 and isinstance(tools, list)
+    except (OSError, TimeoutError, TypeError, ValueError, urllib.error.URLError):
+        return False
+
+
+def _external_component_ready(component: Any) -> tuple[bool, str]:
+    live = discover_component(component)
+    if component.transport == "streamable_http":
+        if live.get("listener_up") is not True:
+            return False, "listener"
+        return (_external_mcp_contract_ready(component), "mcp-contract")
+    snapshot = process_snapshot()
+    return (process_health(component, snapshot) is True, "process")
+
+
+def _ensure_external_component(component: Any) -> dict[str, Any]:
+    launcher = _external_ensure_launcher(component.id)
+    if launcher is None:
+        return {
+            "ok": False,
+            "component_id": component.id,
+            "status": "external-launcher-missing",
+            "ownership_mode": _component_ownership(component, False),
+        }
+    argv = (
+        ["powershell.exe", "-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass", "-File", str(launcher)]
+        if launcher.suffix.casefold() == ".ps1"
+        else [os.environ.get("ComSpec", "cmd.exe"), "/d", "/c", str(launcher)]
+    )
+    try:
+        result = subprocess.run(
+            argv,
+            stdin=subprocess.DEVNULL,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            timeout=EXTERNAL_ENSURE_TIMEOUT_SECONDS,
+            check=False,
+            creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
+        )
+    except (OSError, subprocess.SubprocessError) as exc:
+        return {
+            "ok": False,
+            "component_id": component.id,
+            "status": "external-launcher-failed",
+            "error_type": type(exc).__name__,
+            "ownership_mode": _component_ownership(component, False),
+        }
+    if result.returncode:
+        return {
+            "ok": False,
+            "component_id": component.id,
+            "status": "external-launcher-nonzero",
+            "returncode": result.returncode,
+            "ownership_mode": _component_ownership(component, False),
+        }
+
+    deadline = time.monotonic() + EXTERNAL_ENSURE_TIMEOUT_SECONDS
+    last_evidence = "unknown"
+    while time.monotonic() < deadline:
+        ready, last_evidence = _external_component_ready(component)
+        if ready:
+            return {
+                "ok": True,
+                "component_id": component.id,
+                "status": "ready-external",
+                "state": "READY_EXTERNAL",
+                "ownership_mode": _component_ownership(component, False),
+                "evidence": last_evidence,
+                "launcher": launcher.name,
+            }
+        time.sleep(EXTERNAL_ENSURE_POLL_INTERVAL)
+    return {
+        "ok": False,
+        "component_id": component.id,
+        "status": "external-readiness-timeout",
+        "state": "DEGRADED",
+        "ownership_mode": _component_ownership(component, False),
+        "evidence": last_evidence,
+        "launcher": launcher.name,
+    }
 
 
 class RuntimeSupervisor:
@@ -868,12 +1023,24 @@ class RuntimeSupervisor:
                 "pid": pid,
             }
         if before["owned"]:
-            return {
-                "ok": False,
-                "component_id": component_id,
-                "status": "owned-process-unhealthy",
-                "pid": before["pid"],
-            }
+            warmup = _observe_owned_warmup(spec, int(before["pid"]))
+            if warmup == "ready":
+                # Re-enter through the listener-ready branch so generation and
+                # contract refresh rules remain authoritative.
+                return self.start(component_id)
+            if warmup == "timeout":
+                return {
+                    "ok": False,
+                    "component_id": component_id,
+                    "status": "owned-process-warmup-timeout",
+                    "state": "WARMING",
+                    "pid": before["pid"],
+                }
+            # The owner exited while warming. Re-read authoritative state
+            # before permitting exactly one replacement spawn.
+            before = self.status(component_id)
+            if before.get("listener_up") or before.get("owned"):
+                return self.start(component_id)
         pid = _spawn(spec)
         ready = _wait_ready(spec, pid)
         if ready:
@@ -990,63 +1157,75 @@ class RuntimeSupervisor:
         edge_wait = _edge_prereq_wait_seconds() if edge_prereq_wait is None else max(
             0.0, edge_prereq_wait
         )
-        start_priority = {"mcpjungle": 0, "mcp-auth-proxy": 1}
         ordered_components = sorted(
             components.items(),
-            key=lambda item: (start_priority.get(item[0], 10), item[0]),
+            key=lambda item: (_component_priority(item[1], item[0]), item[0]),
         )
         for component_id, component in ordered_components:
             live = discovery.get(component_id, {})
             process_up = process_health(component, snapshot)
+            managed = component_id in self.specs
+            ownership_mode = _component_ownership(component, managed)
+            row: dict[str, Any]
+
             if component_id == "mcp-auth-proxy" and component.enabled_by_default:
                 if not environment["ready_for_edge"]:
                     environment, _waited = _wait_for_edge_prerequisites(
                         environment, timeout=edge_wait
                     )
                 if not environment["ready_for_edge"]:
-                    rows.append(
-                        {
-                            "component_id": component_id,
-                            "status": "prerequisites-not-ready",
-                            "ok": False,
-                            "next_steps": environment["next_steps"],
-                            "prerequisite_wait_seconds": round(
-                                _edge_prereq_wait_seconds() if edge_prereq_wait is None
-                                else max(0.0, edge_prereq_wait),
-                                1,
-                            ),
-                        }
-                    )
-                    continue
-                rows.append(self.start(component_id))
-            elif live.get("listener_up") is True or (
-                component.default_endpoint is None and process_up is True
-            ):
-                owned_pid, _ = _owned_pid(component_id)
-                rows.append(
-                    {
+                    row = {
                         "component_id": component_id,
-                        "status": "preserved-owned" if owned_pid else "preserved-unmanaged",
-                        "ok": True,
-                        "evidence": (
-                            "listener"
-                            if live.get("listener_up") is True
-                            else "process"
+                        "status": "prerequisites-not-ready",
+                        "state": "DEGRADED",
+                        "ok": False,
+                        "next_steps": environment["next_steps"],
+                        "prerequisite_wait_seconds": round(
+                            _edge_prereq_wait_seconds() if edge_prereq_wait is None
+                            else max(0.0, edge_prereq_wait),
+                            1,
                         ),
                     }
-                )
-            elif component_id in self.specs and component.enabled_by_default:
-                rows.append(self.start(component_id))
+                else:
+                    row = self.start(component_id)
+            elif managed and component.enabled_by_default:
+                row = self.start(component_id)
+            elif component.transport == "streamable_http" and live.get("listener_up") is True:
+                contract_ready = _external_mcp_contract_ready(component)
+                row = {
+                    "component_id": component_id,
+                    "status": "preserved-external" if contract_ready else "external-contract-failed",
+                    "state": "READY_EXTERNAL" if contract_ready else "DEGRADED",
+                    "ok": contract_ready,
+                    "evidence": "mcp-contract",
+                }
+            elif component.default_endpoint is None and process_up is True:
+                row = {
+                    "component_id": component_id,
+                    "status": "preserved-external",
+                    "state": "READY_EXTERNAL",
+                    "ok": True,
+                    "evidence": "process",
+                }
+            elif component.enabled_by_default and ownership_mode in {
+                "external_local",
+                "remote_connector",
+            }:
+                row = _ensure_external_component(component)
             else:
-                if component.required:
-                    required_unmanaged_missing.append(component_id)
-                rows.append(
-                    {
-                        "component_id": component_id,
-                        "status": "unmanaged-not-started",
-                        "ok": not component.required,
-                    }
-                )
+                row = {
+                    "component_id": component_id,
+                    "status": "down",
+                    "state": "DOWN",
+                    "ok": not component.required,
+                }
+
+            row.setdefault("ownership_mode", ownership_mode)
+            if row.get("ok"):
+                row.setdefault("state", "READY" if managed else "READY_EXTERNAL")
+            elif component.required:
+                required_unmanaged_missing.append(component_id)
+            rows.append(row)
         if include_manager:
             rows.append(self.start("manager"))
         managed_ok = all(

@@ -12,11 +12,16 @@
   "compat_adapter": "webgpt_as_codex.oauth_compat",
   "version_command": [],
   "machine_binary": "bin/mcp-auth-proxy/mcp-auth-proxy.exe",
-  "process_contains": ["mcp-auth-proxy"],
+  "process_contains": [
+    "mcp-auth-proxy"
+  ],
   "install_hint": "resolve the latest stable official release and require its GitHub SHA-256 digest",
   "install": {
     "strategy": "github-release",
-    "latest": {"source": "github-release", "repo": "sigbit/mcp-auth-proxy"},
+    "latest": {
+      "source": "github-release",
+      "repo": "sigbit/mcp-auth-proxy"
+    },
     "github_repo": "sigbit/mcp-auth-proxy",
     "assets": {
       "amd64": "mcp-auth-proxy-windows-amd64.exe",
@@ -24,7 +29,18 @@
     },
     "destination": "bin/mcp-auth-proxy/mcp-auth-proxy.exe",
     "requirements": [],
-    "compatibility": {"min_version": "2.10.2", "max_version_exclusive": "3.0.0"}
+    "compatibility": {
+      "min_version": "2.10.2",
+      "max_version_exclusive": "3.0.0"
+    }
   },
-  "safe_tool": null
+  "safe_tool": null,
+  "ownership_mode": "wac_owned",
+  "startup_priority": 90,
+  "dependencies": [
+    "mcpjungle",
+    "tailscale"
+  ],
+  "readiness_contract": "oauth-public-contract",
+  "gateway_exposure": "public"
 }

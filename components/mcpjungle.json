@@ -10,13 +10,22 @@
   "default_endpoint": "http://127.0.0.1:9330/mcp",
   "version_strategy": "resolve official GitHub Releases; verified baseline during Stage 15 was 0.4.6",
   "verified_release": "0.4.6",
-  "version_command": ["mcpjungle", "version"],
+  "version_command": [
+    "mcpjungle",
+    "version"
+  ],
   "machine_binary": "bin/mcpjungle/mcpjungle.exe",
-  "process_contains": ["mcpjungle", "start"],
+  "process_contains": [
+    "mcpjungle",
+    "start"
+  ],
   "install_hint": "download official GitHub release asset and verify its GitHub release SHA-256 digest",
   "install": {
     "strategy": "github-release",
-    "latest": {"source": "github-release", "repo": "mcpjungle/MCPJungle"},
+    "latest": {
+      "source": "github-release",
+      "repo": "mcpjungle/MCPJungle"
+    },
     "github_repo": "mcpjungle/MCPJungle",
     "assets": {
       "amd64": "mcpjungle_Windows_x86_64.zip",
@@ -25,7 +34,15 @@
     "archive_member": "mcpjungle.exe",
     "destination": "bin/mcpjungle/mcpjungle.exe",
     "requirements": [],
-    "compatibility": {"min_version": "0.4.5", "max_version_exclusive": "0.5.0"}
+    "compatibility": {
+      "min_version": "0.4.5",
+      "max_version_exclusive": "0.5.0"
+    }
   },
-  "safe_tool": null
+  "safe_tool": null,
+  "ownership_mode": "wac_owned",
+  "startup_priority": 20,
+  "dependencies": [],
+  "readiness_contract": "health-and-listener",
+  "gateway_exposure": "private"
 }

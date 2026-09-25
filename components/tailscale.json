@@ -8,15 +8,32 @@
   "license": "BSD-3-Clause core",
   "transport": "system",
   "default_endpoint": null,
-  "version_command": ["tailscale", "version"],
-  "process_contains": ["tailscaled"],
+  "version_command": [
+    "tailscale",
+    "version"
+  ],
+  "process_contains": [
+    "tailscaled"
+  ],
   "install_hint": "install Tailscale for Windows",
   "install": {
     "strategy": "winget",
     "winget_id": "Tailscale.Tailscale",
-    "latest": {"source": "winget"},
-    "requirements": ["winget"],
-    "compatibility": {"min_version": "1.38.3", "max_version_exclusive": "2.0.0"}
+    "latest": {
+      "source": "winget"
+    },
+    "requirements": [
+      "winget"
+    ],
+    "compatibility": {
+      "min_version": "1.38.3",
+      "max_version_exclusive": "2.0.0"
+    }
   },
-  "safe_tool": null
+  "safe_tool": null,
+  "ownership_mode": "external_local",
+  "startup_priority": 10,
+  "dependencies": [],
+  "readiness_contract": "system-process-online",
+  "gateway_exposure": "private"
 }

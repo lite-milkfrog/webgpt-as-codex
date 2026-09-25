@@ -2,20 +2,34 @@
   "id": "remote-desktop-commander",
   "display_name": "Remote Desktop Commander",
   "role": "full_machine_relay",
-  "required": false,
-  "enabled_by_default": false,
+  "required": true,
+  "enabled_by_default": true,
   "upstream": "https://github.com/desktop-commander/remote-desktop-commander",
   "license_note": "hosted relay proprietary; repository docs/manifests only",
   "transport": "vendor_remote",
   "default_endpoint": null,
   "version_command": [],
-  "process_contains": ["desktop-commander", "remote"],
+  "process_contains": [
+    "desktop-commander",
+    "remote"
+  ],
   "install_hint": "use the ChatGPT-side Remote Desktop Commander integration and pair the machine",
   "install": {
     "strategy": "manual",
     "package": "@wonderwhy-er/desktop-commander",
-    "latest": {"source": "npm", "package": "@wonderwhy-er/desktop-commander"},
-    "requirements": ["node", "npm"]
+    "latest": {
+      "source": "npm",
+      "package": "@wonderwhy-er/desktop-commander"
+    },
+    "requirements": [
+      "node",
+      "npm"
+    ]
   },
-  "safe_tool": null
+  "safe_tool": null,
+  "ownership_mode": "remote_connector",
+  "startup_priority": 50,
+  "dependencies": [],
+  "readiness_contract": "local-process-plus-connector-ping",
+  "gateway_exposure": "remote"
 }

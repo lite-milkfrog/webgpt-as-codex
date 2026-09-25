@@ -92,7 +92,7 @@ def test_stale_pid_reuse_is_removed_without_kill(
     assert not pid_path.exists()
 
 
-def test_owned_unhealthy_process_prevents_duplicate_start(
+def test_owned_warming_process_times_out_without_duplicate_start(
     monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,
 ) -> None:
@@ -102,6 +102,7 @@ def test_owned_unhealthy_process_prevents_duplicate_start(
     monkeypatch.setattr(runtime, "_process_birth_token", lambda _pid: "birth-1")
     monkeypatch.setattr(runtime, "_process_image_name", lambda _pid: "sample.exe")
     monkeypatch.setattr(runtime, "_listener_up", lambda _endpoint: False)
+    monkeypatch.setattr(runtime, "_observe_owned_warmup", lambda _spec, _pid: "timeout")
     monkeypatch.setattr(
         runtime,
         "_spawn",
@@ -109,7 +110,8 @@ def test_owned_unhealthy_process_prevents_duplicate_start(
     )
     result = RuntimeSupervisor({"sample": _spec()}).start("sample")
     assert result["ok"] is False
-    assert result["status"] == "owned-process-unhealthy"
+    assert result["status"] == "owned-process-warmup-timeout"
+    assert result["state"] == "WARMING"
     assert result["pid"] == 321
 
 
@@ -159,6 +161,7 @@ def test_start_all_discovers_first_preserves_external_and_starts_only_managed(
         },
     )
     monkeypatch.setattr(runtime, "_owned_pid", lambda _component: (None, "none"))
+    monkeypatch.setattr(runtime, "_external_mcp_contract_ready", lambda _component: True)
     supervisor = RuntimeSupervisor({"mcpjungle": _spec("mcpjungle")})
     starts: list[str] = []
 
@@ -170,7 +173,8 @@ def test_start_all_discovers_first_preserves_external_and_starts_only_managed(
     result = supervisor.start_all()
     by_id = {row["component_id"]: row for row in result["results"]}
     assert starts == ["mcpjungle"]
-    assert by_id["external"]["status"] == "preserved-unmanaged"
+    assert by_id["external"]["status"] == "preserved-external"
+    assert by_id["external"]["state"] == "READY_EXTERNAL"
     assert by_id["mcpjungle"]["status"] == "started"
     assert result["arbitrary_command_surface"] is False
     assert result["fully_ready"] is True
@@ -203,7 +207,8 @@ def test_start_all_preserves_process_only_system_component(
     monkeypatch.setattr(runtime, "process_health", lambda _component, _snapshot: True)
     result = RuntimeSupervisor({}).start_all()
     row = result["results"][0]
-    assert row["status"] == "preserved-unmanaged"
+    assert row["status"] == "preserved-external"
+    assert row["state"] == "READY_EXTERNAL"
     assert row["evidence"] == "process"
     assert result["fully_ready"] is True
 
@@ -331,3 +336,61 @@ def test_explicit_open_reopens_browser_for_existing_manager(
 def test_windows_process_identity_probe() -> None:
     assert runtime._process_birth_token(os.getpid()).startswith("win-filetime:")
     assert runtime._process_image_name(os.getpid())
+
+
+def test_owned_warming_owner_exit_allows_exactly_one_replacement(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    supervisor = RuntimeSupervisor({"sample": _spec()})
+    states = iter(
+        [
+            {"listener_up": False, "owned": True, "pid": 321},
+            {"listener_up": False, "owned": False, "pid": None},
+        ]
+    )
+    monkeypatch.setattr(supervisor, "status", lambda _component: next(states))
+    monkeypatch.setattr(runtime, "_observe_owned_warmup", lambda _spec, _pid: "exited")
+    spawned: list[int] = []
+    monkeypatch.setattr(runtime, "_spawn", lambda _spec: (spawned.append(654) or 654))
+    monkeypatch.setattr(runtime, "_wait_ready", lambda _spec, _pid: True)
+    monkeypatch.setattr(runtime, "_runtime_contract_ready", lambda _spec: True)
+    monkeypatch.setattr(runtime, "_sync_listener_identity", lambda _spec, pid: pid)
+
+    result = supervisor.start("sample")
+    assert result["ok"] is True
+    assert result["status"] == "started"
+    assert spawned == [654]
+
+
+def test_start_all_missing_external_invokes_only_its_known_ensure(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    monkeypatch.setenv("WEBGPT_CODEX_STATE_DIR", str(tmp_path))
+    external = _component("external")
+    external.raw["ownership_mode"] = "external_local"
+    monkeypatch.setattr(runtime, "load_components", lambda: {"external": external})
+    monkeypatch.setattr(
+        runtime,
+        "discover_all",
+        lambda _components: {"external": {"listener_up": False}},
+    )
+    monkeypatch.setattr(runtime, "process_snapshot", list)
+    monkeypatch.setattr(runtime, "process_health", lambda _component, _snapshot: False)
+    called: list[str] = []
+
+    def ensure(component):
+        called.append(component.id)
+        return {
+            "ok": True,
+            "component_id": component.id,
+            "status": "ready-external",
+            "state": "READY_EXTERNAL",
+        }
+
+    monkeypatch.setattr(runtime, "_ensure_external_component", ensure)
+    result = RuntimeSupervisor({}).start_all()
+
+    assert called == ["external"]
+    assert result["fully_ready"] is True
+    assert result["results"][0]["state"] == "READY_EXTERNAL"

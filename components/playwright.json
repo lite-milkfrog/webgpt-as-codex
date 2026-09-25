@@ -9,14 +9,33 @@
   "transport": "streamable_http",
   "default_endpoint": "http://127.0.0.1:8931/mcp",
   "version_command": [],
-  "process_contains": ["@playwright", "mcp"],
+  "process_contains": [
+    "@playwright",
+    "mcp"
+  ],
   "install_hint": "npm install -g @playwright/mcp",
   "install": {
     "strategy": "npm-global",
     "package": "@playwright/mcp",
-    "latest": {"source": "npm", "package": "@playwright/mcp"},
-    "requirements": ["node", "npm"],
-    "compatibility": {"min_version": "0.0.80", "max_version_exclusive": "0.1.0"}
+    "latest": {
+      "source": "npm",
+      "package": "@playwright/mcp"
+    },
+    "requirements": [
+      "node",
+      "npm"
+    ],
+    "compatibility": {
+      "min_version": "0.0.80",
+      "max_version_exclusive": "0.1.0"
+    }
   },
-  "safe_tool": "browser_snapshot"
+  "safe_tool": "browser_snapshot",
+  "ownership_mode": "external_local",
+  "startup_priority": 45,
+  "dependencies": [
+    "mcpjungle"
+  ],
+  "readiness_contract": "mcp-initialize-tools-list",
+  "gateway_exposure": "gateway"
 }
