@@ -5,6 +5,7 @@ from pathlib import Path
 
 import pytest
 
+from webgpt_as_codex import health
 from webgpt_as_codex.health import (
     HEALTH_LEVELS,
     ManagerStatusService,
@@ -132,3 +133,42 @@ def test_manager_ui_has_bounded_polling_and_no_embedded_secret() -> None:
     assert "/api/password" not in html + script
     assert 'src="/manager.js"' in html
     assert "payload.component" in script
+
+
+def test_manager_live_probes_protocol_when_doctor_has_no_custom_component_truth(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    monkeypatch.setenv("WEBGPT_CODEX_STATE_DIR", str(tmp_path))
+    component = health.Component(
+        id="custom-mcp",
+        display_name="Custom MCP",
+        role="custom_mcp",
+        required=True,
+        enabled_by_default=True,
+        transport="streamable_http",
+        default_endpoint="http://127.0.0.1:9999/mcp",
+        raw={
+            "id": "custom-mcp",
+            "display_name": "Custom MCP",
+            "role": "custom_mcp",
+            "required": True,
+            "enabled_by_default": True,
+            "transport": "streamable_http",
+            "default_endpoint": "http://127.0.0.1:9999/mcp",
+        },
+    )
+    monkeypatch.setattr(health, "load_components", lambda: {"custom-mcp": component})
+    monkeypatch.setattr(
+        health,
+        "discover_component",
+        lambda _component: {"listener_up": True, "installed_by_path": None},
+    )
+    monkeypatch.setattr(health, "_live_mcp_protocol", lambda _component, _listener: True)
+
+    snapshot = ManagerStatusService(cache_ttl_seconds=1).snapshot(force=True)
+
+    row = snapshot["components"][0]
+    assert row["id"] == "custom-mcp"
+    assert row["health"]["listener"] is True
+    assert row["health"]["protocol"] is True

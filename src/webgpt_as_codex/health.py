@@ -11,6 +11,7 @@ from typing import Any
 from urllib.parse import urlsplit, urlunsplit
 
 from .discovery import discover_component
+from .mcp import initialize, rpc, session_id
 from .paths import ensure_state_dirs
 from .registry import Component, load_components
 
@@ -142,11 +143,36 @@ def _health_from_doctor(row: dict[str, Any]) -> dict[str, bool | None]:
     return health
 
 
+def _live_mcp_protocol(component: Component, listener: bool | None) -> bool | None:
+    if (
+        component.transport != "streamable_http"
+        or not component.default_endpoint
+        or listener is not True
+    ):
+        return None
+    try:
+        initialized = initialize(component.default_endpoint)
+        sid = session_id(initialized)
+        listed = rpc(
+            component.default_endpoint,
+            "tools/list",
+            request_id=2,
+            session_id=sid,
+            timeout=5,
+        )
+        tools = listed.body.get("result", {}).get("tools")
+        return initialized.status == 200 and listed.status == 200 and isinstance(tools, list)
+    except (OSError, TimeoutError, TypeError, ValueError):
+        return False
+
+
 def _component_row(component: Component, doctor: dict[str, Any]) -> dict[str, Any]:
     discovered = discover_component(component)
     doctor_row = _doctor_component(doctor, component.id)
     health = _health_from_doctor(doctor_row)
     health["listener"] = discovered.get("listener_up")
+    if health["protocol"] is None:
+        health["protocol"] = _live_mcp_protocol(component, health["listener"])
     version = doctor_row.get("version")
     version_source = "doctor"
     if not isinstance(version, str) or not version.strip():
