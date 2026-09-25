@@ -165,11 +165,13 @@ def sync_enabled_http_routes(registry: str) -> dict[str, object]:
             skipped.append({"id": component_id, "reason": "listener-unavailable"})
             continue
         current = existing.get(component_id)
-        if (
+        same_route = (
             current is not None
             and current.get("transport") == "streamable_http"
             and current.get("url") == endpoint
-        ):
+        )
+        refresh_registration = component.raw.get("refresh_registration") is True
+        if same_route and not refresh_registration:
             preserved.append(component_id)
             continue
         try:

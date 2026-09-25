@@ -186,16 +186,55 @@ def test_start_all_blocks_edge_when_prerequisites_are_not_ready(
         },
     )
     supervisor = runtime.RuntimeSupervisor()
-    monkeypatch.setattr(
-        supervisor,
-        "start",
-        lambda component_id: (_ for _ in ()).throw(
-            AssertionError(f"must not start {component_id}")
-        ),
-    )
+    starts: list[str] = []
+
+    def fake_start(component_id: str) -> dict:
+        starts.append(component_id)
+        if component_id == "mcp-auth-proxy":
+            raise AssertionError("must not start OAuth Edge before prerequisites")
+        return {"ok": True, "component_id": component_id, "status": "preserved-owned"}
+
+    monkeypatch.setattr(supervisor, "start", fake_start)
 
     result = supervisor.start_all()
     by_id = {row["component_id"]: row for row in result["results"]}
 
-    assert by_id["mcpjungle"]["status"] == "preserved-unmanaged"
+    assert starts == ["mcpjungle"]
+    assert by_id["mcpjungle"]["status"] == "preserved-owned"
     assert by_id["mcp-auth-proxy"]["status"] == "prerequisites-not-ready"
+
+
+def test_route_sync_refreshes_same_canonical_route_when_requested(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    component = _component("skills-control-plane", "http://127.0.0.1:8943/mcp")
+    component.raw["refresh_registration"] = True
+    components = {"skills-control-plane": component}
+    monkeypatch.setattr("webgpt_as_codex.registry.load_components", lambda: components)
+    monkeypatch.setattr(
+        "webgpt_as_codex.discovery.discover_all",
+        lambda _components: {"skills-control-plane": {"listener_up": True}},
+    )
+    monkeypatch.setattr(
+        gateway,
+        "list_registered_servers",
+        lambda _registry: {
+            "skills-control-plane": {
+                "transport": "streamable_http",
+                "url": "http://127.0.0.1:8943/mcp",
+            }
+        },
+    )
+    calls: list[tuple[str, str, bool]] = []
+    monkeypatch.setattr(
+        gateway,
+        "register_http",
+        lambda _registry, name, url, _description, *, force=False: calls.append(
+            (name, url, force)
+        ),
+    )
+
+    result = gateway.sync_enabled_http_routes("http://127.0.0.1:9330")
+
+    assert result["updated"] == ["skills-control-plane"]
+    assert calls == [("skills-control-plane", "http://127.0.0.1:8943/mcp", True)]
