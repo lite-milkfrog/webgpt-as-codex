@@ -4,6 +4,13 @@ const S={
   "zh-CN":{eyebrow:"本机控制面",subtitle:"仅限本机回环访问。关闭此页面不会停止 Agent 或 MCP 运行时。",overview:"总览",connectionUrls:"连接地址",runtimeActions:"运行时操作",environment:"环境",oauthPassword:"OAuth 密码",revealedPassword:"已显示密码",reveal:"显示",regenerate:"重新生成",newPassword:"新密码",setPassword:"设置密码",oauthHint:"密码只保存在本机；修改后需要重启 WebGPT 自有 Edge 运行时才能生效。",components:"MCP 清单与迁移",componentId:"组件 ID",displayName:"显示名称",role:"角色",endpoint:"端点",addCandidate:"添加迁移候选",candidateHint:"添加候选只改变本机注册表可见性，不会自动获得路由权或生命周期控制权。",activity:"最近操作",copy:"复制",open:"打开",productVersion:"产品版本",deployment:"部署状态",gateway:"Gateway",oauth:"OAuth",https:"HTTPS / 公网边缘",managerReady:"Manager 就绪",ready:"就绪",notReady:"未就绪",configured:"已配置",notConfigured:"未配置",observed:"已观测",noLiveProof:"无实时证据",publicMcp:"公网 MCP",localGateway:"本机 Gateway MCP",installTailscale:"安装 / 升级 Tailscale",tailscaleReady:"Tailscale 就绪",migration:"迁移状态",version:"版本",remove:"移除",custom:"自定义",builtin:"内置",noActivity:"当前 Manager 进程还没有操作记录。",pending:"处理中…",completed:"已完成",failed:"失败",confirmAction:"确认执行此操作？",confirmChange:"确认应用这项本机配置变更？",restartPrompt:"要重启的仓库托管组件",passwordSet:"OAuth 密码已更新；重启 WebGPT 自有 Edge 后生效。",passwordGenerated:"OAuth 密码已重新生成；重启 WebGPT 自有 Edge 后生效。",candidateAdded:"迁移候选已添加，但没有获得路由权或生命周期控制权。",candidateRemoved:"迁移候选已移除。",copied:"地址已复制。",statusUnavailable:"状态暂不可用",codingToolsSettings:"Coding Tools 工作区与权限",workspace:"工作区",permissionMode:"权限模式",saveRestartCodingTools:"保存并重启 Coding Tools",codingToolsHint:"所选工作区就是 Coding Tools 的文件系统边界；设置会持久化，并由桌面一键启动继续使用。",codingToolsLive:"当前运行",codingToolsDesired:"已保存",restartRequired:"需要重启",synced:"已同步",unreachable:"未连接",safeHelp:"safe：拦截网络类命令、Shell 展开和内联脚本，限制最严格。",trustedHelp:"trusted：正常本地开发模式；允许网络、Shell 展开和内联脚本，同时保留工作区边界。",dangerousHelp:"dangerous：关闭命令权限闸门；直接文件工具仍受工作区路径边界约束。",dangerousConfirm:"dangerous 会关闭 Coding Tools 的命令权限闸门。确定继续？",codingToolsApplied:"Coding Tools 配置已应用并完成重启。"}
 };
 const t=k=>S[LANG][k]||S.en[k]||k;
+const themeSelect=document.querySelector('#theme-preference');
+const themeMedia=matchMedia('(prefers-color-scheme: dark)');
+function applyTheme(){const p=themeSelect.value;document.documentElement.dataset.theme=p==='system'?(themeMedia.matches?'dark':'light'):p}
+try{themeSelect.value=localStorage.getItem('wac-theme')||'system'}catch{themeSelect.value='system'}
+applyTheme();
+themeSelect.addEventListener('change',()=>{try{localStorage.setItem('wac-theme',themeSelect.value)}catch{}applyTheme()});
+themeMedia.addEventListener('change',()=>{if(themeSelect.value==='system')applyTheme()});
 const esc=v=>String(v??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 const state={config:null,status:null,actions:[],activity:[],pending:false,timer:null};
 document.querySelectorAll("[data-i18n]").forEach(el=>{const key=el.dataset.i18n;if(S[LANG][key])el.textContent=S[LANG][key]});
@@ -44,6 +51,10 @@ function renderOverview(){
   const env=state.config.environment||{};
   const deployment=state.config.deployment||{};
   const pub=state.config.public_mcp_url?t("configured"):t("notConfigured");
+  const ready=Boolean(env.ready_for_local_manager&&deployment.gateway_ready);
+  const degraded=Boolean(env.ready_for_local_manager||deployment.gateway_ready);
+  document.querySelector('#readiness').innerHTML='<div class="readiness-title">'+esc(ready?(LANG==='zh-CN'?'已就绪':'Ready'):degraded?(LANG==='zh-CN'?'部分可用':'Partly available'):(LANG==='zh-CN'?'需要排查':'Needs attention'))+'</div><p>'+esc(ready?(LANG==='zh-CN'?'可以继续使用当前工作区和工具。':'Continue with your current workspace and tools.'):degraded?(LANG==='zh-CN'?'先检查工作区和故障排查，再决定是否启动或重启。':'Check Workspace and Troubleshooting before starting or restarting.'):LANG==='zh-CN'?'先查看故障排查和运行时状态。':'Check Troubleshooting and runtime status first.')+'</p><a href="'+(ready?'#workspace':'#troubleshooting')+'">'+esc(ready?(LANG==='zh-CN'?'查看工作区':'View workspace'):(LANG==='zh-CN'?'查看故障排查':'Open troubleshooting'))+'</a>';
+  document.querySelector('#readiness').dataset.state=ready?'ready':degraded?'degraded':'down';
   document.querySelector("#overview").innerHTML=[
     card(t("productVersion"),state.config.product_version||"unknown"),
     card(t("deployment"),deployment.edge_ready?t("ready"):deployment.gateway_ready?t("observed"):t("notReady")),
@@ -73,7 +84,11 @@ async function copyUrl(raw){
 }
 function openUrl(raw){const url=validUrl(raw);if(!url)return;const opened=window.open(url,"_blank","noopener,noreferrer");if(opened)opened.opener=null}
 function renderActions(){
-  document.querySelector("#actions").innerHTML=state.actions.map(x=>'<button type="button" data-mutation data-action="'+esc(x.name)+'" data-confirm="'+String(x.confirmation_required)+'" '+(x.available?"":"disabled")+'>'+esc(x.label)+'</button>').join("");
+  const labels=LANG==='zh-CN'?{start_all:'启动全部',doctor:'运行诊断',restart:'重启组件',repair:'修复',update:'更新'}:{start_all:'Start All',doctor:'Run Doctor',restart:'Restart component',repair:'Repair',update:'Update'};
+  const makeButton=x=>'<button type="button" class="'+(x.name==='start_all'?'primary-action':'')+'" data-mutation data-action="'+esc(x.name)+'" data-confirm="'+String(x.confirmation_required)+'" '+(x.available?"":"disabled")+'>'+esc(labels[x.name]||x.label)+'</button>';
+  const main=state.actions.filter(x=>x.name==='start_all'||x.name==='doctor');
+  const advanced=state.actions.filter(x=>x.name!=='start_all'&&x.name!=='doctor');
+  document.querySelector("#actions").innerHTML=main.map(makeButton).join("")+(advanced.length?'<details class="advanced-actions"><summary>'+(LANG==='zh-CN'?'其他维护操作':'Other maintenance actions')+'</summary><div>'+advanced.map(makeButton).join('')+'</div></details>':'');
   document.querySelectorAll("[data-action]").forEach(button=>button.onclick=()=>runAction(button));
 }
 async function runAction(button){
@@ -133,11 +148,19 @@ function renderOAuth(){
 }
 function renderComponents(){
   if(!state.config)return;
-  document.querySelector("#components").innerHTML=(state.config.components||[]).map(c=>{
+  const components=state.config.components||[];
+  const card=c=>{
     const remove=c.custom&&!c.required?'<button type="button" class="danger" data-mutation data-remove="'+esc(c.id)+'">'+esc(t("remove"))+'</button>':"";
     const action=(c.lifecycle_state==="READY"||c.lifecycle_state==="READY_EXTERNAL")?(LANG==="zh-CN"?"无需处理":"No action needed"):(LANG==="zh-CN"?"检查本地启动器":"Check local launcher");
-    return '<article class="component"><div class="component-head"><div><strong>'+esc(c.display_name)+'</strong><div class="muted">'+esc(c.id)+' · '+esc(c.role)+'</div></div><div>'+remove+'</div></div><div class="component-meta"><span class="chip">'+esc(c.lifecycle_state||"DOWN")+'</span><span class="chip">'+esc(c.ownership_mode||"external_local")+'</span><span class="chip">'+esc(c.auto_start?(LANG==="zh-CN"?"自动启动":"Auto start"):(LANG==="zh-CN"?"手动":"Manual"))+'</span><span class="chip">'+esc(c.custom?t("custom"):t("builtin"))+'</span><span class="chip">'+esc(t("version"))+': '+esc(c.version||"unknown")+'</span></div><div class="muted">'+esc(action)+'</div><div class="value">'+esc(c.endpoint||"")+'</div></article>';
-  }).join("");
+    return '<article class="component"><div class="component-head"><div><strong>'+esc(c.display_name)+'</strong><div class="muted">'+esc(action)+'</div></div><span class="chip '+((c.lifecycle_state==="READY"||c.lifecycle_state==="READY_EXTERNAL")?'ok':'unknown')+'">'+esc(c.lifecycle_state||"DOWN")+'</span></div>'+
+      '<details class="component-detail"><summary>'+(LANG==="zh-CN"?"技术详情":"Technical details")+'</summary><div class="component-meta"><span>'+esc(c.id)+' · '+esc(c.role)+'</span><span>'+esc(c.ownership_mode||"external_local")+'</span><span>'+esc(c.auto_start?(LANG==="zh-CN"?"自动启动":"Auto start"):(LANG==="zh-CN"?"手动":"Manual"))+'</span><span>'+esc(c.custom?t("custom"):t("builtin"))+'</span><span>'+esc(t("version"))+': '+esc(c.version||"unknown")+'</span></div><div class="value">'+esc(c.endpoint||"")+'</div>'+remove+'</details></article>';
+  };
+  const groups=[
+    [LANG==="zh-CN"?"核心工具":"Core tools",components.filter(c=>c.required&&!c.custom)],
+    [LANG==="zh-CN"?"其他工具":"Other tools",components.filter(c=>!c.required&&!c.custom)],
+    [LANG==="zh-CN"?"迁移候选":"Migration candidates",components.filter(c=>c.custom)]
+  ];
+  document.querySelector("#components").innerHTML=groups.filter(([,items])=>items.length).map(([label,items])=>'<section class="component-group"><h3>'+esc(label)+'</h3>'+items.map(card).join("")+'</section>').join("");
   document.querySelectorAll("[data-remove]").forEach(button=>button.onclick=async()=>{
     if(!window.confirm(t("confirmChange")))return;
     await mutate(button,()=>api("/api/components",{method:"POST",body:JSON.stringify({operation:"delete",id:button.dataset.remove,confirm:true})}),t("candidateRemoved"));
