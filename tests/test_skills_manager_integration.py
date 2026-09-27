@@ -35,6 +35,16 @@ def test_skills_manager_installer_is_non_destructive() -> None:
     assert "skills-control-plane" in script
 
 
+def test_one_click_deployment_requires_latest_standalone_skills_manager() -> None:
+    prompt = (ROOT / "prompts" / "ONE-CLICK-AGENT-DEPLOY.md").read_text(encoding="utf-8")
+    deployment = (ROOT / "docs" / "DEPLOYMENT.md").read_text(encoding="utf-8")
+    for text in (prompt, deployment):
+        assert "scripts/install_skills_manager.ps1" in text
+        assert "lite-milkfrog/skills-manager" in text
+    assert "SKILLS_MANAGER_HEAD" in prompt
+    assert "8943" in prompt
+
+
 def test_skills_manager_guides_keep_execution_boundary() -> None:
     guide = (
         ROOT / "skills" / "webgpt-as-codex" / "mcp-guides" / "skills-manager.md"

@@ -13,6 +13,7 @@ PRODUCT = WebGPT-as-Codex
 CANONICAL_SKILL = skills/webgpt-as-codex/
 CANONICAL_DEPLOYMENT_ARTIFACT = GitHub source checkout
 BUNDLED_DERIVATIVES = vendor/coding-tools-mcp + vendor/serena-agent + vendor/playwright-mcp + vendor/playwright
+REQUIRED_STANDALONE_COMPONENT = https://github.com/lite-milkfrog/skills-manager
 
 ## -1. Source Freshness Gate（“最新版”必须可证明）
 - 如果任务起点只有 GitHub 仓库 URL，就以**用户给出的仓库**为 source of truth，先解析它的当前 default branch，再 clone/fetch；不得因为本机碰巧有旧目录就直接部署旧 HEAD。
@@ -60,6 +61,11 @@ BUNDLED_DERIVATIVES = vendor/coding-tools-mcp + vendor/serena-agent + vendor/pla
   - `vendor/playwright-mcp/`：完整 Playwright MCP v0.0.81 Apache-2.0 source snapshot，通过 `bundled-npm` 安装；
   - `vendor/playwright/`：与其依赖匹配的完整 Playwright / Playwright Core source baseline（gitHead `d1ead3e...`）。
 - Playwright 的 WAC runtime derivative 仍由本仓库 `playwright_hotfix.py`/launcher 应用到 bundled MCP 安装出来的 pinned Core；部署后必须验证 hotfix markers / exactly-once / tab reconciliation，不能仅安装 source 就宣称已复现当前 WAC 行为。
+- Skills Manager / `skills-control-plane` 是 WAC 的 required standalone component，不在 WAC 仓库内重复分发源码。部署或升级 WAC 时必须从当前 WAC checkout 执行：
+  `powershell -ExecutionPolicy Bypass -File scripts/install_skills_manager.ps1 -Update`
+  该脚本 fresh machine 会 clone `lite-milkfrog/skills-manager` 的 `main`，已有 clean checkout 会 fetch + `--ff-only` 更新到最新 `origin/main`，dirty worktree 必须 preserve 并阻止自动覆盖。
+- 记录 `SKILLS_MANAGER_REPOSITORY / SKILLS_MANAGER_BRANCH / SKILLS_MANAGER_HEAD`；验收时必须证明实际安装的 Skills Manager HEAD 等于当次读取的远端默认分支最新 HEAD。
+- Skills Manager 安装器会导入仓库中的 production Workflows 并安装 WAC integration wrapper。不得仅因为 `components/skills-control-plane.json` 已存在就跳过 standalone source 安装/更新。
 - 运行 `webgpt-codex bootstrap` / 必要的 apply 路径完成 machine-local state 与系统依赖准备。
 - 若 Tailscale 未登录，打开官方登录流程并把该步骤标记为 HUMAN_AUTH_REQUIRED；不要伪造成功。
 
@@ -68,6 +74,7 @@ BUNDLED_DERIVATIVES = vendor/coding-tools-mcp + vendor/serena-agent + vendor/pla
 - 核心目标：Coding Tools、Serena、Playwright、Windows-MCP 可被 Unified Gateway 聚合；RDC 保持独立 recovery plane。
 - 健康外部 MCP 不重复安装；需要 WebGPT 生命周期接管时必须先满足项目 ownership/adoption 规则。
 - 启动/同步 MCPJungle routes，验证 Gateway initialize/tools/list 与代表性 safe call。
+- 对 `skills-control-plane` 额外验证：8943 MCP initialize + tools/list + 代表性 `skills_status`/只读 Skill 查询；确认 WAC external-ensure wrapper 指向独立 `skills-manager` checkout，而不是历史 `skill-control-plane` 工作区。
 
 ## 4. OAuth / HTTPS Edge
 - 公网正式身份使用稳定的 Tailscale HTTPS 443，不给 Unified Gateway 使用临时随机公网 URL。
@@ -103,6 +110,7 @@ BUNDLED_DERIVATIVES = vendor/coding-tools-mcp + vendor/serena-agent + vendor/pla
 - 唯一 canonical Skill = WebGPT-as-Codex，validator PASS；
 - 当前 session 已完成 `session-bootstrap.md`，且 portable Skill 与本机同步版本一致；
 - Coding Tools / Serena / Playwright MCP 实际安装来源与 component metadata 的 bundled derivative source 一致，不是 registry-latest fallback；
+- Skills Manager 独立 checkout = 当前远端默认分支最新 HEAD，`components/skills-control-plane.json` 仍为 required/enabled，8943 MCP 可用，8955 Manager 可选打开，WAC binding 指向独立 `skills-manager`；
 - Serena derivative 保留 `implementation_fallback=exact-name-and-kind`；Coding Tools bundled tree 保留 upstream LICENSE/NOTICE 与 WAC 修改；Playwright bundled source/version/core gitHead 一致且 overlay 的目标 signature 验证通过；
 - repository tests / Ruff / secret scan / `git diff --check` PASS（若这是源码 checkout）。
 
@@ -112,7 +120,7 @@ BUNDLED_DERIVATIVES = vendor/coding-tools-mcp + vendor/serena-agent + vendor/pla
 只有真实 ChatGPT connector 完成 OAuth 并能进行至少一个安全 MCP 实调后，才标记 `CHATGPT_CONNECTOR_VERIFIED`。
 
 最终输出只需要：完成状态、唯一 MCP URL 的安全展示方式、仍需人的交互（若有）、验证摘要和任何明确阻塞。不要让用户重复手工执行你已经能执行的步骤。
-验证摘要必须包含 `SOURCE_REPOSITORY / SOURCE_BRANCH / SOURCE_HEAD`，用于证明实际部署的是当次解析出的最新默认分支版本。
+验证摘要必须包含 `SOURCE_REPOSITORY / SOURCE_BRANCH / SOURCE_HEAD` 和 `SKILLS_MANAGER_REPOSITORY / SKILLS_MANAGER_BRANCH / SKILLS_MANAGER_HEAD`，用于证明 WAC 与独立 Skills Manager 都来自当次解析出的最新默认分支版本。
 ```
 
 这个 Prompt 不包含机器特定 URL、密码或 Token；目标 Agent 必须从目标电脑实时发现这些信息。

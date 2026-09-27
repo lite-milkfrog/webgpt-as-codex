@@ -61,6 +61,7 @@ The prompt tells it to actually deploy—not just explain how—to:
 - discover Python / Git / uv / Node / winget / Tailscale;
 - preserve healthy existing MCPs instead of duplicating them;
 - install and verify the core MCP stack and Unified Gateway;
+- clone or safely fast-forward the required standalone Skills Manager to its latest `main`, import its production Workflows, and bind it as WAC's `skills-control-plane` component;
 - configure OAuth + Tailscale HTTPS Edge;
 - install the desktop one-click launcher and Windows autostart;
 - synchronize the single `WebGPT-as-Codex` Skill;

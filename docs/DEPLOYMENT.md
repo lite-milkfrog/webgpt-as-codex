@@ -89,6 +89,24 @@ Before accepting a bundled install, verify that the declared source directory ex
 
 Never deploy a duplicate healthy instance merely because a package executable is absent from PATH.
 
+### Required standalone Skills Manager
+
+`skills-control-plane` is a required WAC component, but its source of truth is the standalone `https://github.com/lite-milkfrog/skills-manager` repository rather than a vendored copy inside WAC.
+
+From the verified WAC checkout, install or update it with:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts/install_skills_manager.ps1 -Update
+```
+
+The installer is intentionally non-destructive:
+- absent checkout -> clone the standalone repository's `main`;
+- existing clean checkout + update -> fetch and fast-forward only to `origin/main`;
+- dirty checkout -> refuse automatic overwrite;
+- after source setup -> editable install, production Workflow import, and WAC integration wrapper installation.
+
+Deployment acceptance must record the standalone repository URL, branch and actual HEAD, and prove that its HEAD equals the freshly fetched remote default-branch HEAD. The resulting 8943 MCP must pass initialize/tools/list/read-only acceptance, and the WAC external-ensure binding must point to the standalone `skills-manager` checkout rather than the historical `skill-control-plane` development workspace.
+
 Supported automatic installation channels are intentionally explicit:
 - WAC-maintained Python derivative MCPs: repository-bundled complete source + `uv tool install`;
 - Python MCP packages: `uv tool`;
