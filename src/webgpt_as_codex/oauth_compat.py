@@ -66,7 +66,17 @@ def _handler(upstream: str, external_url: str):
             self.send_header("Content-Length", str(len(body)))
             self.end_headers()
             if body:
-                self.wfile.write(body)
+                try:
+                    self.wfile.write(body)
+                except (BrokenPipeError, ConnectionAbortedError, ConnectionResetError):
+                    self.close_connection = True
+
+        def _upstream_error(self, status: int, message: bytes) -> None:
+            self._write(
+                status,
+                {"Content-Type": "text/plain; charset=utf-8"},
+                message,
+            )
 
         def _forward(self) -> None:
             parsed = urllib.parse.urlparse(self.path)
@@ -78,14 +88,21 @@ def _handler(upstream: str, external_url: str):
                 else path
             )
             body = self._body()
-            response = requests.request(
-                self.command,
-                upstream + upstream_path + query,
-                headers=self._headers(),
-                data=body if body else None,
-                allow_redirects=False,
-                timeout=20,
-            )
+            try:
+                response = requests.request(
+                    self.command,
+                    upstream + upstream_path + query,
+                    headers=self._headers(),
+                    data=body if body else None,
+                    allow_redirects=False,
+                    timeout=20,
+                )
+            except requests.Timeout:
+                self._upstream_error(504, b"upstream timeout")
+                return
+            except requests.RequestException:
+                self._upstream_error(502, b"upstream unavailable")
+                return
 
             if (
                 self.command == "POST"
@@ -98,13 +115,20 @@ def _handler(upstream: str, external_url: str):
                     prior = self.headers.get("Cookie", "").strip()
                     fresh_pairs = _cookie_pairs(_set_cookies(response))
                     cookie = "; ".join(part for part in [prior, *fresh_pairs] if part)
-                    consent = requests.post(
-                        upstream + target.path + (("?" + target.query) if target.query else ""),
-                        headers=self._headers(cookie=cookie),
-                        data=b"",
-                        allow_redirects=False,
-                        timeout=20,
-                    )
+                    try:
+                        consent = requests.post(
+                            upstream + target.path + (("?" + target.query) if target.query else ""),
+                            headers=self._headers(cookie=cookie),
+                            data=b"",
+                            allow_redirects=False,
+                            timeout=20,
+                        )
+                    except requests.Timeout:
+                        self._upstream_error(504, b"upstream timeout")
+                        return
+                    except requests.RequestException:
+                        self._upstream_error(502, b"upstream unavailable")
+                        return
                     cookies = _set_cookies(response) + _set_cookies(consent)
                     self._write(
                         consent.status_code,

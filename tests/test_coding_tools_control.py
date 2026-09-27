@@ -152,3 +152,40 @@ def test_apply_config_can_save_without_restart(
     assert result["ok"] is True
     assert result["status"] == "saved"
     assert control.read_coding_tools_config()["workspace"] == str(workspace.resolve())
+
+
+def test_restart_coding_tools_does_not_capture_child_pipes(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    launcher = tmp_path / "coding-tools.ps1"
+    launcher.write_text("Write-Output ok\n", encoding="utf-8")
+    captured: dict[str, object] = {}
+
+    class Completed:
+        returncode = 0
+
+    def fake_run(*args: object, **kwargs: object) -> Completed:
+        captured.update(kwargs)
+        return Completed()
+
+    monkeypatch.setattr(
+        control,
+        "ensure_coding_tools_external_launcher",
+        lambda: {"ok": True, "status": "present"},
+    )
+    monkeypatch.setattr(control, "_launcher_path", lambda: launcher)
+    monkeypatch.setattr(control.subprocess, "run", fake_run)
+    monkeypatch.setattr(
+        control,
+        "probe_coding_tools_live",
+        lambda: {"reachable": True, "workspace": str(tmp_path)},
+    )
+
+    result = control.restart_coding_tools()
+
+    assert result["ok"] is True
+    assert captured["stdin"] is control.subprocess.DEVNULL
+    assert captured["stdout"] is control.subprocess.DEVNULL
+    assert captured["stderr"] is control.subprocess.DEVNULL
+    assert "capture_output" not in captured

@@ -125,6 +125,9 @@ def test_bilingual_resources_share_one_functional_contract(monkeypatch, manager_
         assert endpoint in script
     assert 'id="coding-tools-form"' in english
     assert 'id="coding-tools-form"' in chinese
+    assert 'id="oauth-copy"' in english
+    assert 'id="oauth-copy"' in chinese
+    assert 'document.querySelector("#oauth-copy").onclick' in script
     assert "navigator.clipboard" in script and "window.open" in script
     assert "localStorage.getItem('wac-theme')" in script
     assert "matchMedia('(prefers-color-scheme: dark)')" in script
@@ -158,9 +161,17 @@ def test_oauth_set_reveal_regenerate_and_activity_are_secret_safe(manager_server
     assert _request(manager_server, "POST", "/api/oauth-password", {"action": "set", "value": first, "confirm": True})[0] == 200
     status, raw, _ = _request(manager_server, "POST", "/api/oauth-password", {"action": "reveal", "confirm": True})
     assert status == 200 and json.loads(raw)["password"] == first
-    assert _request(manager_server, "POST", "/api/oauth-password", {"action": "generate", "confirm": True})[0] == 200
+    status, generated_raw, _ = _request(
+        manager_server,
+        "POST",
+        "/api/oauth-password",
+        {"action": "generate", "confirm": True},
+    )
+    generated = json.loads(generated_raw)
+    assert status == 200 and len(generated["password"]) >= 12
     _, raw, _ = _request(manager_server, "POST", "/api/oauth-password", {"action": "reveal", "confirm": True})
     second = json.loads(raw)["password"]
+    assert generated["password"] == second
     assert second != first and len(second) >= 12
     _, activity, _ = _request(manager_server, "GET", "/api/activity")
     activity_text = activity.decode()
@@ -255,6 +266,22 @@ def test_coding_tools_workspace_and_permission_apply_through_manager(
             "confirm": False,
         },
     )[0] == 409
+
+
+def test_local_mutation_locks_are_isolated_by_resource(manager_server) -> None:
+    coding_lock = manager_server.local_mutation_locks["/api/coding-tools"]
+    assert coding_lock.acquire(blocking=False)
+    try:
+        status, raw, _ = _request(
+            manager_server,
+            "POST",
+            "/api/oauth-password",
+            {"action": "generate", "confirm": True},
+        )
+        assert status == 200
+        assert len(json.loads(raw)["password"]) >= 12
+    finally:
+        coding_lock.release()
 
 
 def test_local_endpoints_reject_cross_origin_and_oversize_body(manager_server) -> None:

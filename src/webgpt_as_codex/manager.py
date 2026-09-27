@@ -160,7 +160,18 @@ class ManagerHTTPServer(ThreadingHTTPServer):
         self.status_service = status_service
         self.action_runner = action_runner
         self.skill_workflow = skill_workflow
-        self.local_mutation_lock = threading.Lock()
+        skill_mutation_lock = threading.Lock()
+        self.local_mutation_locks = {
+            "/api/environment": threading.Lock(),
+            "/api/components": threading.Lock(),
+            "/api/oauth-password": threading.Lock(),
+            "/api/coding-tools": threading.Lock(),
+            "/api/skills": skill_mutation_lock,
+            "/api/workflow-runs": skill_mutation_lock,
+        }
+        # Backward-compatible alias used by older tests/integrations; OAuth is the
+        # least disruptive mutation class and no longer shares a global lock.
+        self.local_mutation_lock = self.local_mutation_locks["/api/oauth-password"]
         self._activity_lock = threading.Lock()
         self._activity: deque[dict[str, Any]] = deque(maxlen=50)
 
@@ -233,7 +244,7 @@ class ManagerRequestHandler(BaseHTTPRequestHandler):
         self.send_header("X-Content-Type-Options", "nosniff")
         self.send_header("Content-Length", str(len(body)))
         self.end_headers()
-        self.wfile.write(body)
+        self._write_body(body)
 
     def _local_json(self, payload: Any, status: HTTPStatus = HTTPStatus.OK) -> None:
         body = json.dumps(payload, ensure_ascii=False).encode("utf-8")
@@ -243,7 +254,15 @@ class ManagerRequestHandler(BaseHTTPRequestHandler):
         self.send_header("X-Content-Type-Options", "nosniff")
         self.send_header("Content-Length", str(len(body)))
         self.end_headers()
-        self.wfile.write(body)
+        self._write_body(body)
+
+    def _write_body(self, body: bytes) -> None:
+        try:
+            self.wfile.write(body)
+        except (BrokenPipeError, ConnectionAbortedError, ConnectionResetError):
+            # Browser refresh/close is normal for a loopback control surface.
+            # Do not turn a disconnected client into noisy server tracebacks.
+            self.close_connection = True
 
     def _read_json_body(self) -> dict[str, Any]:
         try:
@@ -418,7 +437,7 @@ class ManagerRequestHandler(BaseHTTPRequestHandler):
         self.send_header("X-Frame-Options", "DENY")
         self.send_header("Content-Length", str(len(body)))
         self.end_headers()
-        self.wfile.write(body)
+        self._write_body(body)
 
     def _html(self, path: Path) -> None:
         self._static(path, "text/html; charset=utf-8")
@@ -486,7 +505,8 @@ class ManagerRequestHandler(BaseHTTPRequestHandler):
             "/api/workflow-runs",
         }:
             return False
-        if not self.server.local_mutation_lock.acquire(blocking=False):
+        mutation_lock = self.server.local_mutation_locks[self.path]
+        if not mutation_lock.acquire(blocking=False):
             self.server.record_activity(self.path, "blocked", detail="manager-mutation-busy")
             self._json({"ok": False, "error": "manager-mutation-busy"}, HTTPStatus.CONFLICT)
             return True
@@ -813,9 +833,16 @@ class ManagerRequestHandler(BaseHTTPRequestHandler):
                 self._local_json({"ok": True, "password": revealed_value})
                 return True
             if action == "generate":
-                regenerate_oauth_password()
+                generated_value = regenerate_oauth_password()
                 self.server.record_activity("oauth-password.generate", "success")
-                self._local_json({"ok": True, "configured": True, "restart_required": True})
+                self._local_json(
+                    {
+                        "ok": True,
+                        "configured": True,
+                        "restart_required": True,
+                        "password": generated_value,
+                    }
+                )
                 return True
             if action == "set":
                 set_oauth_password(payload.get("value"))
@@ -878,7 +905,7 @@ class ManagerRequestHandler(BaseHTTPRequestHandler):
             )
             return True
         finally:
-            self.server.local_mutation_lock.release()
+            mutation_lock.release()
 
     def do_POST(self) -> None:
         if not self._request_origin_ok():
