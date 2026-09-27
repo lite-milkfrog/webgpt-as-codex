@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import http.server
+import json
 import threading
 import urllib.parse
 from collections.abc import Iterator
@@ -139,14 +140,33 @@ def _handler(upstream: str, external_url: str):
                     return
 
             headers = dict(response.headers)
+            response_body = response.content
+
+            if response.status_code == 200 and path in {
+                "/.well-known/oauth-protected-resource",
+                "/.well-known/oauth-protected-resource/mcp",
+            }:
+                try:
+                    metadata = response.json()
+                except ValueError:
+                    metadata = None
+                if isinstance(metadata, dict):
+                    metadata["resource"] = f"{external}/mcp"
+                    metadata.setdefault("bearer_methods_supported", ["header"])
+                    response_body = json.dumps(
+                        metadata,
+                        separators=(",", ":"),
+                    ).encode("utf-8")
+                    headers["Content-Type"] = "application/json; charset=utf-8"
+
             if response.status_code == 401 and path == "/mcp":
                 headers["WWW-Authenticate"] = (
-                    f'Bearer resource_metadata="{external}/.well-known/oauth-protected-resource"'
+                    f'Bearer resource_metadata="{external}/.well-known/oauth-protected-resource/mcp"'
                 )
             self._write(
                 response.status_code,
                 headers,
-                response.content,
+                response_body,
                 _set_cookies(response),
             )
 

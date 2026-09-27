@@ -17,10 +17,13 @@ def _wait_public(public_base: str, timeout: float = 30.0) -> None:
     while time.monotonic() < deadline:
         try:
             response = requests.get(
-                public_base.rstrip("/") + "/.well-known/oauth-protected-resource",
+                public_base.rstrip("/") + "/.well-known/oauth-protected-resource/mcp",
                 timeout=5,
             )
-            if response.status_code == 200:
+            if (
+                response.status_code == 200
+                and response.json().get("resource") == public_base.rstrip("/") + "/mcp"
+            ):
                 return
         except requests.RequestException as exc:
             last = exc
@@ -53,10 +56,16 @@ def _assert_unauthenticated_gate(public_base: str) -> None:
         timeout=20,
         allow_redirects=False,
     )
+    expected_metadata = (
+        public_base.rstrip("/") + "/.well-known/oauth-protected-resource/mcp"
+    )
+    challenge = response.headers.get("WWW-Authenticate", "")
     if response.status_code != 401:
         raise RuntimeError(
             f"public unauthenticated MCP returned {response.status_code}, expected 401"
         )
+    if f'resource_metadata="{expected_metadata}"' not in challenge:
+        raise RuntimeError("public unauthenticated MCP challenge points to wrong metadata")
 
 
 def _assert_authenticated_mcp(public_base: str, access_token: str) -> int:

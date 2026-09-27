@@ -190,6 +190,7 @@ def _probe_oauth(component: Component, listener: bool | None) -> tuple[bool | No
             protected.status_code == 200
             and auth.status_code == 200
             and bool(protected_json.get("resource"))
+            and "S256" in auth_json.get("code_challenge_methods_supported", [])
             and all(
                 auth_json.get(key)
                 for key in ("authorization_endpoint", "token_endpoint", "registration_endpoint")
@@ -200,6 +201,7 @@ def _probe_oauth(component: Component, listener: bool | None) -> tuple[bool | No
             "protected_resource_status": protected.status_code,
             "authorization_server_status": auth.status_code,
             "metadata_complete": metadata_ok,
+            "pkce_s256_supported": "S256" in auth_json.get("code_challenge_methods_supported", []),
             "scope": "read-only-metadata",
             "authoritative_full_oauth_requires_real_https": True,
         }
@@ -250,7 +252,9 @@ def _probe_remote(public_mcp: str | None) -> tuple[bool | None, dict]:
         },
     }
     try:
-        metadata = requests.get(base + "/.well-known/oauth-protected-resource", timeout=8)
+        metadata_url = base + "/.well-known/oauth-protected-resource/mcp"
+        metadata = requests.get(metadata_url, timeout=8)
+        metadata_json = metadata.json() if metadata.status_code == 200 else {}
         unauth = requests.post(
             mcp_url,
             json=payload,
@@ -258,13 +262,23 @@ def _probe_remote(public_mcp: str | None) -> tuple[bool | None, dict]:
             timeout=10,
             allow_redirects=False,
         )
-        ok = metadata.status_code == 200 and unauth.status_code == 401
+        challenge = unauth.headers.get("WWW-Authenticate", "")
+        resource_match = metadata_json.get("resource") == mcp_url
+        challenge_match = f'resource_metadata="{metadata_url}"' in challenge
+        ok = (
+            metadata.status_code == 200
+            and unauth.status_code == 401
+            and resource_match
+            and challenge_match
+        )
         return ok, {
             "attempted": True,
             "https": True,
             "protected_resource_status": metadata.status_code,
             "unauthenticated_mcp_status": unauth.status_code,
-            "oauth_challenge_present": bool(unauth.headers.get("WWW-Authenticate")),
+            "oauth_challenge_present": bool(challenge),
+            "resource_match": resource_match,
+            "challenge_match": challenge_match,
         }
     except requests.RequestException as exc:
         return False, {"attempted": True, "https": True, "error_type": type(exc).__name__}
