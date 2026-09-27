@@ -1,11 +1,28 @@
 from __future__ import annotations
 
+import os
+import subprocess
+import sys
 from pathlib import Path
 
 import pytest
 
 from webgpt_as_codex import doctor, launcher, runtime
 from webgpt_as_codex.registry import Component
+
+
+@pytest.mark.skipif(os.name != "nt", reason="Windows process lifetime semantics")
+def test_windows_pid_exists_rejects_exited_process_with_lingering_handle() -> None:
+    process = subprocess.Popen(
+        [sys.executable, "-c", "pass"],
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+    )
+    process.wait(timeout=10)
+    try:
+        assert runtime._pid_exists(process.pid) is False
+    finally:
+        process._handle.Close()
 
 
 def _component(component_id: str, *, role: str = "test") -> Component:
@@ -309,7 +326,10 @@ def test_rdc_remote_launcher_content_is_proxy_aware_and_self_healing() -> None:
 
     assert launcher._RDC_REMOTE_LAUNCHER_MARKER in content
     assert "runtime-*" in content
-    assert "Get-NetTCPConnection" in content
+    assert "Get-Content -LiteralPath $log -Tail 300" in content
+    assert "Presence tracked" in content
+    assert "CHANNEL_ERROR" in content
+    assert "LastWriteTime" in content
     assert "stale RDC remote process" in content
     assert "ProxyEnable" in content
     assert "HTTP_PROXY" in content
@@ -323,6 +343,65 @@ def test_rdc_remote_launcher_content_is_proxy_aware_and_self_healing() -> None:
     assert content.index("Waiting for authorization") < content.index(
         "Launcher self-heal: stale RDC remote process"
     )
+
+
+def test_rdc_connector_log_contract_uses_latest_recent_state(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    launcher_path = tmp_path / "DesktopCommander" / "start-remote.ps1"
+    launcher_path.parent.mkdir(parents=True)
+    launcher_path.write_text("# helper\n", encoding="utf-8")
+    log = launcher_path.parent / "remote-agent.log"
+    monkeypatch.setenv("WEBGPT_CODEX_RDC_LAUNCHER_PATH", str(launcher_path))
+
+    log.write_text(
+        "[DEBUG] Channel subscription status: SUBSCRIBED socket=open(-) ch=joined attempt=0\n"
+        "[DEBUG] Channel subscription status: CHANNEL_ERROR (error: transport failure)\n",
+        encoding="utf-8",
+    )
+    assert runtime._rdc_connector_log_ready() is False
+
+    log.write_text(
+        "[DEBUG] Channel subscription status: CHANNEL_ERROR (error: transport failure)\n"
+        "[DEBUG] Channel subscription status: SUBSCRIBED socket=open(-) ch=joined attempt=0\n"
+        'Tool call result: {"text":"historical CHANNEL_ERROR transport failure"}\n',
+        encoding="utf-8",
+    )
+    assert runtime._rdc_connector_log_ready() is True
+
+    log.write_text(
+        "[DEBUG] Channel subscription status: SUBSCRIBED socket=open(-) ch=joined attempt=0\n"
+        "馃攲 Device marked as online\n"
+        "馃憢 Presence tracked (device test visible as online)\n",
+        encoding="utf-8",
+    )
+    assert runtime._rdc_connector_log_ready() is True
+
+
+def test_rdc_connector_log_contract_reads_real_desktop_commander_log_when_wac_wrapper_exists(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    state_root = tmp_path / "WebGPT-as-Codex"
+    wrapper = state_root / "external-ensure" / "remote-desktop-commander.ps1"
+    wrapper.parent.mkdir(parents=True)
+    wrapper.write_text("# wrapper\n", encoding="utf-8")
+
+    local_appdata = tmp_path / "Local"
+    rdc_root = local_appdata / "DesktopCommander"
+    rdc_root.mkdir(parents=True)
+    (rdc_root / "remote-agent.log").write_text(
+        "[DEBUG] Channel subscription status: SUBSCRIBED socket=open(-) ch=joined attempt=0\n",
+        encoding="utf-8",
+    )
+
+    monkeypatch.delenv("WEBGPT_CODEX_RDC_LAUNCHER_PATH", raising=False)
+    monkeypatch.setenv("LOCALAPPDATA", str(local_appdata))
+    monkeypatch.setattr(runtime, "ensure_state_dirs", lambda: state_root)
+
+    assert runtime._external_ensure_launcher("remote-desktop-commander") == wrapper
+    assert runtime._rdc_connector_log_ready() is True
 
 
 def test_rdc_runtime_start_self_heals_helper(

@@ -32,6 +32,19 @@
     <div class="section-head"><h2 id="actions-title" data-i18n="runtimeActions">Runtime actions</h2></div>
     <div id="actions" class="actions panel"></div>
   </section>
+  <section aria-labelledby="coding-tools-title">
+    <div class="section-head"><h2 id="coding-tools-title" data-i18n="codingToolsSettings">Coding Tools workspace & permissions</h2></div>
+    <div class="panel stack">
+      <div id="coding-tools-status" class="coding-tools-status"></div>
+      <form id="coding-tools-form" class="form-grid">
+        <label class="wide"><span data-i18n="workspace">Workspace</span><input name="workspace" type="text" maxlength="4096" autocomplete="off" required></label>
+        <label><span data-i18n="permissionMode">Permission mode</span><select name="permission_mode" required><option value="safe">safe</option><option value="trusted">trusted</option><option value="dangerous">dangerous</option></select></label>
+        <div class="wide permission-explainer" id="coding-tools-permission-help"></div>
+        <div class="wide"><button type="submit" data-mutation data-i18n="saveRestartCodingTools">Save & restart Coding Tools</button></div>
+      </form>
+      <p class="hint" data-i18n="codingToolsHint">The selected workspace is the filesystem boundary for Coding Tools. Changes are persisted and applied to the one-click launcher.</p>
+    </div>
+  </section>
   <section aria-labelledby="environment-title">
     <div class="section-head"><h2 id="environment-title" data-i18n="environment">Environment</h2></div>
     <div id="environment" class="panel"></div>

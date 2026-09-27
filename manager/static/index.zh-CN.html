@@ -23,6 +23,19 @@
   <section aria-labelledby="overview-title"><div class="section-head"><h2 id="overview-title" data-i18n="overview">总览</h2></div><div id="overview" class="cards"></div></section>
   <section aria-labelledby="urls-title"><div class="section-head"><h2 id="urls-title" data-i18n="connectionUrls">连接地址</h2></div><div id="urls" class="panel"></div></section>
   <section aria-labelledby="actions-title"><div class="section-head"><h2 id="actions-title" data-i18n="runtimeActions">运行时操作</h2></div><div id="actions" class="actions panel"></div></section>
+  <section aria-labelledby="coding-tools-title">
+    <div class="section-head"><h2 id="coding-tools-title" data-i18n="codingToolsSettings">Coding Tools 工作区与权限</h2></div>
+    <div class="panel stack">
+      <div id="coding-tools-status" class="coding-tools-status"></div>
+      <form id="coding-tools-form" class="form-grid">
+        <label class="wide"><span data-i18n="workspace">工作区</span><input name="workspace" type="text" maxlength="4096" autocomplete="off" required></label>
+        <label><span data-i18n="permissionMode">权限模式</span><select name="permission_mode" required><option value="safe">safe</option><option value="trusted">trusted</option><option value="dangerous">dangerous</option></select></label>
+        <div class="wide permission-explainer" id="coding-tools-permission-help"></div>
+        <div class="wide"><button type="submit" data-mutation data-i18n="saveRestartCodingTools">保存并重启 Coding Tools</button></div>
+      </form>
+      <p class="hint" data-i18n="codingToolsHint">所选工作区就是 Coding Tools 的文件系统边界；设置会持久化，并由桌面一键启动继续使用。</p>
+    </div>
+  </section>
   <section aria-labelledby="environment-title"><div class="section-head"><h2 id="environment-title" data-i18n="environment">环境</h2></div><div id="environment" class="panel"></div></section>
   <section aria-labelledby="oauth-title">
     <div class="section-head"><h2 id="oauth-title" data-i18n="oauthPassword">OAuth 密码</h2></div>

@@ -16,6 +16,10 @@ from typing import Any
 from urllib.parse import urlsplit
 
 from . import __version__
+from .coding_tools_control import (
+    apply_coding_tools_config,
+    coding_tools_public_status,
+)
 from .edge_runtime import (
     oauth_password_status,
     read_oauth_password,
@@ -389,6 +393,7 @@ class ManagerRequestHandler(BaseHTTPRequestHandler):
                 "edge_ready": environment["ready_for_edge"],
                 "mode": "unified-gateway",
             },
+            "coding_tools": coding_tools_public_status(),
             "components": rows,
         }
 
@@ -464,6 +469,7 @@ class ManagerRequestHandler(BaseHTTPRequestHandler):
             "/api/environment",
             "/api/components",
             "/api/oauth-password",
+            "/api/coding-tools",
         }:
             return False
         if not self.server.local_mutation_lock.acquire(blocking=False):
@@ -471,6 +477,46 @@ class ManagerRequestHandler(BaseHTTPRequestHandler):
             self._json({"ok": False, "error": "manager-mutation-busy"}, HTTPStatus.CONFLICT)
             return True
         try:
+            if self.path == "/api/coding-tools":
+                self._require_fields(
+                    payload,
+                    {"workspace", "permission_mode", "restart", "confirm"},
+                )
+                if payload.get("confirm") is not True:
+                    self.server.record_activity(
+                        "coding-tools",
+                        "blocked",
+                        detail="confirmation-required",
+                    )
+                    self._json(
+                        {"ok": False, "error": "confirmation-required"},
+                        HTTPStatus.CONFLICT,
+                    )
+                    return True
+                workspace = payload.get("workspace")
+                permission_mode = payload.get("permission_mode")
+                restart = payload.get("restart", True)
+                if not isinstance(workspace, str) or not isinstance(permission_mode, str):
+                    raise ActionPayloadError("workspace and permission_mode are required")
+                if not isinstance(restart, bool):
+                    raise ActionPayloadError("restart must be boolean")
+                result = apply_coding_tools_config(
+                    workspace=workspace,
+                    permission_mode=permission_mode,
+                    restart=restart,
+                )
+                self.server.status_service.snapshot(force=True)
+                self.server.record_activity(
+                    "coding-tools.configure",
+                    "success" if result.get("ok") else "failed",
+                    detail=str(result.get("status") or "unknown"),
+                )
+                self._local_json(
+                    result,
+                    HTTPStatus.OK if result.get("ok") else HTTPStatus.CONFLICT,
+                )
+                return True
+
             if self.path == "/api/environment":
                 self._require_fields(payload, {"operation", "confirm"})
                 if payload.get("confirm") is not True:
@@ -613,6 +659,8 @@ class ManagerRequestHandler(BaseHTTPRequestHandler):
             failure = (
                 "component-operation-failed"
                 if self.path == "/api/components"
+                else "coding-tools-operation-failed"
+                if self.path == "/api/coding-tools"
                 else "oauth-password-operation-failed"
                 if self.path == "/api/oauth-password"
                 else "environment-operation-failed"

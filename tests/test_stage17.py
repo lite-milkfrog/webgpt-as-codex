@@ -29,6 +29,24 @@ class _Status:
 def manager_server(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
     monkeypatch.setenv("WEBGPT_CODEX_STATE_DIR", str(tmp_path))
     monkeypatch.setattr(
+        "webgpt_as_codex.manager.coding_tools_public_status",
+        lambda: {
+            "configured": {
+                "workspace": "D:/workspace",
+                "permission_mode": "trusted",
+                "workspace_mutation": "unrestricted",
+                "shell_env_inherit": "core",
+            },
+            "live": {
+                "reachable": True,
+                "workspace": "D:/workspace",
+                "permission_mode": "trusted",
+            },
+            "restart_required": False,
+            "permission_modes": ["safe", "trusted", "dangerous"],
+        },
+    )
+    monkeypatch.setattr(
         "webgpt_as_codex.manager.environment_report",
         lambda: {
             "python": {"ok": True, "version": "3.12.0", "minimum": "3.11", "executable": "SECRET_PATH"},
@@ -100,8 +118,10 @@ def test_bilingual_resources_share_one_functional_contract(monkeypatch, manager_
         assert 'src="/manager.js"' in html
         assert 'href="/manager.css"' in html
         assert 'aria-live="polite"' in html
-    for endpoint in ("/api/local-config", "/api/oauth-password", "/api/components", "/api/environment", "/api/activity"):
+    for endpoint in ("/api/local-config", "/api/oauth-password", "/api/components", "/api/environment", "/api/coding-tools", "/api/activity"):
         assert endpoint in script
+    assert 'id="coding-tools-form"' in english
+    assert 'id="coding-tools-form"' in chinese
     assert "navigator.clipboard" in script and "window.open" in script
     assert "prefers-reduced-motion" in css and ":focus-visible" in css
 
@@ -119,6 +139,8 @@ def test_local_config_is_public_safe(manager_server) -> None:
         "edge_ready": True,
         "mode": "unified-gateway",
     }
+    assert body["coding_tools"]["configured"]["workspace"] == "D:/workspace"
+    assert body["coding_tools"]["configured"]["permission_mode"] == "trusted"
     assert "SECRET_PATH" not in text
     assert "dns_name" not in text
     assert "magic_dns_suffix" not in text
@@ -172,6 +194,61 @@ def test_local_mutation_lock_and_control_header_fail_closed(manager_server) -> N
         assert status == 409 and json.loads(raw)["error"] == "manager-mutation-busy"
     finally:
         manager_server.local_mutation_lock.release()
+
+
+def test_coding_tools_workspace_and_permission_apply_through_manager(
+    manager_server,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    calls: list[dict[str, object]] = []
+
+    def fake_apply(**kwargs: object) -> dict:
+        calls.append(dict(kwargs))
+        return {
+            "ok": True,
+            "status": "applied-and-restarted",
+            "configured": {
+                "workspace": kwargs["workspace"],
+                "permission_mode": kwargs["permission_mode"],
+            },
+        }
+
+    monkeypatch.setattr(
+        "webgpt_as_codex.manager.apply_coding_tools_config",
+        fake_apply,
+    )
+    status, raw, _ = _request(
+        manager_server,
+        "POST",
+        "/api/coding-tools",
+        {
+            "workspace": "D:/repo",
+            "permission_mode": "safe",
+            "restart": True,
+            "confirm": True,
+        },
+    )
+    assert status == 200
+    assert json.loads(raw)["status"] == "applied-and-restarted"
+    assert calls == [
+        {
+            "workspace": "D:/repo",
+            "permission_mode": "safe",
+            "restart": True,
+        }
+    ]
+
+    assert _request(
+        manager_server,
+        "POST",
+        "/api/coding-tools",
+        {
+            "workspace": "D:/repo",
+            "permission_mode": "safe",
+            "restart": True,
+            "confirm": False,
+        },
+    )[0] == 409
 
 
 def test_local_endpoints_reject_cross_origin_and_oversize_body(manager_server) -> None:

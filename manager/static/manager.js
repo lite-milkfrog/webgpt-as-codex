@@ -1,7 +1,7 @@
 const LANG=document.documentElement.lang==="zh-CN"?"zh-CN":"en";
 const S={
-  en:{eyebrow:"Local control plane",subtitle:"Loopback-only control surface. Closing this page does not stop agent runtimes.",overview:"Overview",connectionUrls:"Connection URLs",runtimeActions:"Runtime actions",environment:"Environment",oauthPassword:"OAuth password",revealedPassword:"Revealed password",reveal:"Reveal",regenerate:"Regenerate",newPassword:"New password",setPassword:"Set password",oauthHint:"Changes are machine-local and require the owned Edge runtime to restart before they take effect.",components:"MCP inventory & migration",componentId:"Component ID",displayName:"Display name",role:"Role",endpoint:"Endpoint",addCandidate:"Add migration candidate",candidateHint:"Adding a candidate changes local registry visibility only. It does not grant routing or lifecycle authority.",activity:"Recent activity",copy:"Copy",open:"Open",productVersion:"Product version",deployment:"Deployment",gateway:"Gateway",oauth:"OAuth",https:"HTTPS / public edge",managerReady:"Manager ready",ready:"Ready",notReady:"Not ready",configured:"Configured",notConfigured:"Not configured",observed:"Observed",noLiveProof:"No live proof",publicMcp:"Public MCP",localGateway:"Local Gateway MCP",installTailscale:"Install / upgrade Tailscale",tailscaleReady:"Tailscale ready",migration:"Migration",version:"Version",remove:"Remove",custom:"custom",builtin:"built-in",noActivity:"No actions in this Manager process yet.",pending:"Working…",completed:"Completed",failed:"Failed",confirmAction:"Run this action?",confirmChange:"Apply this local configuration change?",restartPrompt:"Repository-managed component to restart",passwordSet:"OAuth password updated. Restart owned Edge to apply it.",passwordGenerated:"OAuth password regenerated. Restart owned Edge to apply it.",candidateAdded:"Migration candidate added without route/lifecycle authority.",candidateRemoved:"Migration candidate removed.",copied:"URL copied.",statusUnavailable:"Status unavailable"},
-  "zh-CN":{eyebrow:"本机控制面",subtitle:"仅限本机回环访问。关闭此页面不会停止 Agent 或 MCP 运行时。",overview:"总览",connectionUrls:"连接地址",runtimeActions:"运行时操作",environment:"环境",oauthPassword:"OAuth 密码",revealedPassword:"已显示密码",reveal:"显示",regenerate:"重新生成",newPassword:"新密码",setPassword:"设置密码",oauthHint:"密码只保存在本机；修改后需要重启 WebGPT 自有 Edge 运行时才能生效。",components:"MCP 清单与迁移",componentId:"组件 ID",displayName:"显示名称",role:"角色",endpoint:"端点",addCandidate:"添加迁移候选",candidateHint:"添加候选只改变本机注册表可见性，不会自动获得路由权或生命周期控制权。",activity:"最近操作",copy:"复制",open:"打开",productVersion:"产品版本",deployment:"部署状态",gateway:"Gateway",oauth:"OAuth",https:"HTTPS / 公网边缘",managerReady:"Manager 就绪",ready:"就绪",notReady:"未就绪",configured:"已配置",notConfigured:"未配置",observed:"已观测",noLiveProof:"无实时证据",publicMcp:"公网 MCP",localGateway:"本机 Gateway MCP",installTailscale:"安装 / 升级 Tailscale",tailscaleReady:"Tailscale 就绪",migration:"迁移状态",version:"版本",remove:"移除",custom:"自定义",builtin:"内置",noActivity:"当前 Manager 进程还没有操作记录。",pending:"处理中…",completed:"已完成",failed:"失败",confirmAction:"确认执行此操作？",confirmChange:"确认应用这项本机配置变更？",restartPrompt:"要重启的仓库托管组件",passwordSet:"OAuth 密码已更新；重启 WebGPT 自有 Edge 后生效。",passwordGenerated:"OAuth 密码已重新生成；重启 WebGPT 自有 Edge 后生效。",candidateAdded:"迁移候选已添加，但没有获得路由权或生命周期控制权。",candidateRemoved:"迁移候选已移除。",copied:"地址已复制。",statusUnavailable:"状态暂不可用"}
+  en:{eyebrow:"Local control plane",subtitle:"Loopback-only control surface. Closing this page does not stop agent runtimes.",overview:"Overview",connectionUrls:"Connection URLs",runtimeActions:"Runtime actions",environment:"Environment",oauthPassword:"OAuth password",revealedPassword:"Revealed password",reveal:"Reveal",regenerate:"Regenerate",newPassword:"New password",setPassword:"Set password",oauthHint:"Changes are machine-local and require the owned Edge runtime to restart before they take effect.",components:"MCP inventory & migration",componentId:"Component ID",displayName:"Display name",role:"Role",endpoint:"Endpoint",addCandidate:"Add migration candidate",candidateHint:"Adding a candidate changes local registry visibility only. It does not grant routing or lifecycle authority.",activity:"Recent activity",copy:"Copy",open:"Open",productVersion:"Product version",deployment:"Deployment",gateway:"Gateway",oauth:"OAuth",https:"HTTPS / public edge",managerReady:"Manager ready",ready:"Ready",notReady:"Not ready",configured:"Configured",notConfigured:"Not configured",observed:"Observed",noLiveProof:"No live proof",publicMcp:"Public MCP",localGateway:"Local Gateway MCP",installTailscale:"Install / upgrade Tailscale",tailscaleReady:"Tailscale ready",migration:"Migration",version:"Version",remove:"Remove",custom:"custom",builtin:"built-in",noActivity:"No actions in this Manager process yet.",pending:"Working…",completed:"Completed",failed:"Failed",confirmAction:"Run this action?",confirmChange:"Apply this local configuration change?",restartPrompt:"Repository-managed component to restart",passwordSet:"OAuth password updated. Restart owned Edge to apply it.",passwordGenerated:"OAuth password regenerated. Restart owned Edge to apply it.",candidateAdded:"Migration candidate added without route/lifecycle authority.",candidateRemoved:"Migration candidate removed.",copied:"URL copied.",statusUnavailable:"Status unavailable",codingToolsSettings:"Coding Tools workspace & permissions",workspace:"Workspace",permissionMode:"Permission mode",saveRestartCodingTools:"Save & restart Coding Tools",codingToolsHint:"The selected workspace is the filesystem boundary for Coding Tools. Changes are persisted and applied to the one-click launcher.",codingToolsLive:"Running",codingToolsDesired:"Saved",restartRequired:"Restart required",synced:"In sync",unreachable:"Not reachable",safeHelp:"safe: blocks network-looking commands, shell expansion, and inline scripts.",trustedHelp:"trusted: normal local development mode; allows network, shell expansion, and inline scripts while keeping workspace boundaries.",dangerousHelp:"dangerous: disables command permission gates. Workspace path boundaries for direct file tools still apply.",dangerousConfirm:"Dangerous mode disables Coding Tools command permission gates. Continue?",codingToolsApplied:"Coding Tools configuration applied and restarted."},
+  "zh-CN":{eyebrow:"本机控制面",subtitle:"仅限本机回环访问。关闭此页面不会停止 Agent 或 MCP 运行时。",overview:"总览",connectionUrls:"连接地址",runtimeActions:"运行时操作",environment:"环境",oauthPassword:"OAuth 密码",revealedPassword:"已显示密码",reveal:"显示",regenerate:"重新生成",newPassword:"新密码",setPassword:"设置密码",oauthHint:"密码只保存在本机；修改后需要重启 WebGPT 自有 Edge 运行时才能生效。",components:"MCP 清单与迁移",componentId:"组件 ID",displayName:"显示名称",role:"角色",endpoint:"端点",addCandidate:"添加迁移候选",candidateHint:"添加候选只改变本机注册表可见性，不会自动获得路由权或生命周期控制权。",activity:"最近操作",copy:"复制",open:"打开",productVersion:"产品版本",deployment:"部署状态",gateway:"Gateway",oauth:"OAuth",https:"HTTPS / 公网边缘",managerReady:"Manager 就绪",ready:"就绪",notReady:"未就绪",configured:"已配置",notConfigured:"未配置",observed:"已观测",noLiveProof:"无实时证据",publicMcp:"公网 MCP",localGateway:"本机 Gateway MCP",installTailscale:"安装 / 升级 Tailscale",tailscaleReady:"Tailscale 就绪",migration:"迁移状态",version:"版本",remove:"移除",custom:"自定义",builtin:"内置",noActivity:"当前 Manager 进程还没有操作记录。",pending:"处理中…",completed:"已完成",failed:"失败",confirmAction:"确认执行此操作？",confirmChange:"确认应用这项本机配置变更？",restartPrompt:"要重启的仓库托管组件",passwordSet:"OAuth 密码已更新；重启 WebGPT 自有 Edge 后生效。",passwordGenerated:"OAuth 密码已重新生成；重启 WebGPT 自有 Edge 后生效。",candidateAdded:"迁移候选已添加，但没有获得路由权或生命周期控制权。",candidateRemoved:"迁移候选已移除。",copied:"地址已复制。",statusUnavailable:"状态暂不可用",codingToolsSettings:"Coding Tools 工作区与权限",workspace:"工作区",permissionMode:"权限模式",saveRestartCodingTools:"保存并重启 Coding Tools",codingToolsHint:"所选工作区就是 Coding Tools 的文件系统边界；设置会持久化，并由桌面一键启动继续使用。",codingToolsLive:"当前运行",codingToolsDesired:"已保存",restartRequired:"需要重启",synced:"已同步",unreachable:"未连接",safeHelp:"safe：拦截网络类命令、Shell 展开和内联脚本，限制最严格。",trustedHelp:"trusted：正常本地开发模式；允许网络、Shell 展开和内联脚本，同时保留工作区边界。",dangerousHelp:"dangerous：关闭命令权限闸门；直接文件工具仍受工作区路径边界约束。",dangerousConfirm:"dangerous 会关闭 Coding Tools 的命令权限闸门。确定继续？",codingToolsApplied:"Coding Tools 配置已应用并完成重启。"}
 };
 const t=k=>S[LANG][k]||S.en[k]||k;
 const esc=v=>String(v??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
@@ -102,6 +102,31 @@ function renderEnvironment(){
     await mutate(event.currentTarget,()=>api("/api/environment",{method:"POST",body:JSON.stringify({operation:"install-tailscale",confirm:true})}));
   };
 }
+function codingToolsPermissionHelp(mode){
+  return mode==="safe"?t("safeHelp"):mode==="dangerous"?t("dangerousHelp"):t("trustedHelp");
+}
+function renderCodingTools(){
+  if(!state.config)return;
+  const model=state.config.coding_tools||{},configured=model.configured||{},live=model.live||{};
+  const form=document.querySelector("#coding-tools-form");
+  if(!form)return;
+  const workspace=String(configured.workspace||live.workspace||"");
+  const permission=String(configured.permission_mode||live.permission_mode||"trusted");
+  form.elements.workspace.value=workspace;
+  form.elements.permission_mode.value=permission;
+  document.querySelector("#coding-tools-permission-help").textContent=codingToolsPermissionHelp(permission);
+  const liveState=live.reachable
+    ? esc(live.workspace||t("notConfigured"))+" · "+esc(live.permission_mode||"unknown")
+    : esc(t("unreachable"));
+  const desired=esc(workspace||t("notConfigured"))+" · "+esc(permission);
+  document.querySelector("#coding-tools-status").innerHTML=
+    '<div class="settings-status"><div><span class="label">'+esc(t("codingToolsDesired"))+'</span><div class="value">'+desired+'</div></div>'+
+    '<div><span class="label">'+esc(t("codingToolsLive"))+'</span><div class="value">'+liveState+'</div></div>'+
+    '<span class="chip '+(model.restart_required?"bad":"ok")+'">'+esc(model.restart_required?t("restartRequired"):t("synced"))+'</span></div>';
+  form.elements.permission_mode.onchange=event=>{
+    document.querySelector("#coding-tools-permission-help").textContent=codingToolsPermissionHelp(event.target.value);
+  };
+}
 function renderOAuth(){
   if(!state.config)return;
   document.querySelector("#oauth-status").textContent=state.config.oauth_password?.configured?t("configured"):t("notConfigured");
@@ -122,7 +147,7 @@ function renderActivity(){
   const rows=state.activity||[];
   document.querySelector("#activity").innerHTML=rows.length?rows.map(row=>'<div class="activity-row"><time>'+esc(new Date(Number(row.at)*1000).toLocaleString(LANG))+'</time><div>'+esc(row.action)+(row.detail?' · '+esc(row.detail):'')+'</div><div class="activity-status">'+esc(row.status)+'</div></div>').join(""):'<div class="empty">'+esc(t("noActivity"))+'</div>';
 }
-async function refreshConfig(){state.config=await api("/api/local-config");renderOverview();renderUrls();renderEnvironment();renderOAuth();renderComponents()}
+async function refreshConfig(){state.config=await api("/api/local-config");renderOverview();renderUrls();renderEnvironment();renderCodingTools();renderOAuth();renderComponents()}
 async function refreshActivity(){state.activity=(await api("/api/activity")).activity||[];renderActivity()}
 async function refreshStatusOnce(){state.status=await api("/api/status");renderOverview()}
 async function refreshStatusLoop(){
@@ -130,6 +155,15 @@ async function refreshStatusLoop(){
   catch(error){notice(t("statusUnavailable")+": "+error.message,"error")}
   const delay=Math.max(3000,Number(state.status?.poll_after_ms)||5000);state.timer=window.setTimeout(refreshStatusLoop,delay);
 }
+document.querySelector("#coding-tools-form").onsubmit=async event=>{
+  event.preventDefault();
+  const form=event.currentTarget,data=new FormData(form),button=form.querySelector("button[type=submit]");
+  const permission_mode=String(data.get("permission_mode")||"trusted");
+  if(permission_mode==="dangerous"&&!window.confirm(t("dangerousConfirm")))return;
+  if(!window.confirm(t("confirmChange")))return;
+  const payload={workspace:String(data.get("workspace")||"").trim(),permission_mode,restart:true,confirm:true};
+  await mutate(button,()=>api("/api/coding-tools",{method:"POST",body:JSON.stringify(payload)}),t("codingToolsApplied"));
+};
 document.querySelector("#oauth-reveal").onclick=async event=>{
   if(!window.confirm(t("confirmChange")))return;
   await mutate(event.currentTarget,async()=>{const r=await api("/api/oauth-password",{method:"POST",body:JSON.stringify({action:"reveal",confirm:true})});document.querySelector("#oauth-revealed").value=r.password||""});
@@ -149,4 +183,4 @@ document.querySelector("#component-form").onsubmit=async event=>{
   const payload={operation:"create",confirm:true,id:String(data.get("id")||"").trim(),display_name:String(data.get("display_name")||"").trim(),role:String(data.get("role")||"").trim(),endpoint:String(data.get("endpoint")||"").trim()};
   await mutate(button,async()=>{await api("/api/components",{method:"POST",body:JSON.stringify(payload)});form.reset();form.elements.role.value="custom_mcp"},t("candidateAdded"));
 };
-(async()=>{try{const [cfg,actions,activity,status]=await Promise.all([api("/api/local-config"),api("/api/actions"),api("/api/activity"),api("/api/status")]);state.config=cfg;state.actions=actions.actions||[];state.activity=activity.activity||[];state.status=status;renderOverview();renderUrls();renderActions();renderEnvironment();renderOAuth();renderComponents();renderActivity();const delay=Math.max(3000,Number(status.poll_after_ms)||5000);state.timer=window.setTimeout(refreshStatusLoop,delay)}catch(error){notice(error.message||t("failed"),"error")}})();
+(async()=>{try{const [cfg,actions,activity,status]=await Promise.all([api("/api/local-config"),api("/api/actions"),api("/api/activity"),api("/api/status")]);state.config=cfg;state.actions=actions.actions||[];state.activity=activity.activity||[];state.status=status;renderOverview();renderUrls();renderActions();renderEnvironment();renderCodingTools();renderOAuth();renderComponents();renderActivity();const delay=Math.max(3000,Number(status.poll_after_ms)||5000);state.timer=window.setTimeout(refreshStatusLoop,delay)}catch(error){notice(error.message||t("failed"),"error")}})();

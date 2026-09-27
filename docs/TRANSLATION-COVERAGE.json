@@ -614,6 +614,11 @@
       "reason": "Executable source/test/script artifact; code identifiers/protocol strings are not documentation translation targets."
     },
     {
+      "path": "src/webgpt_as_codex/coding_tools_control.py",
+      "status": "NOT_HUMAN_READER_CONTENT",
+      "reason": "Executable source/test/script artifact; code identifiers/protocol strings are not documentation translation targets."
+    },
+    {
       "path": "src/webgpt_as_codex/concurrency.py",
       "status": "NOT_HUMAN_READER_CONTENT",
       "reason": "Executable source/test/script artifact; code identifiers/protocol strings are not documentation translation targets."
@@ -704,6 +709,11 @@
       "reason": "Executable source/test/script artifact; code identifiers/protocol strings are not documentation translation targets."
     },
     {
+      "path": "src/webgpt_as_codex/playwright_hotfix.py",
+      "status": "NOT_HUMAN_READER_CONTENT",
+      "reason": "Executable source/test/script artifact; code identifiers/protocol strings are not documentation translation targets."
+    },
+    {
       "path": "src/webgpt_as_codex/prerequisites.py",
       "status": "NOT_HUMAN_READER_CONTENT",
       "reason": "Executable source/test/script artifact; code identifiers/protocol strings are not documentation translation targets."
@@ -749,6 +759,11 @@
       "reason": "Executable source/test/script artifact; code identifiers/protocol strings are not documentation translation targets."
     },
     {
+      "path": "tests/test_coding_tools_control.py",
+      "status": "NOT_HUMAN_READER_CONTENT",
+      "reason": "Executable source/test/script artifact; code identifiers/protocol strings are not documentation translation targets."
+    },
+    {
       "path": "tests/test_edge.py",
       "status": "NOT_HUMAN_READER_CONTENT",
       "reason": "Executable source/test/script artifact; code identifiers/protocol strings are not documentation translation targets."
@@ -770,6 +785,11 @@
     },
     {
       "path": "tests/test_playwright_handoff.py",
+      "status": "NOT_HUMAN_READER_CONTENT",
+      "reason": "Executable source/test/script artifact; code identifiers/protocol strings are not documentation translation targets."
+    },
+    {
+      "path": "tests/test_playwright_hotfix.py",
       "status": "NOT_HUMAN_READER_CONTENT",
       "reason": "Executable source/test/script artifact; code identifiers/protocol strings are not documentation translation targets."
     },

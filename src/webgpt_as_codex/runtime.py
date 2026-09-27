@@ -294,11 +294,20 @@ def _pid_exists(pid: int) -> bool:
         return False
     if os.name == "nt":
         PROCESS_QUERY_LIMITED_INFORMATION = 0x1000
+        STILL_ACTIVE = 259
         handle = ctypes.windll.kernel32.OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, False, pid)
         if not handle:
             return False
-        ctypes.windll.kernel32.CloseHandle(handle)
-        return True
+        try:
+            exit_code = ctypes.wintypes.DWORD()
+            if not ctypes.windll.kernel32.GetExitCodeProcess(
+                handle,
+                ctypes.byref(exit_code),
+            ):
+                return False
+            return exit_code.value == STILL_ACTIVE
+        finally:
+            ctypes.windll.kernel32.CloseHandle(handle)
     try:
         os.kill(pid, 0)
         return True
@@ -781,12 +790,94 @@ def _component_priority(component: Any, component_id: str | None = None) -> int:
 
 
 def _external_ensure_launcher(component_id: str) -> Path | None:
+    if component_id == "remote-desktop-commander":
+        override = os.getenv("WEBGPT_CODEX_RDC_LAUNCHER_PATH")
+        if override:
+            path = Path(override).expanduser()
+            if path.is_file():
+                return path
     root = ensure_state_dirs() / "external-ensure"
     for suffix in (".ps1", ".cmd"):
         path = root / f"{component_id}{suffix}"
         if path.is_file():
             return path
+    if component_id == "remote-desktop-commander":
+        local_appdata = os.getenv("LOCALAPPDATA")
+        user_profile = os.getenv("USERPROFILE")
+        if local_appdata:
+            base = Path(local_appdata)
+        elif user_profile:
+            base = Path(user_profile) / "AppData" / "Local"
+        else:
+            return None
+        path = base / "DesktopCommander" / "start-remote.ps1"
+        if path.is_file():
+            return path
     return None
+
+
+def _rdc_connector_log_ready() -> bool:
+    candidates: list[Path] = []
+    override = os.getenv("WEBGPT_CODEX_RDC_LAUNCHER_PATH")
+    if override:
+        candidates.append(Path(override).expanduser().parent / "remote-agent.log")
+
+    local_appdata = os.getenv("LOCALAPPDATA")
+    user_profile = os.getenv("USERPROFILE")
+    if local_appdata:
+        candidates.append(Path(local_appdata) / "DesktopCommander" / "remote-agent.log")
+    elif user_profile:
+        candidates.append(
+            Path(user_profile) / "AppData" / "Local" / "DesktopCommander" / "remote-agent.log"
+        )
+
+    launcher = _external_ensure_launcher("remote-desktop-commander")
+    if launcher is not None:
+        candidates.append(launcher.parent / "remote-agent.log")
+
+    log = next((candidate for candidate in candidates if candidate.is_file()), None)
+    if log is None:
+        return False
+    try:
+        stat = log.stat()
+        # RDC writes its normal last-seen bookkeeping every five minutes.  A
+        # two-minute freshness window therefore marks a healthy, quiet
+        # connector as stale.  Allow two heartbeat intervals while still
+        # requiring a recent local agent log.
+        if time.time() - stat.st_mtime > 600:
+            return False
+        content = log.read_text(encoding="utf-8", errors="replace")
+    except OSError:
+        return False
+
+    # remote-agent.log also contains remote tool arguments/results.  Do not
+    # treat arbitrary payload text such as "transport failure" as connector
+    # state; only accept lines shaped like the agent's own lifecycle records.
+    for line in reversed(content.splitlines()[-300:]):
+        state = line.strip()
+        if re.match(r"^\[DEBUG\] Channel subscription status: SUBSCRIBED\b", state):
+            return True
+        if re.match(r"^\[DEBUG\] Channel subscription status: CHANNEL_ERROR\b", state):
+            return False
+        if (
+            state.endswith("Device marked as online")
+            and not any(marker in state for marker in ('{', '}', '"'))
+        ):
+            return True
+        if (
+            state.endswith("Device marked as offline")
+            and not any(marker in state for marker in ('{', '}', '"'))
+        ):
+            return False
+        if (
+            "Presence tracked" in state
+            and "visible as online)" in state
+            and not any(marker in state for marker in ('{', '}', '"'))
+        ):
+            return True
+        if re.match(r"^\[(?:DEBUG|WARN|ERROR)\] Channel recreation failed\b", state):
+            return False
+    return False
 
 
 def _external_mcp_contract_ready(component: Any) -> bool:
@@ -809,10 +900,40 @@ def _external_component_ready(component: Any) -> tuple[bool, str]:
             return False, "listener"
         return (_external_mcp_contract_ready(component), "mcp-contract")
     snapshot = process_snapshot()
-    return (process_health(component, snapshot) is True, "process")
+    process_ready = process_health(component, snapshot) is True
+    if component.id == "remote-desktop-commander":
+        return (
+            process_ready and _rdc_connector_log_ready(),
+            "local-process-plus-connector-log",
+        )
+    return (process_ready, "process")
 
 
 def _ensure_external_component(component: Any) -> dict[str, Any]:
+    if component.id == "coding-tools":
+        from .coding_tools_control import ensure_coding_tools_external_launcher
+
+        launcher_state = ensure_coding_tools_external_launcher()
+        if not launcher_state.get("ok"):
+            return {
+                "ok": False,
+                "component_id": component.id,
+                "status": launcher_state.get("status", "external-launcher-not-ready"),
+                "ownership_mode": _component_ownership(component, False),
+                "launcher": launcher_state,
+            }
+    if component.id == "playwright":
+        from .playwright_hotfix import ensure_playwright_hotfix
+
+        hotfix = ensure_playwright_hotfix()
+        if not hotfix.get("ok"):
+            return {
+                "ok": False,
+                "component_id": component.id,
+                "status": hotfix.get("status", "playwright-hotfix-not-ready"),
+                "ownership_mode": _component_ownership(component, False),
+                "hotfix": hotfix,
+            }
     launcher = _external_ensure_launcher(component.id)
     if launcher is None:
         return {
@@ -1199,7 +1320,11 @@ class RuntimeSupervisor:
                     "ok": contract_ready,
                     "evidence": "mcp-contract",
                 }
-            elif component.default_endpoint is None and process_up is True:
+            elif (
+                component.default_endpoint is None
+                and process_up is True
+                and component.transport != "vendor_remote"
+            ):
                 row = {
                     "component_id": component_id,
                     "status": "preserved-external",
