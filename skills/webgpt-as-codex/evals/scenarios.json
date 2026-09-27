@@ -577,6 +577,17 @@
     "expected_behavior": "拒绝用任意 /c/ + user message 代替目标身份，也拒绝因为用户关闭 tab 就重发。handoff transaction 必须匹配完整 prompt 的 whitespace-normalized SHA-256，恢复优先读取 canonical helper 的 durable receipt。真实 submit primitive 前必须先有 SUBMIT_ATTEMPTED write-ahead receipt；若 receipt 已为 SUBMIT_ATTEMPTED/SUBMITTED/HANDOFF_OK，绝不 blind resubmit。SUBMITTED/HANDOFF_OK 可按 receipt conversation URL 只读复核 exact last-user hash 与 takeover；SUBMIT_ATTEMPTED 若无法证明上一尝试未产生副作用则 fail closed。canonical helper 是 single mutation owner，direct connector 只能诊断，不得并行开页/重填/发送。"
   },
   {
+    "id": "R57",
+    "prompt": "??? ChatGPT ?????? WAC ????????? webgpt-as-codex Skill????? Coding Tools ??????????? Skill?",
+    "should_trigger": true,
+    "primary": "Coding Tools",
+    "secondary": [
+      "Serena"
+    ],
+    "permission": "P1",
+    "expected_behavior": "????????????? session bootstrap????? WAC/Skill locator ????????? substantive ?? mutation ??????? canonical SKILL.md ? routing.md??????? Inventory/environment???????? workflow-registry.json??????? Stage ?? leaf Skills?? portable core ???? sync --check / validate ?????"
+  },
+  {
     "id": "serena-down",
     "prompt": "Serena 当前不可达，但任务仍需完成代码分析。",
     "should_trigger": true,

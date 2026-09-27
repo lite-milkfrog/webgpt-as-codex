@@ -1,0 +1,242 @@
+"""
+Provides Python specific instantiation of the LanguageServer class. Contains various configurations and settings specific to Python.
+"""
+
+import logging
+import re
+import threading
+from typing import cast
+
+from overrides import override
+
+from solidlsp.ls import LanguageServerDependencyProvider, LanguageServerDependencyProviderUvx, SolidLanguageServer
+from solidlsp.ls_config import LanguageServerConfig
+from solidlsp.settings import SolidLSPSettings
+
+log = logging.getLogger(__name__)
+
+PYRIGHT_VERSION = "1.1.403"
+
+
+class PyrightServer(SolidLanguageServer):
+    """
+    Provides Python specific instantiation of the LanguageServer class using Pyright.
+    Contains various configurations and settings specific to Python.
+    """
+
+    _TIMEOUT_FOR_INITIAL_ANALYSIS = 60.0
+
+    def __init__(self, config: LanguageServerConfig, repository_root_path: str, solidlsp_settings: SolidLSPSettings):
+        """
+        Creates a PyrightServer instance. This class is not meant to be instantiated directly.
+        Use LanguageServer.create() instead.
+        """
+        super().__init__(
+            config,
+            repository_root_path,
+            None,
+            "python",
+            solidlsp_settings,
+        )
+
+        # Event to signal when initial workspace analysis is complete
+        self.analysis_complete = threading.Event()
+        self.found_source_files = False
+
+    def _create_dependency_provider(self) -> LanguageServerDependencyProvider:
+        return LanguageServerDependencyProviderUvx(
+            self._custom_settings,
+            self._ls_resources_dir,
+            package="pyright",
+            entrypoint="pyright-langserver",
+            default_version=PYRIGHT_VERSION,
+            version_setting_key="pyright_version",
+            extra_args=("--stdio",),
+        )
+
+    @override
+    def is_ignored_dirname(self, dirname: str) -> bool:
+        return super().is_ignored_dirname(dirname) or dirname in ["venv", "__pycache__"]
+
+    def _create_base_initialize_params(self) -> dict:
+        initialize_params = {
+            "initializationOptions": {
+                "exclude": [
+                    "**/__pycache__",
+                    "**/.venv",
+                    "**/.env",
+                    "**/build",
+                    "**/dist",
+                    "**/.pixi",
+                ],
+                "reportMissingImports": "error",
+            },
+            "capabilities": {
+                "workspace": {
+                    "workspaceEdit": {"documentChanges": True},
+                    "didChangeConfiguration": {"dynamicRegistration": True},
+                    "didChangeWatchedFiles": {"dynamicRegistration": True},
+                    "symbol": {
+                        "dynamicRegistration": True,
+                        "symbolKind": {"valueSet": list(range(1, 27))},
+                    },
+                    "executeCommand": {"dynamicRegistration": True},
+                },
+                "textDocument": {
+                    "synchronization": {"dynamicRegistration": True, "willSave": True, "willSaveWaitUntil": True, "didSave": True},
+                    "hover": {"dynamicRegistration": True, "contentFormat": ["markdown", "plaintext"]},
+                    "signatureHelp": {
+                        "dynamicRegistration": True,
+                        "signatureInformation": {
+                            "documentationFormat": ["markdown", "plaintext"],
+                            "parameterInformation": {"labelOffsetSupport": True},
+                        },
+                    },
+                    "definition": {"dynamicRegistration": True},
+                    "references": {"dynamicRegistration": True},
+                    "documentSymbol": {
+                        "dynamicRegistration": True,
+                        "symbolKind": {"valueSet": list(range(1, 27))},
+                        "hierarchicalDocumentSymbolSupport": True,
+                    },
+                    "publishDiagnostics": {"relatedInformation": True},
+                },
+            },
+        }
+        return initialize_params
+
+    def _start_server(self) -> None:
+        """
+        Starts the Pyright Language Server and waits for initial workspace analysis to complete.
+
+        This prevents zombie processes by ensuring Pyright has finished its initial background
+        tasks before we consider the server ready.
+
+        Usage:
+        ```
+        async with lsp.start_server():
+            # LanguageServer has been initialized and workspace analysis is complete
+            await lsp.request_definition(...)
+            await lsp.request_references(...)
+            # Shutdown the LanguageServer on exit from scope
+        # LanguageServer has been shutdown cleanly
+        ```
+        """
+
+        def execute_client_command_handler(params: dict) -> list:
+            return []
+
+        def do_nothing(params: dict) -> None:
+            return
+
+        def window_log_message(msg: dict) -> None:
+            """
+            Monitor Pyright's log messages to detect when initial analysis is complete.
+            Pyright logs "Found X source files" when it finishes scanning the workspace.
+            """
+            message_text = msg.get("message", "")
+            log.info(f"LSP: window/logMessage: {message_text}")
+
+            # Look for "Found X source files" which indicates workspace scanning is complete
+            # Unfortunately, pyright is unreliable and there seems to be no better way
+            if re.search(r"Found \d+ source files?", message_text):
+                log.info("Pyright workspace scanning complete")
+                self.found_source_files = True
+                self.analysis_complete.set()
+
+        def handle_pyright_progress_notification(progress_kind: str, params: object | None) -> None:
+            """Tracks Pyright-specific progress notifications.
+
+            Pyright can emit custom progress notifications instead of only using
+            ``$/progress``. Handling them avoids noisy unhandled-method warnings
+            and provides an additional signal that initial analysis has quiesced.
+            """
+            # normalizing the notification payload
+            message_text = ""
+            percentage: object | None = None
+            if isinstance(params, dict):
+                params_dict = cast("dict[str, object]", params)
+                raw_message = params_dict.get("message")
+                message_text = "" if raw_message is None else str(raw_message)
+                percentage = params_dict.get("percentage")
+            elif params is not None:
+                message_text = str(params)
+
+            progress_label = f"{message_text} ({percentage}%)" if percentage is not None else message_text
+
+            # logging the progress transition
+            if progress_kind == "begin":
+                log.info("Pyright progress started: %s", progress_label)
+                return
+
+            if progress_kind == "report":
+                log.debug("Pyright progress update: %s", progress_label)
+                return
+
+            log.info("Pyright progress finished: %s", progress_label)
+            self.analysis_complete.set()
+
+        def pyright_begin_progress(params: object | None) -> None:
+            """Handles the ``pyright/beginProgress`` notification."""
+            # delegating to the shared progress handler
+            handle_pyright_progress_notification("begin", params)
+
+        def pyright_report_progress(params: object | None) -> None:
+            """Handles the ``pyright/reportProgress`` notification."""
+            # delegating to the shared progress handler
+            handle_pyright_progress_notification("report", params)
+
+        def pyright_end_progress(params: object | None) -> None:
+            """Handles the ``pyright/endProgress`` notification."""
+            # delegating to the shared progress handler
+            handle_pyright_progress_notification("end", params)
+
+        def check_experimental_status(params: dict) -> None:
+            """
+            Also listen for experimental/serverStatus as a backup signal
+            """
+            if params.get("quiescent") == True:
+                log.info("Received experimental/serverStatus with quiescent=true")
+                if not self.found_source_files:
+                    self.analysis_complete.set()
+
+        # Set up notification handlers
+        self.server.on_request("client/registerCapability", do_nothing)
+        self.server.on_notification("language/status", do_nothing)
+        self.server.on_notification("window/logMessage", window_log_message)
+        self.server.on_request("workspace/executeClientCommand", execute_client_command_handler)
+        self.server.on_notification("$/progress", do_nothing)
+        self.server.on_notification("pyright/beginProgress", pyright_begin_progress)
+        self.server.on_notification("pyright/reportProgress", pyright_report_progress)
+        self.server.on_notification("pyright/endProgress", pyright_end_progress)
+        self.server.on_notification("textDocument/publishDiagnostics", do_nothing)
+        self.server.on_notification("language/actionableNotification", do_nothing)
+        self.server.on_notification("experimental/serverStatus", check_experimental_status)
+
+        log.info("Starting pyright-langserver server process")
+        self.server.start()
+
+        # Send proper initialization parameters
+        initialize_params = self._create_initialize_params()
+
+        log.info("Sending initialize request from LSP client to pyright server and awaiting response")
+        init_response = self.server.send.initialize(initialize_params)
+        log.info(f"Received initialize response from pyright server: {init_response}")
+
+        # Verify that the server supports our required features
+        assert "textDocumentSync" in init_response["capabilities"]
+        assert "completionProvider" in init_response["capabilities"]
+        assert "definitionProvider" in init_response["capabilities"]
+
+        # Complete the initialization handshake
+        self.server.notify.initialized({})
+
+        # Wait for Pyright to complete its initial workspace analysis
+        # This prevents zombie processes by ensuring background tasks finish
+        log.info(f"Waiting up to {self._TIMEOUT_FOR_INITIAL_ANALYSIS}s for Pyright to complete initial workspace analysis...")
+        if self.analysis_complete.wait(timeout=self._TIMEOUT_FOR_INITIAL_ANALYSIS):
+            log.info("Pyright initial analysis complete, server ready")
+        else:
+            log.warning("Timeout waiting for Pyright analysis completion, proceeding anyway")
+            # Fallback: assume analysis is complete after timeout
+            self.analysis_complete.set()

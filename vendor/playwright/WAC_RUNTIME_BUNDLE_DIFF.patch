@@ -1,0 +1,180 @@
+diff --git a/packages/playwright-core/lib/coreBundle.js b/packages/playwright-core/lib/coreBundle.js
+index c135e0b..34a2747 100644
+--- a/packages/playwright-core/lib/coreBundle.js
++++ b/packages/playwright-core/lib/coreBundle.js
+@@ -64617,14 +64617,22 @@ var init_snapshot = __esm({
+         inputSchema: clickSchema,
+         type: "input"
+       },
+-      handle: async (tab2, params2, response2) => {
+-        response2.setIncludeSnapshot();
++      handle: async (tab2, params2, response2, signal) => {
+         const { locator: locator2, selector } = await tab2.targetLocator(params2);
++        const configuredTimeout = tab2.actionTimeoutOptions?.timeout ?? 5e3;
++        const preflightTimeout = Math.min(configuredTimeout, 5e3);
+         const options = {
+           button: params2.button,
+           modifiers: params2.modifiers,
+-          ...tab2.actionTimeoutOptions
++          timeout: preflightTimeout
+         };
++        const trialOptions = { ...options, trial: true };
++        if (params2.doubleClick)
++          await locator2.dblclick(trialOptions);
++        else
++          await locator2.click(trialOptions);
++        if (signal?.aborted)
++          throw new Error("Action cancelled before click commit");
+         response2.addAction({
+           name: "click",
+           selector,
+@@ -64632,12 +64640,15 @@ var init_snapshot = __esm({
+           modifiers: fromKeyboardModifiers(params2.modifiers),
+           clickCount: params2.doubleClick ? 2 : 1
+         });
+-        await tab2.waitForCompletion(async () => {
+-          if (params2.doubleClick)
+-            await locator2.dblclick(options);
+-          else
+-            await locator2.click(options);
+-        });
++        const commitOptions = {
++          ...options,
++          timeout: Math.min(preflightTimeout, 2e3),
++          noWaitAfter: true
++        };
++        if (params2.doubleClick)
++          await locator2.dblclick(commitOptions);
++        else
++          await locator2.click(commitOptions);
+       }
+     });
+     drag = defineTabTool({
+@@ -65623,11 +65634,15 @@ var init_context = __esm({
+         const browserContext = await this.ensureBrowserContext();
+         const page = await browserContext.newPage();
+         this._currentTab = this._tabs.find((t) => t.page === page);
++        if (this.config.sharedBrowserContext && this.config.extension && this._currentTab)
++          globalThis.__wacPlaywrightSharedCurrentTabIndex = this._tabs.indexOf(this._currentTab);
+         return this._currentTab;
+       }
+       async selectTab(index) {
+         await this.ensureBrowserContext();
+         const tab2 = this._tabs[index];
++        if (tab2 && this.config.sharedBrowserContext && this.config.extension)
++          globalThis.__wacPlaywrightSharedCurrentTabIndex = index;
+         if (!tab2)
+           throw new Error(`Tab ${index} not found`);
+         await tab2.page.bringToFront();
+@@ -65749,6 +65764,8 @@ var init_context = __esm({
+         this._tabs.splice(index, 1);
+         if (this._currentTab === tab2)
+           this._currentTab = this._tabs[Math.min(index, this._tabs.length - 1)];
++        if (this.config.sharedBrowserContext && this.config.extension)
++          globalThis.__wacPlaywrightSharedCurrentTabIndex = this._currentTab ? this._tabs.indexOf(this._currentTab) : void 0;
+       }
+       routes() {
+         return this._routes;
+@@ -65809,13 +65826,35 @@ var init_context = __esm({
+           this._disposables.push(await browserContext.addInitScript({ path: import_path46.default.resolve(this.options.cwd, initScript) }));
+         for (const page of browserContext.pages())
+           this._onPageCreated(page);
+-        for (const tab2 of this._tabs) {
+-          const visibility = await tab2.page.evaluate(() => document.visibilityState).catch(() => void 0);
+-          if (visibility === "visible") {
+-            this._currentTab = tab2;
+-            break;
++        const contentTabs = this._tabs.filter((tab2) => {
++          const url3 = tab2.page.url();
++          return !(url3.startsWith("chrome-extension://") && url3.includes("/connect.html?mcpRelayUrl="));
++        });
++        const rememberedIndex = this.config.sharedBrowserContext && this.config.extension ? globalThis.__wacPlaywrightSharedCurrentTabIndex : void 0;
++        let activeTab = Number.isInteger(rememberedIndex) ? this._tabs[rememberedIndex] : void 0;
++        if (activeTab && !contentTabs.includes(activeTab))
++          activeTab = void 0;
++        if (!activeTab) {
++          for (const tab2 of contentTabs) {
++            const focused = await tab2.page.evaluate(() => document.hasFocus()).catch(() => false);
++            if (focused) {
++              activeTab = tab2;
++              break;
++            }
+           }
+         }
++        if (!activeTab) {
++          for (const tab2 of contentTabs) {
++            const visibility = await tab2.page.evaluate(() => document.visibilityState).catch(() => void 0);
++            if (visibility === "visible") {
++              activeTab = tab2;
++              break;
++            }
++          }
++        }
++        this._currentTab = activeTab ?? contentTabs[0] ?? this._currentTab;
++        if (this.config.sharedBrowserContext && this.config.extension && contentTabs.includes(this._currentTab))
++          globalThis.__wacPlaywrightSharedCurrentTabIndex = this._tabs.indexOf(this._currentTab);
+         this._disposables.push(eventsHelper.addEventListener(browserContext, "page", (page) => this._onPageCreated(page)));
+         return browserContext;
+       }
+@@ -67032,17 +67071,12 @@ var init_keyboard = __esm({
+         }),
+         type: "input"
+       },
+-      handle: async (tab2, params2, response2) => {
++      handle: async (tab2, params2, response2, signal) => {
+         response2.addCode(`// Press ${params2.key}`);
+         response2.addCode(`await page.keyboard.press(${escapeWithQuotes(params2.key)});`);
+-        if (params2.key === "Enter") {
+-          response2.setIncludeSnapshot();
+-          await tab2.waitForCompletion(async () => {
+-            await tab2.page.keyboard.press("Enter");
+-          });
+-        } else {
+-          await tab2.page.keyboard.press(params2.key);
+-        }
++        if (signal?.aborted)
++          throw new Error("Action cancelled before key commit");
++        await tab2.page.keyboard.press(params2.key);
+       }
+     });
+     pressSequentially = defineTabTool({
+@@ -67085,25 +67119,32 @@ var init_keyboard = __esm({
+         inputSchema: typeSchema,
+         type: "input"
+       },
+-      handle: async (tab2, params2, response2) => {
++      handle: async (tab2, params2, response2, signal) => {
+         const { locator: locator2, resolved, selector } = await tab2.targetLocator(params2);
+         const secret = tab2.context.lookupSecret(params2.text);
++        const configuredTimeout = tab2.actionTimeoutOptions?.timeout ?? 5e3;
++        const safeOptions = { timeout: Math.min(configuredTimeout, 5e3) };
+         const action = async () => {
+           if (params2.slowly) {
+-            response2.setIncludeSnapshot();
++            if (!params2.submit)
++              response2.setIncludeSnapshot();
+             response2.addCode(`await page.${resolved}.pressSequentially(${secret.code});`);
+-            await locator2.pressSequentially(secret.value, tab2.actionTimeoutOptions);
++            await locator2.pressSequentially(secret.value, safeOptions);
+           } else {
+             response2.addAction({ name: "fill", selector, text: secret.isSecret ? `SECRET_${params2.text}` : params2.text });
+-            await locator2.fill(secret.value, tab2.actionTimeoutOptions);
++            await locator2.fill(secret.value, safeOptions);
+           }
+           if (params2.submit) {
+-            response2.setIncludeSnapshot();
++            if (signal?.aborted)
++              throw new Error("Action cancelled before submit commit");
+             response2.addAction({ name: "press", selector, key: "Enter", modifiers: 0 });
+-            await locator2.press("Enter", tab2.actionTimeoutOptions);
++            await locator2.press("Enter", {
++              timeout: Math.min(safeOptions.timeout, 2e3),
++              noWaitAfter: true
++            });
+           }
+         };
+-        if (params2.submit || params2.slowly)
++        if (params2.slowly && !params2.submit)
+           await tab2.waitForCompletion(action);
+         else
+           await action();

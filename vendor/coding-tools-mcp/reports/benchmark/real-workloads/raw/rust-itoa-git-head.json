@@ -1,0 +1,11 @@
+{
+  "command": [
+    "git",
+    "rev-parse",
+    "HEAD"
+  ],
+  "elapsed_seconds": 0.019,
+  "returncode": 0,
+  "stderr": "",
+  "stdout": "1577ed901354d0d7448ac162328f9dbf5183124c\n"
+}

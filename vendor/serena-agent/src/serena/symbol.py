@@ -1,0 +1,1381 @@
+import copy
+import json
+import logging
+import os
+from abc import ABC, abstractmethod
+from collections import OrderedDict
+from collections.abc import Callable, Iterable, Iterator, Sequence
+from contextlib import contextmanager
+from dataclasses import asdict, dataclass
+from time import perf_counter
+from typing import Any, Generic, Literal, NotRequired, Self, TypedDict, TypeVar
+
+from sensai.util.string import ToStringMixin
+
+import serena.jetbrains.jetbrains_types as jb
+from solidlsp import SolidLanguageServer, ls_types
+from solidlsp.ls import LSPFileBuffer
+from solidlsp.ls import ReferenceInSymbol as LSPReferenceInSymbol
+from solidlsp.ls_types import Position, SymbolKind, UnifiedSymbolInformation
+from solidlsp.ls_utils import TextUtils
+
+from .ls_manager import LanguageServerManager
+from .project import Project
+
+log = logging.getLogger(__name__)
+NAME_PATH_SEP = "/"
+
+
+@dataclass
+class LanguageServerSymbolLocation:
+    """
+    Represents the (start) location of a symbol identifier, which, within Serena, uniquely identifies the symbol.
+    """
+
+    relative_path: str | None
+    """
+    the relative path of the file containing the symbol; if None, the symbol is defined outside of the project's scope
+    """
+    line: int | None
+    """
+    the line number in which the symbol identifier is defined (if the symbol is a function, class, etc.);
+    may be None for some types of symbols (e.g. SymbolKind.File)
+    """
+    column: int | None
+    """
+    the column number in which the symbol identifier is defined (if the symbol is a function, class, etc.);
+    may be None for some types of symbols (e.g. SymbolKind.File)
+    """
+
+    def __post_init__(self) -> None:
+        if self.relative_path is not None:
+            self.relative_path = self.relative_path.replace("/", os.path.sep)
+
+    def to_dict(self, include_relative_path: bool = True) -> dict[str, Any]:
+        result = asdict(self)
+        if not include_relative_path:
+            result.pop("relative_path", None)
+        return result
+
+    def has_position_in_file(self) -> bool:
+        return self.relative_path is not None and self.line is not None and self.column is not None
+
+
+@dataclass
+class PositionInFile:
+    """
+    Represents a character position within a file
+    """
+
+    line: int
+    """
+    the 0-based line number in the file
+    """
+    col: int
+    """
+    the 0-based column
+    """
+
+    def to_lsp_position(self) -> Position:
+        """
+        Convert to LSP Position.
+        """
+        return Position(line=self.line, character=self.col)
+
+
+class Symbol(ToStringMixin, ABC):
+    @abstractmethod
+    def get_body_start_position(self) -> PositionInFile | None:
+        pass
+
+    @abstractmethod
+    def get_body_end_position(self) -> PositionInFile | None:
+        pass
+
+    @property
+    @abstractmethod
+    def body(self) -> str | None:
+        pass
+
+    @property
+    @abstractmethod
+    def name(self) -> str:
+        pass
+
+    def get_body_start_position_or_raise(self) -> PositionInFile:
+        """
+        Get the start position of the symbol body, raising an error if it is not defined.
+        """
+        pos = self.get_body_start_position()
+        if pos is None:
+            raise ValueError(f"Body start position is not defined for {self}")
+        return pos
+
+    def get_body_end_position_or_raise(self) -> PositionInFile:
+        """
+        Get the end position of the symbol body, raising an error if it is not defined.
+        """
+        pos = self.get_body_end_position()
+        if pos is None:
+            raise ValueError(f"Body end position is not defined for {self}")
+        return pos
+
+    @abstractmethod
+    def is_neighbouring_definition_separated_by_empty_line(self) -> bool:
+        """
+        :return: whether a symbol definition of this symbol's kind is usually separated from the
+            previous/next definition by at least one empty line.
+        """
+
+
+class NamePathComponent:
+    def __init__(self, name: str, overload_idx: int | None = None) -> None:
+        self.name = name
+        self.overload_idx = overload_idx
+
+    def __repr__(self) -> str:
+        if self.overload_idx is not None:
+            return f"{self.name}[{self.overload_idx}]"
+        else:
+            return self.name
+
+
+class NamePathMatcher(ToStringMixin):
+    """
+    Matches name paths of symbols against search patterns.
+
+    A name path is a path in the symbol tree *within a source file*.
+    For example, the method `my_method` defined in class `MyClass` would have the name path `MyClass/my_method`.
+    If a symbol is overloaded (e.g., in Java), a 0-based index is appended (e.g. "MyClass/my_method[0]") to
+    uniquely identify it.
+
+    A matching pattern can be:
+     * a simple name (e.g. "method"), which will match any symbol with that name
+     * a relative path like "class/method", which will match any symbol with that name path suffix
+     * an absolute name path "/class/method" (absolute name path), which requires an exact match of the full name path within the source file.
+    Append an index `[i]` to match a specific overload only, e.g. "MyClass/my_method[1]".
+    """
+
+    class PatternComponent(NamePathComponent):
+        @classmethod
+        def from_string(cls, component_str: str) -> Self:
+            overload_idx = None
+            if component_str.endswith("]") and "[" in component_str:
+                bracket_idx = component_str.rfind("[")
+                index_part = component_str[bracket_idx + 1 : -1]
+                if index_part.isdigit():
+                    component_str = component_str[:bracket_idx]
+                    overload_idx = int(index_part)
+            return cls(name=component_str, overload_idx=overload_idx)
+
+        def matches(self, name_path_component: NamePathComponent, substring_matching: bool) -> bool:
+            if substring_matching:
+                if self.name not in name_path_component.name:
+                    return False
+            else:
+                if self.name != name_path_component.name:
+                    return False
+            if self.overload_idx is not None and self.overload_idx != name_path_component.overload_idx:
+                return False
+            return True
+
+    def __init__(self, name_path_pattern: str, substring_matching: bool) -> None:
+        """
+        :param name_path_pattern: the name path expression to match against
+        :param substring_matching: whether to use substring matching for the last segment
+        """
+        assert name_path_pattern, "name_path must not be empty"
+        self._expr = name_path_pattern
+        self._substring_matching = substring_matching
+        self._is_absolute_pattern = name_path_pattern.startswith(NAME_PATH_SEP)
+        self._components = [
+            self.PatternComponent.from_string(x) for x in name_path_pattern.lstrip(NAME_PATH_SEP).rstrip(NAME_PATH_SEP).split(NAME_PATH_SEP)
+        ]
+
+    def _tostring_includes(self) -> list[str]:
+        return ["_expr"]
+
+    def matches_ls_symbol(self, symbol: "LanguageServerSymbol") -> bool:
+        return self.matches_reversed_components(symbol.iter_name_path_components_reversed())
+
+    def matches_reversed_components(self, components_reversed: Iterator[NamePathComponent]) -> bool:
+        for i, pattern_component in enumerate(reversed(self._components)):
+            try:
+                symbol_component = next(components_reversed)
+            except StopIteration:
+                return False
+            use_substring_matching = self._substring_matching and (i == 0)
+            if not pattern_component.matches(symbol_component, use_substring_matching):
+                return False
+        if self._is_absolute_pattern:
+            # ensure that there are no more components in the symbol
+            try:
+                next(components_reversed)
+                return False
+            except StopIteration:
+                pass
+        return True
+
+
+class LanguageServerSymbol(Symbol, ToStringMixin):
+    def __init__(self, symbol_root_from_ls: UnifiedSymbolInformation) -> None:
+        self.symbol_root = symbol_root_from_ls
+
+    def _tostring_includes(self) -> list[str]:
+        return []
+
+    def _tostring_additional_entries(self) -> dict[str, Any]:
+        return dict(name=self.name, kind=self.symbol_kind_name, num_children=len(self.symbol_root["children"]))
+
+    @property
+    def name(self) -> str:
+        return self.symbol_root["name"]
+
+    @property
+    def symbol_kind_name(self) -> str:
+        """
+        :return: string representation of the symbol kind (name attribute of the `SymbolKind` enum item)
+        """
+        return SymbolKind(self.symbol_kind).name
+
+    @property
+    def symbol_kind(self) -> SymbolKind:
+        return self.symbol_root["kind"]
+
+    def is_low_level(self) -> bool:
+        """
+        :return: whether the symbol is a low-level symbol (variable, constant, etc.), which typically represents data
+            rather than structure and therefore is not relevant in a high-level overview of the code.
+        """
+        return not SymbolKind.is_container(self.symbol_kind)
+
+    @property
+    def overload_idx(self) -> int | None:
+        return self.symbol_root.get("overload_idx")
+
+    def is_neighbouring_definition_separated_by_empty_line(self) -> bool:
+        return self.symbol_kind in (SymbolKind.Function, SymbolKind.Method, SymbolKind.Class, SymbolKind.Interface, SymbolKind.Struct)
+
+    @property
+    def relative_path(self) -> str | None:
+        location = self.symbol_root.get("location")
+        if location:
+            return location.get("relativePath")
+        return None
+
+    @property
+    def location(self) -> LanguageServerSymbolLocation:
+        """
+        :return: the start location of the actual symbol identifier
+        """
+        return LanguageServerSymbolLocation(relative_path=self.relative_path, line=self.line, column=self.column)
+
+    @property
+    def body_start_position(self) -> Position | None:
+        location = self.symbol_root.get("location")
+        if location:
+            range_info = location.get("range")
+            if range_info:
+                start_pos = range_info.get("start")
+                if start_pos:
+                    return start_pos
+        return None
+
+    @property
+    def body_end_position(self) -> Position | None:
+        location = self.symbol_root.get("location")
+        if location:
+            range_info = location.get("range")
+            if range_info:
+                end_pos = range_info.get("end")
+                if end_pos:
+                    return end_pos
+        return None
+
+    def get_body_start_position(self) -> PositionInFile | None:
+        start_pos = self.body_start_position
+        if start_pos is None:
+            return None
+        return PositionInFile(line=start_pos["line"], col=start_pos["character"])
+
+    def get_body_end_position(self) -> PositionInFile | None:
+        end_pos = self.body_end_position
+        if end_pos is None:
+            return None
+        return PositionInFile(line=end_pos["line"], col=end_pos["character"])
+
+    def get_body_line_numbers(self) -> tuple[int | None, int | None]:
+        start_pos = self.body_start_position
+        end_pos = self.body_end_position
+        start_line = start_pos["line"] if start_pos else None
+        end_line = end_pos["line"] if end_pos else None
+        return start_line, end_line
+
+    def get_body_line_numbers_or_raise(self) -> tuple[int, int]:
+        start_line, end_line = self.get_body_line_numbers()
+        if start_line is None or end_line is None:
+            raise ValueError(f"Body line numbers could not be determined for {self.get_name_path()}")
+        return start_line, end_line
+
+    @property
+    def line(self) -> int | None:
+        """
+        :return: the line in which the symbol identifier is defined.
+        """
+        if "selectionRange" in self.symbol_root:
+            return self.symbol_root["selectionRange"]["start"]["line"]
+        else:
+            # line is expected to be undefined for some types of symbols (e.g. SymbolKind.File)
+            return None
+
+    @property
+    def column(self) -> int | None:
+        if "selectionRange" in self.symbol_root:
+            return self.symbol_root["selectionRange"]["start"]["character"]
+        else:
+            # precise location is expected to be undefined for some types of symbols (e.g. SymbolKind.File)
+            return None
+
+    @property
+    def body(self) -> str | None:
+        body = self.symbol_root.get("body")
+        if body is None:
+            return None
+        else:
+            return body.get_text()
+
+    def get_name_path(self) -> str:
+        """
+        Get the name path of the symbol, e.g. "class/method/inner_function" or
+        "class/method[1]" (overloaded method with identifying index).
+        """
+        name_path = NAME_PATH_SEP.join(reversed([str(x) for x in self.iter_name_path_components_reversed()]))
+        return name_path
+
+    def iter_name_path_components_reversed(self) -> Iterator[NamePathComponent]:
+        yield NamePathComponent(self.name, self.overload_idx)
+        for ancestor in self.iter_ancestors(up_to_symbol_kind=SymbolKind.File):
+            yield NamePathComponent(ancestor.name, ancestor.overload_idx)
+
+    def iter_children(self) -> Iterator[Self]:
+        for c in self.symbol_root["children"]:
+            yield self.__class__(c)
+
+    def iter_ancestors(self, up_to_symbol_kind: SymbolKind | None = None) -> Iterator[Self]:
+        """
+        Iterate over all ancestors of the symbol, starting with the parent and going up to the root or
+        the given symbol kind.
+
+        :param up_to_symbol_kind: if provided, iteration will stop *before* the first ancestor of the given kind.
+            A typical use case is to pass `SymbolKind.File` or `SymbolKind.Package`.
+        """
+        parent = self.get_parent()
+        if parent is not None:
+            if up_to_symbol_kind is None or parent.symbol_kind != up_to_symbol_kind:
+                yield parent
+                yield from parent.iter_ancestors(up_to_symbol_kind=up_to_symbol_kind)
+
+    def get_parent(self) -> Self | None:
+        parent_root = self.symbol_root.get("parent")
+        if parent_root is None:
+            return None
+        return self.__class__(parent_root)
+
+    def find(
+        self,
+        name_path_pattern: str,
+        substring_matching: bool = False,
+        include_kinds: Sequence[SymbolKind] | None = None,
+        exclude_kinds: Sequence[SymbolKind] | None = None,
+    ) -> list[Self]:
+        """
+        Find all symbols within the symbol's subtree that match the given name path pattern.
+
+        :param name_path_pattern: the name path pattern to match against (see class :class:`NamePathMatcher` for details)
+        :param substring_matching: whether to use substring matching (as opposed to exact matching)
+            of the last segment of `name_path` against the symbol name.
+        :param include_kinds: an optional sequence of ints representing the LSP symbol kind.
+            If provided, only symbols of the given kinds will be included in the result.
+        :param exclude_kinds: If provided, symbols of the given kinds will be excluded from the result.
+        """
+        result = []
+        name_path_matcher = NamePathMatcher(name_path_pattern, substring_matching)
+
+        def should_include(s: "LanguageServerSymbol") -> bool:
+            if include_kinds is not None and s.symbol_kind not in include_kinds:
+                return False
+            if exclude_kinds is not None and s.symbol_kind in exclude_kinds:
+                return False
+            return name_path_matcher.matches_ls_symbol(s)
+
+        def traverse(s: "LanguageServerSymbol") -> None:
+            if should_include(s):
+                result.append(s)
+            for c in s.iter_children():
+                traverse(c)
+
+        traverse(self)
+        return result
+
+    class OutputDict(TypedDict):
+        name_path: NotRequired[str]
+        name: NotRequired[str]
+        location: NotRequired[dict[str, Any]]
+        relative_path: NotRequired[str | None]
+        body_location: NotRequired[dict[str, Any]]
+        body: NotRequired[str | None]
+        kind: NotRequired[str]
+        """
+        string representation of the symbol kind (name attribute of the `SymbolKind` enum item)
+        """
+        children: NotRequired[list["LanguageServerSymbol.OutputDict"]]
+        content_around_reference: NotRequired[str]
+        """set by :class:`FindReferencingSymbolsTool` when including surrounding code lines"""
+        reference_line: NotRequired[int]
+        """line number of the reference, set by :class:`FindReferencingSymbolsTool`"""
+
+    OutputDictKey = Literal[
+        "name",
+        "name_path",
+        "relative_path",
+        "location",
+        "body_location",
+        "body",
+        "kind",
+        "children",
+        "content_around_reference",
+        "reference_line",
+    ]
+
+    def to_dict(
+        self,
+        *,
+        name_path: bool = True,
+        name: bool = False,
+        kind: bool = False,
+        location: bool = False,
+        depth: int = 0,
+        body: bool = False,
+        body_location: bool = False,
+        children_body: bool = False,
+        children_name_path: bool | None = None,
+        children_name: bool | None = None,
+        relative_path: bool = False,
+        child_inclusion_predicate: Callable[[Self], bool] | None = None,
+    ) -> OutputDict:
+        """
+        Converts the symbol to a dictionary.
+
+        :param name_path: whether to include the name path of the symbol
+        :param name: whether to include the name of the symbol
+        :param kind: whether to include the kind of the symbol
+        :param location: whether to include the location of the symbol
+        :param depth: the depth up to which to include child symbols (0 = do not include children)
+        :param body: whether to include the body of the top-level symbol.
+        :param children_body: whether to also include the body of the children.
+            Note that the body of the children is part of the body of the parent symbol,
+            so there is usually no need to set this to True unless you want process the output
+            and pass the children without passing the parent body to the LM.
+        :param children_name_path: whether to include the name path of the children; if None, defaults to the value of `name_path`
+        :param children_name: whether to include the name of the children; if None, defaults to the value of `name`
+        :param relative_path: whether to include the relative path of the symbol.
+            If `location` is True, this defines whether to include the path in the location entry.
+            If `location` is False, this defines whether to include the relative path as a top-level entry.
+            Relative paths of the symbol's children are always excluded.
+        :param child_inclusion_predicate: an optional predicate that decides whether a child symbol
+            should be included.
+        :return: a dictionary representation of the symbol
+        """
+        result: LanguageServerSymbol.OutputDict = {}
+
+        if children_name_path is None:
+            children_name_path = name_path
+        if children_name is None:
+            children_name = name
+
+        if name_path:
+            result["name_path"] = self.get_name_path()
+        if name:
+            result["name"] = self.name
+
+        if kind:
+            result["kind"] = self.symbol_kind_name
+
+        if location:
+            result["location"] = self.location.to_dict(include_relative_path=relative_path)
+        elif relative_path:
+            result["relative_path"] = self.relative_path
+
+        if body_location:
+            body_start_line, body_end_line = self.get_body_line_numbers()
+            result["body_location"] = {"start_line": body_start_line, "end_line": body_end_line}
+
+        if body:
+            result["body"] = self.body
+
+        if child_inclusion_predicate is None:
+            child_inclusion_predicate = lambda s: True
+
+        def included_children(s: Self) -> list[LanguageServerSymbol.OutputDict]:
+            children = []
+            for c in s.iter_children():
+                if not child_inclusion_predicate(c):
+                    continue
+                children.append(
+                    c.to_dict(
+                        name_path=children_name_path,
+                        name=children_name,
+                        kind=kind,
+                        location=location,
+                        body_location=body_location,
+                        depth=depth - 1,
+                        child_inclusion_predicate=child_inclusion_predicate,
+                        body=children_body,
+                        children_body=children_body,
+                        # all children have the same relative path as the parent
+                        relative_path=False,
+                    )
+                )
+            return children
+
+        if depth > 0:
+            children = included_children(self)
+            if len(children) > 0:
+                result["children"] = children
+
+        return result
+
+
+@dataclass
+class ReferenceInLanguageServerSymbol(ToStringMixin):
+    """
+    Represents the location of a reference to another symbol within a symbol/file.
+
+    The contained symbol is the symbol within which the reference is located,
+    not the symbol that is referenced.
+    """
+
+    symbol: LanguageServerSymbol
+    """
+    the symbol within which the reference is located
+    """
+    line: int
+    """
+    the line number in which the reference is located (0-based)
+    """
+    character: int
+    """
+    the column number in which the reference is located (0-based)
+    """
+
+    @classmethod
+    def from_lsp_reference(cls, reference: LSPReferenceInSymbol) -> Self:
+        return cls(symbol=LanguageServerSymbol(reference.symbol), line=reference.line, character=reference.character)
+
+    def get_relative_path(self) -> str | None:
+        return self.symbol.location.relative_path
+
+
+class LanguageServerSymbolRetriever:
+    def __init__(self, project: Project) -> None:
+        """
+        :param project: the project instance
+        """
+        self._ls_manager: LanguageServerManager = project.get_language_server_manager_or_raise()
+        self.project = project
+
+    def _request_info(self, relative_file_path: str, line: int, column: int, file_buffer: LSPFileBuffer | None = None) -> str | None:
+        """Retrieves information (in a sanitized format) about the symbol at the desired location,
+        typically containing the docstring and signature.
+
+        Returns None if no information is available.
+        """
+        lang_server = self.get_language_server(relative_file_path)
+        hover_info = lang_server.request_hover(relative_file_path=relative_file_path, line=line, column=column, file_buffer=file_buffer)
+        if hover_info is None:
+            return None
+
+        contents = hover_info["contents"]
+
+        # Handle various response formats
+        if isinstance(contents, list):
+            # Array format: extract all parts and join them
+            stripped_parts = []
+            for part in contents:
+                if isinstance(part, str) and (stripped_part := part.strip()):
+                    stripped_parts.append(stripped_part)
+                else:
+                    # should be a dict with "value" key
+                    stripped_parts.append(part["value"].strip())  # type: ignore
+            return "\n".join(stripped_parts) if stripped_parts else None
+
+        if isinstance(contents, dict) and (stripped_contents := contents.get("value", "").strip()):
+            return stripped_contents
+
+        if isinstance(contents, str) and (stripped_contents := contents.strip()):
+            return stripped_contents
+
+        return None
+
+    def request_info_for_symbol(self, symbol: LanguageServerSymbol) -> str | None:
+        if None in [symbol.relative_path, symbol.line, symbol.column]:
+            return None
+        return self._request_info(relative_file_path=symbol.relative_path, line=symbol.line, column=symbol.column)  # type: ignore[arg-type]
+
+    def _get_symbol_info_budget(self) -> float:
+        symbol_info_budget = self.project.serena_config.symbol_info_budget
+        project_symbol_info_budget = self.project.project_config.symbol_info_budget
+        if project_symbol_info_budget is not None:
+            symbol_info_budget = project_symbol_info_budget
+        return symbol_info_budget
+
+    def request_info_for_symbol_batch(
+        self,
+        symbols: list[LanguageServerSymbol],
+    ) -> dict[LanguageServerSymbol, str | None]:
+        """Retrieves information for multiple symbols while staying within a time budget.
+
+        The request_hover operation used here is potentially expensive, we optimize by grouping by file
+        and stop executing it (returning the info as None) after the symbol_info_budget is exceeded.
+        The hover budget is 5s by default
+
+        Groups symbols by file path to minimize file switching overhead and uses a per-file
+        cache keyed by (line, col) to avoid duplicate hover lookups.
+
+        The hover budget (symbol_info_budget) limits total time spent on hover
+        requests. If exceeded, remaining symbols get info=None (partial results).
+
+        :param symbols: list of symbols to get info for
+        :return: a dict mapping each processable symbol to its info (or None if unavailable). Symbols with missing location attributes (relative_path/line/column is None) are skipped and omitted from the result.
+        """
+        if not symbols:
+            return {}
+
+        debug_enabled = log.isEnabledFor(logging.DEBUG)
+        t0_total = perf_counter() if debug_enabled else 0.0
+
+        info_by_symbol: dict[LanguageServerSymbol, str | None] = {}
+        skipped_symbols = 0
+
+        # Group symbols by file path, filtering invalid symbols.
+        symbols_by_file: dict[str, list[LanguageServerSymbol]] = {}
+        for sym in symbols:
+            file_path = sym.relative_path
+            line = sym.line
+            column = sym.column
+            if file_path is None or line is None or column is None:
+                skipped_symbols += 1
+                continue
+
+            symbols_by_file.setdefault(file_path, []).append(sym)
+
+        hover_spent_seconds = 0.0
+        symbol_info_budget_seconds = self._get_symbol_info_budget()
+        # the vars below are only for debug logging
+        per_file_stats: list[tuple[str, int, float]] = []
+        total_hover_lookups = 0
+        hover_cache_hits = 0
+        skipped_due_to_budget = 0
+
+        for file_path, file_symbols in symbols_by_file.items():
+            t0_file = perf_counter() if debug_enabled else 0.0
+            file_hover_lookups = 0
+
+            ls = self.get_language_server(file_path)
+            with ls.open_file(file_path) as file_buffer:
+                for sym in file_symbols:
+                    # Check budget before starting a new hover request
+                    # symbol_info_budget_seconds=0 disables the budget mechanism (the first inequality)
+                    if 0 < symbol_info_budget_seconds <= hover_spent_seconds:
+                        skipped_due_to_budget += 1
+                        info = None
+                        # log once when budget exceeded
+                        if skipped_due_to_budget == 1:
+                            log.debug("Skipping further hover operations due to budget exceeded")
+                    else:
+                        line = sym.line
+                        column = sym.column
+                        assert line is not None and column is not None  # for mypy, we filtered invalid symbols above
+                        t0_hover = perf_counter()
+                        info = self._request_info(file_path, line, column, file_buffer=file_buffer)
+                        hover_spent_seconds += perf_counter() - t0_hover
+                        file_hover_lookups += 1
+                        total_hover_lookups += 1
+
+                    info_by_symbol[sym] = info
+
+            if debug_enabled:
+                file_elapsed_ms = (perf_counter() - t0_file) * 1000
+                per_file_stats.append((file_path, file_hover_lookups, file_elapsed_ms))
+
+        if debug_enabled:
+            total_elapsed_ms = (perf_counter() - t0_total) * 1000
+            total_symbols = len(symbols)
+            unique_files = len(symbols_by_file)
+            budget_exceeded = skipped_due_to_budget > 0
+
+            log.debug(
+                f"perf: request_info_for_symbols {total_elapsed_ms=:.2f} {total_symbols=} {skipped_symbols=} "
+                f"{total_hover_lookups=} {hover_cache_hits=} {unique_files=} "
+                f"{symbol_info_budget_seconds=:.1f} {hover_spent_seconds=:.2f} {budget_exceeded=} {skipped_due_to_budget=}"
+            )
+
+            for file_path, lookup_count, elapsed_ms in per_file_stats:
+                log.debug(f"perf: {file_path=} {lookup_count=} {elapsed_ms=:.2f}")
+
+        return info_by_symbol
+
+    def can_analyze_file(self, relative_file_path: str) -> bool:
+        return self._ls_manager.has_suitable_ls_for_file(relative_file_path)
+
+    def get_language_server(self, relative_path: str) -> SolidLanguageServer:
+        """:param relative_path: relative path to a file"""
+        return self._ls_manager.get_language_server(relative_path)
+
+    def find(
+        self,
+        name_path_pattern: str,
+        include_kinds: Sequence[SymbolKind] | None = None,
+        exclude_kinds: Sequence[SymbolKind] | None = None,
+        substring_matching: bool = False,
+        within_relative_path: str | None = None,
+    ) -> list[LanguageServerSymbol]:
+        """
+        Finds all symbols that match the given name path pattern (see class :class:`NamePathMatcher` for details),
+        optionally limited to a specific file and filtered by kind.
+        """
+        symbols: list[LanguageServerSymbol] = []
+        if within_relative_path and os.path.isfile(os.path.join(self.project.project_root, within_relative_path)):
+            """
+            For a specific file, use get_language_server to select the best LS for the file type
+            (consistent with get_symbol_overview). This ensures e.g. PHP files are served by the
+            PHP language server rather than being rejected by all LSes via is_ignored_path.
+            """
+            lang_servers: Iterable[SolidLanguageServer] = [self._ls_manager.get_language_server(within_relative_path)]
+        else:
+            lang_servers = self._ls_manager.iter_language_servers()
+        for lang_server in lang_servers:
+            symbol_roots = lang_server.request_full_symbol_tree(within_relative_path=within_relative_path)
+            for root in symbol_roots:
+                symbols.extend(
+                    LanguageServerSymbol(root).find(
+                        name_path_pattern, include_kinds=include_kinds, exclude_kinds=exclude_kinds, substring_matching=substring_matching
+                    )
+                )
+        return symbols
+
+    def find_unique(
+        self,
+        name_path_pattern: str,
+        include_kinds: Sequence[SymbolKind] | None = None,
+        exclude_kinds: Sequence[SymbolKind] | None = None,
+        substring_matching: bool = False,
+        within_relative_path: str | None = None,
+    ) -> LanguageServerSymbol:
+        symbol_candidates = self.find(
+            name_path_pattern,
+            include_kinds=include_kinds,
+            exclude_kinds=exclude_kinds,
+            substring_matching=substring_matching,
+            within_relative_path=within_relative_path,
+        )
+        if len(symbol_candidates) == 1:
+            return symbol_candidates[0]
+        elif len(symbol_candidates) == 0:
+            raise ValueError(f"No symbol matching '{name_path_pattern}' found")
+        else:
+            # There are multiple candidates.
+            # If only one of the candidates has the given pattern as its exact name path, return that one
+            exact_matches = [s for s in symbol_candidates if s.get_name_path() == name_path_pattern]
+            if len(exact_matches) == 1:
+                return exact_matches[0]
+            # otherwise, raise an error
+            include_rel_path = within_relative_path is not None
+            raise ValueError(
+                f"Found multiple {len(symbol_candidates)} symbols matching '{name_path_pattern}'. "
+                "They are: \n" + json.dumps([s.to_dict(kind=True, relative_path=include_rel_path) for s in symbol_candidates], indent=2)
+            )
+
+    def find_by_location(self, location: LanguageServerSymbolLocation) -> LanguageServerSymbol | None:
+        if location.relative_path is None:
+            return None
+        lang_server = self.get_language_server(location.relative_path)
+        document_symbols = lang_server.request_document_symbols(location.relative_path)
+        for symbol_dict in document_symbols.iter_symbols():
+            symbol = LanguageServerSymbol(symbol_dict)
+            if symbol.location == location:
+                return symbol
+        return None
+
+    def find_referencing_symbols(
+        self,
+        name_path: str,
+        relative_file_path: str,
+        include_body: bool = False,
+        include_kinds: Sequence[SymbolKind] | None = None,
+        exclude_kinds: Sequence[SymbolKind] | None = None,
+    ) -> list[ReferenceInLanguageServerSymbol]:
+        """
+        Find all symbols that reference the specified symbol, which is assumed to be unique.
+
+        :param name_path: the name path of the symbol to find. (While this can be a matching pattern, it should
+            usually be the full path to ensure uniqueness.)
+        :param relative_file_path: the relative path of the file in which the referenced symbol is defined.
+        :param include_body: whether to include the body of all symbols in the result.
+            Not recommended, as the referencing symbols will often be files, and thus the bodies will be very long.
+        :param include_kinds: which kinds of symbols to include in the result.
+        :param exclude_kinds: which kinds of symbols to exclude from the result.
+        """
+        symbol = self.find_unique(name_path, substring_matching=False, within_relative_path=relative_file_path)
+        return self.find_referencing_symbols_by_location(
+            symbol.location, include_body=include_body, include_kinds=include_kinds, exclude_kinds=exclude_kinds
+        )
+
+    def find_referencing_symbols_by_location(
+        self,
+        symbol_location: LanguageServerSymbolLocation,
+        include_body: bool = False,
+        include_kinds: Sequence[SymbolKind] | None = None,
+        exclude_kinds: Sequence[SymbolKind] | None = None,
+    ) -> list[ReferenceInLanguageServerSymbol]:
+        """
+        Find all symbols that reference the symbol at the given location.
+
+        :param symbol_location: the location of the symbol for which to find references.
+            Does not need to include an end_line, as it is unused in the search.
+        :param include_body: whether to include the body of all symbols in the result.
+            Not recommended, as the referencing symbols will often be files, and thus the bodies will be very long.
+            Note: you can filter out the bodies of the children if you set include_children_body=False
+            in the to_dict method.
+        :param include_kinds: an optional sequence of ints representing the LSP symbol kind.
+            If provided, only symbols of the given kinds will be included in the result.
+        :param exclude_kinds: If provided, symbols of the given kinds will be excluded from the result.
+            Takes precedence over include_kinds.
+        :return: a list of symbols that reference the given symbol
+        """
+        if not symbol_location.has_position_in_file():
+            raise ValueError("Symbol location does not contain a valid position in a file")
+        assert symbol_location.relative_path is not None
+        assert symbol_location.line is not None
+        assert symbol_location.column is not None
+        lang_server = self.get_language_server(symbol_location.relative_path)
+        references = lang_server.request_referencing_symbols(
+            relative_file_path=symbol_location.relative_path,
+            line=symbol_location.line,
+            column=symbol_location.column,
+            include_imports=False,
+            include_self=False,
+            include_body=include_body,
+            include_file_symbols=True,
+        )
+
+        if include_kinds is not None:
+            references = [s for s in references if s.symbol["kind"] in include_kinds]
+
+        if exclude_kinds is not None:
+            references = [s for s in references if s.symbol["kind"] not in exclude_kinds]
+
+        return [ReferenceInLanguageServerSymbol.from_lsp_reference(r) for r in references]
+
+    def find_implementing_symbols(
+        self,
+        name_path: str,
+        relative_file_path: str,
+        include_body: bool = False,
+        include_kinds: Sequence[SymbolKind] | None = None,
+        exclude_kinds: Sequence[SymbolKind] | None = None,
+    ) -> list[LanguageServerSymbol]:
+        """
+        Find all symbols that implement the specified symbol, which is assumed to be unique.
+
+        :param name_path: the name path of the symbol to find implementations for. While this can be a matching pattern,
+            it should usually be the full path to ensure uniqueness.
+        :param relative_file_path: the relative path of the file in which the implemented symbol is defined.
+        :param include_body: whether to include the body of all symbols in the result.
+        :param include_kinds: which kinds of symbols to include in the result.
+        :param exclude_kinds: which kinds of symbols to exclude from the result.
+        """
+        symbol = self.find_unique(name_path, substring_matching=False, within_relative_path=relative_file_path)
+        return self.find_implementing_symbols_by_location(
+            symbol.location,
+            include_body=include_body,
+            include_kinds=include_kinds,
+            exclude_kinds=exclude_kinds,
+        )
+
+    def find_implementing_symbols_by_location(
+        self,
+        symbol_location: LanguageServerSymbolLocation,
+        include_body: bool = False,
+        include_kinds: Sequence[SymbolKind] | None = None,
+        exclude_kinds: Sequence[SymbolKind] | None = None,
+    ) -> list[LanguageServerSymbol]:
+        """
+        Find all symbols that implement the symbol at the given location.
+
+        :param symbol_location: the location of the symbol for which to find implementations.
+            Does not need to include an end_line, as it is unused in the search.
+        :param include_body: whether to include the body of all symbols in the result.
+        :param include_kinds: an optional sequence of ints representing the LSP symbol kind.
+            If provided, only symbols of the given kinds will be included in the result.
+        :param exclude_kinds: If provided, symbols of the given kinds will be excluded from the result.
+            Takes precedence over include_kinds.
+        :return: a list of symbols that implement the given symbol
+        """
+        if not symbol_location.has_position_in_file():
+            raise ValueError("Symbol location does not contain a valid position in a file")
+        assert symbol_location.relative_path is not None
+        assert symbol_location.line is not None
+        assert symbol_location.column is not None
+        lang_server = self.get_language_server(symbol_location.relative_path)
+        implementing_symbols = lang_server.request_implementing_symbols(
+            relative_file_path=symbol_location.relative_path,
+            line=symbol_location.line,
+            column=symbol_location.column,
+            include_body=include_body,
+        )
+
+        if include_kinds is not None:
+            implementing_symbols = [s for s in implementing_symbols if s["kind"] in include_kinds]
+
+        if exclude_kinds is not None:
+            implementing_symbols = [s for s in implementing_symbols if s["kind"] not in exclude_kinds]
+
+        return [LanguageServerSymbol(s) for s in implementing_symbols]
+
+    def find_declaration(
+        self,
+        relative_file_path: str,
+        line: int,
+        column: int,
+        include_body: bool = False,
+    ) -> LanguageServerSymbol | None:
+        """
+        Find the declaration/definition of the symbol at the given file position.
+
+        :param relative_file_path: the relative path to the file in which the symbol usage occurs.
+        :param line: the 0-based line number of the symbol usage.
+        :param column: the 0-based column number of the symbol usage.
+        :param include_body: whether to include the body of the defining symbol in the result.
+        :return: the defining symbol, or None if no definition could be resolved.
+        """
+        lang_server = self.get_language_server(relative_file_path)
+        defining_symbol = lang_server.request_defining_symbol(
+            relative_file_path=relative_file_path,
+            line=line,
+            column=column,
+            include_body=include_body,
+        )
+        if defining_symbol is None:
+            return None
+        return LanguageServerSymbol(defining_symbol)
+
+    def get_file_diagnostics(
+        self,
+        relative_file_path: str,
+        start_line: int = 0,
+        end_line: int = -1,
+        min_severity: int = 4,
+    ) -> list[ls_types.Diagnostic]:
+        """
+        Get diagnostics for a file, optionally restricted to a line range and minimum severity.
+
+        :param relative_file_path: the relative path to the file.
+        :param start_line: the first 0-based line to include.
+        :param end_line: the last 0-based line to include. `-1` means until end of file.
+        :param min_severity: minimum LSP severity to include, where 1=Error, 2=Warning, 3=Information, 4=Hint.
+        :return: the diagnostics matching the requested constraints.
+        """
+        lang_server = self.get_language_server(relative_file_path)
+        return lang_server.request_text_document_diagnostics(
+            relative_file_path=relative_file_path,
+            start_line=start_line,
+            end_line=end_line,
+            min_severity=min_severity,
+        )
+
+    @staticmethod
+    def _symbol_identity(symbol: LanguageServerSymbol) -> tuple[str | None, int | None, int | None, str]:
+        return (symbol.relative_path, symbol.line, symbol.column, symbol.get_name_path())
+
+    @staticmethod
+    def _normalize_symbol_for_diagnostics(symbol: LanguageServerSymbol) -> LanguageServerSymbol:
+        current_symbol = symbol
+        while current_symbol.is_low_level():
+            parent_symbol = current_symbol.get_parent()
+            if parent_symbol is None:
+                break
+            current_symbol = parent_symbol
+        return current_symbol
+
+    def find_diagnostic_owner_symbol(self, relative_file_path: str, line: int, column: int) -> LanguageServerSymbol | None:
+        """
+        Find the symbol that should own a diagnostic at the given position.
+
+        This prefers the structural container of the diagnostic over low-level symbols such as
+        local variables, because diagnostics are typically more meaningful when grouped by the
+        surrounding function, method, class, or analogous construct.
+
+        :param relative_file_path: the relative path to the file containing the diagnostic.
+        :param line: the 0-based line of the diagnostic.
+        :param column: the 0-based column of the diagnostic.
+        :return: the owning symbol, or None if no symbol could be resolved.
+        """
+        lang_server = self.get_language_server(relative_file_path)
+        symbol_dict = lang_server.request_symbol_at_location(
+            relative_file_path=relative_file_path,
+            line=line,
+            column=column,
+        )
+        if symbol_dict is None:
+            return None
+        return self._normalize_symbol_for_diagnostics(LanguageServerSymbol(symbol_dict))
+
+    def _get_diagnostics_for_symbol(self, symbol: LanguageServerSymbol, min_severity: int) -> list[ls_types.Diagnostic]:
+        relative_path = symbol.relative_path
+        if relative_path is None:
+            return []
+
+        start_line, end_line = symbol.get_body_line_numbers()
+        if start_line is None:
+            if symbol.line is None:
+                return []
+            start_line = symbol.line
+        if end_line is None:
+            end_line = start_line
+
+        return self.get_file_diagnostics(
+            relative_file_path=relative_path,
+            start_line=start_line,
+            end_line=end_line,
+            min_severity=min_severity,
+        )
+
+    def get_symbol_diagnostics(
+        self,
+        name_path: str,
+        reference_file: str | None = None,
+        check_symbol_references: bool = False,
+        min_severity: int = 4,
+    ) -> dict[LanguageServerSymbol, list[ls_types.Diagnostic]]:
+        """
+        Get diagnostics for the specified symbol and, optionally, for all symbols that reference it.
+
+        :param name_path: the name path of the symbol to find. It should usually be unique.
+        :param reference_file: optional file path used to disambiguate the symbol search.
+        :param check_symbol_references: whether to additionally collect diagnostics for referencing symbols.
+        :param min_severity: minimum LSP severity to include, where 1=Error, 2=Warning, 3=Information, 4=Hint.
+        :return: a mapping from symbols to the diagnostics that overlap their body ranges.
+        """
+        symbol = self.find_unique(name_path, substring_matching=False, within_relative_path=reference_file or None)
+        return self.get_symbol_diagnostics_by_location(
+            symbol.location,
+            check_symbol_references=check_symbol_references,
+            min_severity=min_severity,
+        )
+
+    def get_symbol_diagnostics_by_location(
+        self,
+        symbol_location: LanguageServerSymbolLocation,
+        check_symbol_references: bool = False,
+        min_severity: int = 4,
+    ) -> dict[LanguageServerSymbol, list[ls_types.Diagnostic]]:
+        """
+        Get diagnostics for the symbol at the given location and, optionally, for all referencing symbols.
+
+        :param symbol_location: location of the symbol to inspect.
+        :param check_symbol_references: whether to additionally collect diagnostics for referencing symbols.
+        :param min_severity: minimum LSP severity to include, where 1=Error, 2=Warning, 3=Information, 4=Hint.
+        :return: an ordered mapping from symbols to the diagnostics that overlap their body ranges.
+        """
+        if not symbol_location.has_position_in_file():
+            raise ValueError("Symbol location does not contain a valid position in a file")
+
+        symbol = self.find_by_location(symbol_location)
+        if symbol is None:
+            assert symbol_location.relative_path is not None
+            assert symbol_location.line is not None
+            assert symbol_location.column is not None
+            lang_server = self.get_language_server(symbol_location.relative_path)
+            symbol_dict = lang_server.request_symbol_at_location(
+                relative_file_path=symbol_location.relative_path,
+                line=symbol_location.line,
+                column=symbol_location.column,
+            )
+            if symbol_dict is None:
+                return {}
+            symbol = LanguageServerSymbol(symbol_dict)
+
+        symbols_to_check: "OrderedDict[tuple[str | None, int | None, int | None, str], LanguageServerSymbol]" = OrderedDict()
+        symbols_to_check[self._symbol_identity(symbol)] = symbol
+
+        if check_symbol_references:
+            reference_symbols = self.find_referencing_symbols_by_location(
+                symbol.location,
+                include_body=False,
+                exclude_kinds=[SymbolKind.File, SymbolKind.Module, SymbolKind.Package, SymbolKind.Namespace],
+            )
+            for reference in reference_symbols:
+                reference_relative_path = reference.get_relative_path()
+                normalized_reference_symbol = None
+                if reference_relative_path is not None:
+                    normalized_reference_symbol = self.find_diagnostic_owner_symbol(
+                        relative_file_path=reference_relative_path,
+                        line=reference.line,
+                        column=reference.character,
+                    )
+                if normalized_reference_symbol is None:
+                    normalized_reference_symbol = self._normalize_symbol_for_diagnostics(reference.symbol)
+                symbols_to_check.setdefault(self._symbol_identity(normalized_reference_symbol), normalized_reference_symbol)
+
+        result: dict[LanguageServerSymbol, list[ls_types.Diagnostic]] = {}
+        for current_symbol in symbols_to_check.values():
+            diagnostics = self._get_diagnostics_for_symbol(current_symbol, min_severity=min_severity)
+            if diagnostics:
+                result[current_symbol] = diagnostics
+        return result
+
+    def get_symbol_overview(self, relative_path: str) -> dict[str, list[LanguageServerSymbol]]:
+        """
+        :param relative_path: the path of the file for which to get the symbol overview
+        :return: a mapping from file paths to lists of symbols.
+            For the case where a file is passed, the mapping will contain a single entry.
+        """
+        lang_server = self.get_language_server(relative_path)
+        path_to_unified_symbols = lang_server.request_overview(relative_path)
+        return {k: [LanguageServerSymbol(us) for us in v] for k, v in path_to_unified_symbols.items()}
+
+
+class JetBrainsSymbol(Symbol):
+    def __init__(self, symbol_dict: jb.SymbolDTO, project: Project) -> None:
+        """
+        :param symbol_dict: dictionary as returned by the JetBrains plugin client.
+        """
+        self._project = project
+        self._dict = symbol_dict
+        self._cached_file_content: str | None = None
+        self._cached_body_start_position: PositionInFile | None = None
+        self._cached_body_end_position: PositionInFile | None = None
+        self._cached_body = symbol_dict.get("body")
+
+    def _tostring_includes(self) -> list[str]:
+        return []
+
+    def _tostring_additional_entries(self) -> dict[str, Any]:
+        return dict(name_path=self.get_name_path(), relative_path=self.get_relative_path(), type=self._dict["type"])
+
+    def get_name_path(self) -> str:
+        return self._dict["name_path"]
+
+    def get_relative_path(self) -> str:
+        return self._dict["relative_path"]
+
+    def get_file_content(self) -> str:
+        if self._cached_file_content is None:
+            path = os.path.join(self._project.project_root, self.get_relative_path())
+            with open(path, encoding=self._project.project_config.encoding) as f:
+                self._cached_file_content = f.read()
+        return self._cached_file_content
+
+    def is_position_in_file_available(self) -> bool:
+        return "text_range" in self._dict
+
+    def get_body_start_position(self) -> PositionInFile | None:
+        if not self.is_position_in_file_available():
+            return None
+        if self._cached_body_start_position is None:
+            pos = self._dict["text_range"]["start_pos"]
+            line, col = pos["line"], pos["col"]
+            self._cached_body_start_position = PositionInFile(line=line, col=col)
+        return self._cached_body_start_position
+
+    def get_body_end_position(self) -> PositionInFile | None:
+        if not self.is_position_in_file_available():
+            return None
+        if self._cached_body_end_position is None:
+            pos = self._dict["text_range"]["end_pos"]
+            line, col = pos["line"], pos["col"]
+            self._cached_body_end_position = PositionInFile(line=line, col=col)
+        return self._cached_body_end_position
+
+    @property
+    def body(self) -> str | None:
+        if self._cached_body is not None:
+            return self._cached_body
+        start_position = self.get_body_start_position()
+        if start_position is None:
+            return None
+        end_position = self.get_body_end_position()
+        assert end_position is not None, "If start position is available, end position should also be available. Symbol: {self}"
+        file_content = self.get_file_content()
+        self._cached_body = TextUtils.get_text_in_range(
+            file_content, start_position.line, start_position.col, end_position.line, end_position.col
+        )
+        return self._cached_body
+
+    @property
+    def name(self) -> str:
+        return self._dict["name_path"].split("/")[-1]
+
+    def is_neighbouring_definition_separated_by_empty_line(self) -> bool:
+        # NOTE: Symbol types cannot really be differentiated, because types are not handled in a language-agnostic way.
+        return False
+
+
+TSymbolDict = TypeVar("TSymbolDict")
+GroupedSymbolDict = dict[str, list[dict] | dict[str, dict]]
+
+
+class SymbolDictGrouper(Generic[TSymbolDict], ABC):
+    """
+    A utility class for grouping a list of symbol dictionaries by one or more specified keys.
+
+    If an instance is statically initialised (upon module import), then this establishes a guarantee
+    that the specified keys are defined in the symbol dictionary type, ensuring at least basic type safety.
+    The respective ValueError will immediately be apparent.
+    """
+
+    def __init__(
+        self,
+        symbol_dict_type: type[TSymbolDict],
+        children_key: Any,
+        group_keys: list[Any],
+        group_children_keys: list[Any],
+        collapse_singleton: bool,
+    ) -> None:
+        """
+        :param symbol_dict_type: the TypedDict type that represents the type of the symbol dictionaries to be grouped
+        :param children_key: the key in the symbol dictionaries that contains the list of child symbols (for recursive grouping).
+        :param group_keys: keys by which to group the symbol dictionaries. Must be a subset of the keys of `symbol_dict_type`.
+        :param group_children_keys: keys by which to group the child symbol dictionaries. Must be a subset of the keys of `symbol_dict_type`.
+        :param collapse_singleton: whether to collapse dictionaries containing a single entry after regrouping to just the entry's value
+        """
+        # check whether the type contains all the keys specified in `keys` and raise an error if not.
+        if not hasattr(symbol_dict_type, "__annotations__"):
+            raise ValueError(f"symbol_dict_type must be a TypedDict type, got {symbol_dict_type}")
+        symbol_dict_keys = set(symbol_dict_type.__annotations__.keys())
+        for key in group_keys + [children_key] + group_children_keys:
+            if key not in symbol_dict_keys:
+                raise ValueError(f"symbol_dict_type {symbol_dict_type} does not contain key '{key}'")
+
+        self._children_key = children_key
+        self._group_keys = group_keys
+        self._group_children_keys = group_children_keys
+        self._collapse_singleton = collapse_singleton
+        self._is_enabled = True
+
+    def _group_by(self, l: list[dict], keys: list[str], children_keys: list[str], is_children: bool) -> dict[str, Any] | list[Any]:
+        """
+        :param l: the list of symbol dictionaries to group
+        :param keys: the keys to group by
+        :param children_keys: the keys to group the children by
+        :param is_children: whether this is a children grouping operation
+        :return: the (grouped) symbols
+        """
+        if len(keys) > 0:
+            # group by the first key
+            grouped: dict[str, Any] = {}
+            for item in l:
+                key_value = item.pop(keys[0], "unknown")
+                if key_value not in grouped:
+                    grouped[key_value] = []
+                grouped[key_value].append(item)
+            # continue grouping by the remaining keys
+            for k, group in grouped.items():
+                grouped[k] = self._group_by(group, keys[1:], children_keys, is_children=is_children)
+            return grouped
+        else:
+            # grouping is complete; now group the children if necessary
+            for item in l:
+                if self._children_key in item:
+                    children = item[self._children_key]
+                    item[self._children_key] = self._group_by(children, children_keys, children_keys, is_children=True)
+            # post-process final items
+            return [self._transform_item(item, is_children) for item in l]
+
+    def _transform_item(self, item: dict, is_child: bool) -> dict:
+        """
+        Post-processes a final group item (which has been regrouped, i.e. some keys may have been removed),
+        collapsing singleton items (and items containing only a single non-children key)
+
+        :param item: the item to post-process
+        :param is_child: whether the item is a child item
+        """
+        if self._collapse_singleton:
+            if len(item) == 1:
+                # {"name": "foo"} -> "foo"
+                # if there is only a single entry, collapse the dictionary to just the value of that entry
+                return next(iter(item.values()))
+            elif len(item) == 2 and self._children_key in item:
+                # {"name": "foo", "children": {...}} -> {"foo": {...}}
+                # if there are exactly two entries and one of them is the children key,
+                # convert to {other_value: children}
+                other_key = next(k for k in item.keys() if k != self._children_key)
+                new_item = {item[other_key]: item[self._children_key]}
+                return new_item
+        return item
+
+    def group(self, symbols: list[TSymbolDict]) -> GroupedSymbolDict | list:
+        """
+        :param symbols: the symbols to group
+        :return: dictionary with the symbols grouped as defined at construction if at least one key was used for grouping,
+            otherwise the list of symbols (potentially transformed)
+        """
+        # avoid side effects by working on a deep-copy
+        symbols_copy = copy.deepcopy(symbols)
+
+        if not self._is_enabled:
+            return symbols_copy
+
+        return self._group_by(symbols_copy, self._group_keys, self._group_children_keys, is_children=False)
+
+    @contextmanager
+    def disabled_context(self) -> Iterator[None]:
+        """
+        A context manager that temporarily disables grouping.
+        """
+        original_state = self._is_enabled
+        self._is_enabled = False
+        try:
+            yield
+        finally:
+            self._is_enabled = original_state
+
+
+class LanguageServerSymbolDictGrouper(SymbolDictGrouper[LanguageServerSymbol.OutputDict]):
+    def __init__(
+        self,
+        group_keys: list[LanguageServerSymbol.OutputDictKey],
+        group_children_keys: list[LanguageServerSymbol.OutputDictKey],
+        collapse_singleton: bool = False,
+    ) -> None:
+        super().__init__(LanguageServerSymbol.OutputDict, "children", group_keys, group_children_keys, collapse_singleton)
+
+
+class JetBrainsSymbolDictGrouper(SymbolDictGrouper[jb.SymbolDTO]):
+    def __init__(
+        self,
+        group_keys: list[jb.SymbolDTOKey],
+        group_children_keys: list[jb.SymbolDTOKey],
+        collapse_singleton: bool = False,
+        map_name_path_to_name: bool = False,
+    ) -> None:
+        """
+        :param group_keys: keys to group main symbols by
+        :param group_children_keys: keys to group child symbols by
+        :param collapse_singleton: whether to collapse singleton symbol dictionaries
+        :param map_name_path_to_name: whether to transform the "name_path" key of child symbols to the bare "name"
+        """
+        super().__init__(jb.SymbolDTO, "children", group_keys, group_children_keys, collapse_singleton)
+        self._map_name_path_to_name = map_name_path_to_name
+
+    def _transform_item(self, item: dict, is_child: bool) -> dict:
+        if self._map_name_path_to_name and is_child:
+            # {"name_path: "Class/myMethod"} -> {"name: "myMethod"}
+            new_item = dict(item)
+            if "name_path" in item:
+                name_path = new_item.pop("name_path")
+                new_item["name"] = name_path.split("/")[-1]
+            return super()._transform_item(new_item, is_child)
+        else:
+            return super()._transform_item(item, is_child)

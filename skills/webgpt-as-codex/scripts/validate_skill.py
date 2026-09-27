@@ -9,6 +9,7 @@ ROOT = Path(__file__).resolve().parents[1]
 WORKSPACE_ROOT = ROOT.parents[1]
 REQUIRED = [
     "SKILL.md",
+    "session-bootstrap.md",
     "product-contract.md",
     "routing.md",
     "permissions.md",
@@ -30,6 +31,8 @@ REQUIRED = [
     "workflows/cross-tool.md",
     "workflows/loop-engineering.md",
     "workflows/handoff-template.md",
+    "workflows/WORKFLOW-SCHEMA.md",
+    "workflow-registry.json",
     "evals/scenarios.json",
     "manifest.json",
     "CHANGELOG.md",
@@ -139,9 +142,12 @@ for required_role in ("code_semantics", "code_execution", "filesystem_terminal",
         errors.append(f"manifest missing role: {required_role}")
 
 capabilities = manifest.get("capabilities", {})
-for required_capability in ("adaptive_recovery", "loop_engineering", "zero_guess_handoff", "experience_absorption", "single_writer_per_worktree", "local_mcp_locator_recovery", "session_scoped_mcp_reconnect", "docs_before_prompt_barrier", "active_recovery_before_pause", "visual_coordinate_calibration", "preserve_preexisting_windows", "gui_action_observer_failure_split", "native_gui_first", "multi_layer_dialog_tracking", "mcp_concurrency_state_isolation", "release_local_portable_sync", "full_experience_ledger", "rdc_four_layer_health", "handoff_prompt_hash_transaction", "durable_handoff_receipt", "handoff_write_ahead_attempt_receipt", "single_handoff_mutation_owner"):
+for required_capability in ("adaptive_recovery", "loop_engineering", "zero_guess_handoff", "experience_absorption", "single_writer_per_worktree", "local_mcp_locator_recovery", "session_scoped_mcp_reconnect", "docs_before_prompt_barrier", "active_recovery_before_pause", "visual_coordinate_calibration", "preserve_preexisting_windows", "gui_action_observer_failure_split", "native_gui_first", "multi_layer_dialog_tracking", "mcp_concurrency_state_isolation", "release_local_portable_sync", "full_experience_ledger", "rdc_four_layer_health", "handoff_prompt_hash_transaction", "durable_handoff_receipt", "handoff_write_ahead_attempt_receipt", "single_handoff_mutation_owner", "mandatory_session_skill_bootstrap", "workflow_stage_selective_skill_loading", "bundled_derivative_sources"):
     if not capabilities.get(required_capability):
         errors.append(f"manifest missing capability: {required_capability}")
+
+if "WAC Session Bootstrap — 强制" not in skill:
+    errors.append("canonical Skill does not declare mandatory WAC session bootstrap")
 
 if not any("EXPERIENCE_ABSORPTION" in (s.get("expected_behavior") or "") for s in scenarios):
     errors.append("no experience absorption scenario")

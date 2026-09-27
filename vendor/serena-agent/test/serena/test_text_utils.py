@@ -1,0 +1,658 @@
+from collections.abc import Callable
+
+import pytest
+
+from serena.util.file_proxy import FileCollection, FileProxy
+from serena.util.text_utils import GlobMatcher, LineType, MultiFileContentReplacer, search_files, search_text
+
+
+class TestSearchText:
+    def test_search_text_with_string_pattern(self):
+        """Test searching with a simple string pattern."""
+        content = """
+        def hello_world():
+            print("Hello, World!")
+            return 42
+        """
+
+        # Search for a simple string pattern
+        matches = search_text("print", content=content)
+
+        assert len(matches) == 1
+        assert matches[0].num_matched_lines == 1
+        assert matches[0].start_line == 2
+        assert matches[0].end_line == 2
+        assert matches[0].lines[0].line_content.strip() == 'print("Hello, World!")'
+
+    def test_search_text_with_regex_pattern(self):
+        """Test searching with a regex pattern."""
+        content = """
+        class DataProcessor:
+            def __init__(self, data):
+                self.data = data
+
+            def process(self):
+                return [x * 2 for x in self.data if x > 0]
+
+            def filter(self, predicate):
+                return [x for x in self.data if predicate(x)]
+        """
+
+        # Search for a regex pattern matching method definitions
+        pattern = r"def\s+\w+\s*\([^)]*\):"
+        matches = search_text(pattern, content=content)
+
+        assert len(matches) == 3
+        assert matches[0].lines[0].match_type == LineType.MATCH
+        assert "def __init__" in matches[0].lines[0].line_content
+        assert "def process" in matches[1].lines[0].line_content
+        assert "def filter" in matches[2].lines[0].line_content
+
+    def test_search_text_with_regex_pattern2(self):
+        """Test searching with a pre-compiled regex pattern."""
+        content = """
+        import os
+        import sys
+        from pathlib import Path
+
+        # Configuration variables
+        DEBUG = True
+        MAX_RETRIES = 3
+
+        def configure_logging():
+            log_level = "DEBUG" if DEBUG else "INFO"
+            print(f"Setting log level to {log_level}")
+        """
+
+        # Search for variable assignments with a compiled regex
+        pattern = r"^\s*[A-Z_]+ = .*?$"
+        matches = search_text(pattern, content=content, multiline=True)
+
+        assert len(matches) == 2
+        assert "DEBUG = True" in matches[0].lines[0].line_content
+        assert "MAX_RETRIES = 3" in matches[1].lines[0].line_content
+
+    def test_search_text_with_context_lines(self):
+        """Test searching with context lines before and after the match."""
+        content = """
+        def complex_function(a, b, c):
+            # This is a complex function that does something.
+            if a > b:
+                return a * c
+            elif b > a:
+                return b * c
+            else:
+                return (a + b) * c
+        """
+
+        # Search with context lines
+        matches = search_text("return", content=content, context_lines_before=1, context_lines_after=1)
+
+        assert len(matches) == 3
+
+        # Check the first match with context
+        first_match = matches[0]
+        assert len(first_match.lines) == 3
+        assert first_match.lines[0].match_type == LineType.BEFORE_MATCH
+        assert first_match.lines[1].match_type == LineType.MATCH
+        assert first_match.lines[2].match_type == LineType.AFTER_MATCH
+
+        # Verify the content of lines
+        assert "if a > b:" in first_match.lines[0].line_content
+        assert "return a * c" in first_match.lines[1].line_content
+        assert "elif b > a:" in first_match.lines[2].line_content
+
+    @pytest.mark.parametrize(
+        ("pattern", "expected_matched_lines"),
+        [
+            # matches ending with a newline: the trailing newline terminates the last matched line
+            # and must not pull in the line that follows
+            (r"alpha\n", [0]),
+            (r"alpha\nbeta\n", [0, 1]),
+            (r"gamma\n", [2]),
+            # controls: matches ending mid-line were always correct
+            (r"alpha", [0]),
+            (r"beta", [1]),
+            (r"alpha\nbeta", [0, 1]),
+        ],
+    )
+    def test_search_text_match_ending_at_line_break(self, pattern: str, expected_matched_lines: list[int]):
+        """The lines marked as matched are exactly the lines the matched text occupies."""
+        content = "alpha\nbeta\ngamma\n"
+
+        matches = search_text(pattern, content=content)
+
+        assert len(matches) == 1
+        matched_lines = [line.line_number for line in matches[0].lines if line.match_type == LineType.MATCH]
+        assert matched_lines == expected_matched_lines
+        assert matches[0].num_matched_lines == len(expected_matched_lines)
+
+    @pytest.mark.parametrize(
+        ("pattern", "expected_matched_lines"),
+        [
+            (r"alpha\r\n", [0]),
+            (r"alpha\r", [0]),
+            (r"alpha\r\nbeta\r\n", [0, 1]),
+            (r"alpha", [0]),
+        ],
+    )
+    def test_search_text_match_ending_at_line_break_crlf(self, pattern: str, expected_matched_lines: list[int]):
+        """As above for CRLF content, where the end index can fall inside the two-character line break.
+
+        The content is passed directly rather than read from a file, since the file read paths translate
+        line endings and CR would not reach this function.
+        """
+        content = "alpha\r\nbeta\r\ngamma\r\n"
+
+        matches = search_text(pattern, content=content)
+
+        assert len(matches) == 1
+        matched_lines = [line.line_number for line in matches[0].lines if line.match_type == LineType.MATCH]
+        assert matched_lines == expected_matched_lines
+        assert matches[0].num_matched_lines == len(expected_matched_lines)
+
+    def test_search_text_with_multiline_match(self):
+        """Test searching with multiline pattern matching."""
+        content = """
+        def factorial(n):
+            if n <= 1:
+                return 1
+            else:
+                return n * factorial(n-1)
+
+        result = factorial(5)  # Should be 120
+        """
+
+        # Search for a pattern that spans multiple lines (if-else block)
+        pattern = r"if.*?else.*?return"
+        matches = search_text(pattern, content=content)
+
+        assert len(matches) == 1
+        multiline_match = matches[0]
+        assert multiline_match.num_matched_lines >= 3
+        assert "if n <= 1:" in multiline_match.lines[0].line_content
+
+        # All matched lines should have match_type == LineType.MATCH
+        match_lines = [line for line in multiline_match.lines if line.match_type == LineType.MATCH]
+        assert len(match_lines) >= 3
+
+    def test_search_text_no_matches(self):
+        """Test searching with a pattern that doesn't match anything."""
+        content = """
+        def calculate_average(numbers):
+            if not numbers:
+                return 0
+            return sum(numbers) / len(numbers)
+        """
+
+        # Search for a pattern that doesn't exist in the content
+        matches = search_text("missing_function", content=content)
+
+        assert len(matches) == 0
+
+
+# Mock file reader that always returns matching content
+def mock_reader_always_match(file_path: str) -> str:
+    """Mock file reader that returns content guaranteed to match the simple pattern."""
+    return "This line contains a match."
+
+
+class MockFileProxy(FileProxy):
+    def __init__(self, relative_path: str, mock_reader: Callable[[str], str] = mock_reader_always_match):
+        self.relative_path = relative_path
+        self.mock_reader = mock_reader
+
+    def get_contents(self) -> str:
+        return self.mock_reader(self.relative_path)
+
+    def get_relative_path(self) -> str:
+        return self.relative_path
+
+    def is_glob_supported(self):
+        return True
+
+
+class MockFileCollection(FileCollection):
+    def __init__(self, file_paths, mock_reader: Callable[[str], str] = mock_reader_always_match):
+        super().__init__([MockFileProxy(path, mock_reader) for path in file_paths])
+
+
+class TestSearchFiles:
+    @pytest.mark.parametrize(
+        "file_paths, pattern, paths_include_glob, paths_exclude_glob, expected_matched_files, description",
+        [
+            # Basic cases
+            (["a.py", "b.txt"], "match", None, None, ["a.py", "b.txt"], "No filters"),
+            (["a.py", "b.txt"], "match", "*.py", None, ["a.py"], "Include only .py files"),
+            (["a.py", "b.txt"], "match", None, "*.txt", ["a.py"], "Exclude .txt files"),
+            (["a.py", "b.txt", "c.py"], "match", "*.py", "c.*", ["a.py"], "Include .py, exclude c.*"),
+            # Directory matching - Using pathspec patterns
+            (["main.c", "test/main.c"], "match", "test/*", None, ["test/main.c"], "Include files in test/ subdir"),
+            # A bare `*.log` no longer crosses `/` (see #1732); use `data/*.log` to exclude within data/.
+            (["data/a.csv", "data/b.log"], "match", "data/*", "data/*.log", ["data/a.csv"], "Include data/*, exclude data/*.log"),
+            (["src/a.py", "tests/b.py"], "match", "src/**", "tests/**", ["src/a.py"], "Include src/**, exclude tests/**"),
+            (["src/mod/a.py", "tests/b.py"], "match", "**/*.py", "tests/**", ["src/mod/a.py"], "Include **/*.py, exclude tests/**"),
+            (["file.py", "dir/file.py"], "match", "dir/*.py", None, ["dir/file.py"], "Include files directly in dir"),
+            (["file.py", "dir/sub/file.py"], "match", "dir/**/*.py", None, ["dir/sub/file.py"], "Include files recursively in dir"),
+            # Overlap and edge cases
+            (["file.py", "dir/file.py"], "match", "*.py", "dir/*", ["file.py"], "Include *.py, exclude files directly in dir"),
+            (["root.py", "adir/a.py", "bdir/b.py"], "match", "a*/*.py", None, ["adir/a.py"], "Include files in dirs starting with 'a'"),
+            (["a.txt", "b.log"], "match", "*.py", None, [], "No files match include pattern"),
+            (["a.py", "b.py"], "match", None, "*.py", [], "All files match exclude pattern"),
+            (["a.py", "b.py"], "match", "a.*", "*.py", [], "Include a.* but exclude *.py -> empty"),
+            (["a.py", "b.py"], "match", "*.py", "b.*", ["a.py"], "Include *.py but exclude b.* -> a.py"),
+        ],
+        ids=lambda x: x if isinstance(x, str) else "",  # Use description as test ID
+    )
+    def test_search_files_include_exclude(
+        self, file_paths, pattern, paths_include_glob, paths_exclude_glob, expected_matched_files, description
+    ):
+        """
+        Test the include/exclude glob filtering logic in search_files using PathSpec patterns.
+        """
+        results = search_files(
+            MockFileCollection(file_paths),
+            pattern=pattern,
+            paths_include_glob=paths_include_glob,
+            paths_exclude_glob=paths_exclude_glob,
+            context_lines_before=0,  # No context needed for this test focus
+            context_lines_after=0,
+        )
+
+        # Extract the source file paths from the results
+        actual_matched_files = sorted([result.source_file_path for result in results if result.source_file_path])
+
+        # Assert that the matched files are exactly the ones expected
+        assert actual_matched_files == sorted(expected_matched_files)
+
+        # Basic check on results structure if files were expected
+        if expected_matched_files:
+            assert len(results) == len(expected_matched_files)
+            for result in results:
+                assert len(result.matched_lines) == 1  # Mock reader returns one matching line
+                assert result.matched_lines[0].line_content == "This line contains a match."
+                assert result.matched_lines[0].match_type == LineType.MATCH
+
+    @pytest.mark.parametrize(
+        "file_paths, pattern, paths_include_glob, paths_exclude_glob, expected_matched_files, description",
+        [
+            # Glob patterns that were problematic with gitignore syntax
+            (
+                ["src/serena/agent.py", "src/serena/process_isolated_agent.py", "test/agent.py"],
+                "match",
+                "src/**agent.py",
+                None,
+                ["src/serena/agent.py", "src/serena/process_isolated_agent.py"],
+                "Glob: src/**agent.py should match files ending with agent.py under src/",
+            ),
+            (
+                ["src/serena/agent.py", "src/serena/process_isolated_agent.py", "other/agent.py"],
+                "match",
+                "**agent.py",
+                None,
+                ["src/serena/agent.py", "src/serena/process_isolated_agent.py", "other/agent.py"],
+                "Glob: **agent.py should match files ending with agent.py anywhere",
+            ),
+            (
+                ["dir/subdir/file.py", "dir/other/file.py", "elsewhere/file.py"],
+                "match",
+                "dir/**file.py",
+                None,
+                ["dir/subdir/file.py", "dir/other/file.py"],
+                "Glob: dir/**file.py should match files ending with file.py under dir/",
+            ),
+            (
+                ["src/a/b/c/test.py", "src/x/test.py", "other/test.py"],
+                "match",
+                "src/**/test.py",
+                None,
+                ["src/a/b/c/test.py", "src/x/test.py"],
+                "Glob: src/**/test.py should match test.py files under src/ at any depth",
+            ),
+            # Edge cases for ** patterns
+            (
+                ["agent.py", "src/agent.py", "src/serena/agent.py"],
+                "match",
+                "**agent.py",
+                None,
+                ["agent.py", "src/agent.py", "src/serena/agent.py"],
+                "Glob: **agent.py should match at root and any depth",
+            ),
+            (["file.txt", "src/file.txt"], "match", "src/**", None, ["src/file.txt"], "Glob: src/** should match everything under src/"),
+        ],
+        ids=lambda x: x if isinstance(x, str) else "",  # Use description as test ID
+    )
+    def test_search_files_glob_patterns(
+        self, file_paths, pattern, paths_include_glob, paths_exclude_glob, expected_matched_files, description
+    ):
+        """
+        Test glob patterns that were problematic with the previous gitignore-based implementation.
+        """
+        results = search_files(
+            MockFileCollection(file_paths),
+            pattern=pattern,
+            paths_include_glob=paths_include_glob,
+            paths_exclude_glob=paths_exclude_glob,
+            context_lines_before=0,
+            context_lines_after=0,
+        )
+
+        # Extract the source file paths from the results
+        actual_matched_files = sorted([result.source_file_path for result in results if result.source_file_path])
+
+        # Assert that the matched files are exactly the ones expected
+        assert actual_matched_files == sorted(expected_matched_files), (
+            f"Pattern '{paths_include_glob}' failed: expected {sorted(expected_matched_files)}, got {actual_matched_files}"
+        )
+
+        # Basic check on results structure if files were expected
+        if expected_matched_files:
+            assert len(results) == len(expected_matched_files)
+            for result in results:
+                assert len(result.matched_lines) == 1  # Mock reader returns one matching line
+                assert result.matched_lines[0].line_content == "This line contains a match."
+                assert result.matched_lines[0].match_type == LineType.MATCH
+
+    @pytest.mark.parametrize(
+        "file_paths, pattern, paths_include_glob, paths_exclude_glob, expected_matched_files, description",
+        [
+            # Brace expansion in include glob
+            (
+                ["a.py", "b.js", "c.txt"],
+                "match",
+                "*.{py,js}",
+                None,
+                ["a.py", "b.js"],
+                "Brace expansion in include glob",
+            ),
+            # Brace expansion in exclude glob
+            (
+                ["a.py", "b.log", "c.txt"],
+                "match",
+                "*.{py,log,txt}",
+                "*.{log,txt}",
+                ["a.py"],
+                "Brace expansion in exclude glob",
+            ),
+            # Brace expansion in both include and exclude
+            (
+                ["src/a.ts", "src/b.js", "test/a.ts", "test/b.js"],
+                "match",
+                "**/*.{ts,js}",
+                "test/**/*.{ts,js}",
+                ["src/a.ts", "src/b.js"],
+                "Brace expansion in both include and exclude",
+            ),
+            # No matching files with brace expansion
+            (
+                ["a.py", "b.js"],
+                "match",
+                "*.{c,h}",
+                None,
+                [],
+                "Brace expansion with no matching files",
+            ),
+            # Multiple brace expansions
+            (
+                ["src/a/a.py", "src/b/b.py", "lib/a/a.py", "lib/b/b.py"],
+                "match",
+                "{src,lib}/{a,b}/*.py",
+                "lib/b/*.py",
+                ["src/a/a.py", "src/b/b.py", "lib/a/a.py"],
+                "Multiple brace expansions in include/exclude",
+            ),
+        ],
+        ids=lambda x: x if isinstance(x, str) else "",
+    )
+    def test_search_files_with_brace_expansion(
+        self, file_paths, pattern, paths_include_glob, paths_exclude_glob, expected_matched_files, description
+    ):
+        """Test search_files with glob patterns containing brace expansions."""
+        results = search_files(
+            MockFileCollection(file_paths),
+            pattern=pattern,
+            paths_include_glob=paths_include_glob,
+            paths_exclude_glob=paths_exclude_glob,
+        )
+
+        actual_matched_files = sorted([result.source_file_path for result in results if result.source_file_path])
+        assert actual_matched_files == sorted(expected_matched_files), f"Test failed: {description}"
+
+    def test_search_files_no_pattern_match_in_content(self):
+        """Test that no results are returned if the pattern doesn't match the file content, even if files pass filters."""
+        file_paths = ["a.py", "b.txt"]
+        pattern = "non_existent_pattern_in_mock_content"  # This won't match mock_reader_always_match content
+        results = search_files(
+            MockFileCollection(file_paths),
+            pattern=pattern,
+            paths_include_glob=None,  # Both files would pass filters
+            paths_exclude_glob=None,
+        )
+        assert len(results) == 0, "Should not find matches if pattern doesn't match content"
+
+    def test_search_files_regex_pattern_with_filters(self):
+        """Test using a regex pattern works correctly along with include/exclude filters."""
+
+        def specific_mock_reader(file_path: str) -> str:
+            # Provide different content for different files to test regex matching
+            if file_path == "a.py":  # noqa: SIM116
+                return "File A: value=123\nFile A: value=456"
+            elif file_path == "b.py":
+                return "File B: value=789"
+            elif file_path == "c.txt":
+                return "File C: value=000"
+            return "No values here."
+
+        file_paths = ["a.py", "b.py", "c.txt"]
+        pattern = r"value=(\d+)"
+
+        results = search_files(
+            MockFileCollection(file_paths, specific_mock_reader),
+            pattern=pattern,
+            paths_include_glob="*.py",  # Only include .py files
+            paths_exclude_glob="b.*",  # Exclude files starting with b
+        )
+
+        # Expected: a.py included, b.py excluded by glob, c.txt excluded by glob
+        # a.py has two matches for the regex pattern
+        assert len(results) == 2, "Expected 2 matches only from a.py"
+        actual_matched_files = sorted([result.source_file_path for result in results if result.source_file_path])
+        assert actual_matched_files == ["a.py", "a.py"], "Both matches should be from a.py"
+        # Check the content of the matched lines
+        assert results[0].matched_lines[0].line_content == "File A: value=123"
+        assert results[1].matched_lines[0].line_content == "File A: value=456"
+
+    def test_search_files_context_lines_with_filters(self):
+        """Test context lines are included correctly when filters are active."""
+
+        def context_mock_reader(file_path: str) -> str:
+            if file_path == "include_me.txt":
+                return "Line before 1\nLine before 2\nMATCH HERE\nLine after 1\nLine after 2"
+            elif file_path == "exclude_me.log":
+                return "Noise\nMATCH HERE\nNoise"
+            return "No match"
+
+        file_paths = ["include_me.txt", "exclude_me.log"]
+        pattern = "MATCH HERE"
+
+        results = search_files(
+            MockFileCollection(file_paths, context_mock_reader),
+            pattern=pattern,
+            paths_include_glob="*.txt",  # Only include .txt files
+            paths_exclude_glob=None,
+            context_lines_before=1,
+            context_lines_after=1,
+        )
+
+        # Expected: Only include_me.txt should be processed and matched
+        assert len(results) == 1, "Expected only one result from the included file"
+        result = results[0]
+        assert result.source_file_path == "include_me.txt"
+        assert len(result.lines) == 3, "Expected 3 lines (1 before, 1 match, 1 after)"
+        assert result.lines[0].line_content == "Line before 2", "Incorrect 'before' context line"
+        assert result.lines[0].match_type == LineType.BEFORE_MATCH
+        assert result.lines[1].line_content == "MATCH HERE", "Incorrect 'match' line"
+        assert result.lines[1].match_type == LineType.MATCH
+        assert result.lines[2].line_content == "Line after 1", "Incorrect 'after' context line"
+        assert result.lines[2].match_type == LineType.AFTER_MATCH
+
+
+class TestGlobMatch:
+    """Test the glob_match function directly."""
+
+    @pytest.mark.parametrize(
+        "pattern, path, expected",
+        [
+            # Basic wildcard patterns
+            ("*.py", "file.py", True),
+            ("*.py", "src/file.py", False),
+            ("*.py", "file.txt", False),
+            ("*agent.py", "agent.py", True),
+            ("*agent.py", "process_isolated_agent.py", True),
+            ("*agent.py", "src/agent.py", False),
+            ("*agent.py", "agent_test.py", False),
+            ("a?b.py", "acb.py", True),
+            ("a?b.py", "a/b.py", False),
+            ("src/*.py", "src/file.py", True),
+            ("src/*.py", "src/sub/file.py", False),
+            # Double asterisk patterns
+            ("**agent.py", "agent.py", True),
+            ("**/agent.py", "agent.py", True),
+            ("**/agent.py", "src/serena/agent.py", True),
+            ("src/**/agent.py", "src/agent.py", True),
+            ("src/**/agent.py", "src/serena/foo/agent.py", True),
+            ("src/s**a/agent.py", "src/serena/agent.py", True),
+            ("src/s**a/agent.py", "src/serena/a/agent.py", True),
+            ("**agent.py", "src/agent.py", True),
+            ("**agent.py", "src/serena/agent.py", True),
+            ("**agent.py", "src/serena/process_isolated_agent.py", True),
+            ("**agent.py", "agent_test.py", False),
+            ("src/**agent.py", "src/agent.py", True),
+            ("src/**agent.py", "src/serena/agent.py", True),
+            ("src/**agent.py", "src/serena/process_isolated_agent.py", True),
+            ("src/**agent.py", "other/agent.py", False),
+            ("src/**agent.py", "src/agent_test.py", False),
+            ("src/**", "src/file.py", True),
+            ("src/**", "src/dir/file.py", True),
+            ("src/**", "other/file.py", False),
+            # Exact matches with double asterisk
+            ("src/**/test.py", "src/test.py", True),
+            ("src/**/test.py", "src/a/b/test.py", True),
+            ("src/**/test.py", "src/test_file.py", False),
+            # Simple patterns without asterisks
+            ("src/file.py", "src/file.py", True),
+            ("src/file.py", "src/other.py", False),
+            # Patterns with backslash
+            ("src\\file.py", "src/file.py", True),
+            ("src\\file.py", "src\\file.py", True),
+            ("src\\file.py", "src/other.py", False),
+            # Patterns with []
+            ("file[0-9].py", "file1.py", True),
+            ("file[0-9].py", "filea.py", False),
+            ("file[!0-9].py", "filea.py", True),
+            ("file[!0-9].py", "file1.py", False),
+        ],
+    )
+    def test_glob_match(self, pattern, path, expected):
+        """Test glob_match function with various patterns."""
+        assert GlobMatcher(pattern).matches(path) == expected
+
+
+class TestExpandBraces:
+    """Test the expand_braces function."""
+
+    @pytest.mark.parametrize(
+        "pattern, expected",
+        [
+            # Basic case
+            ("src/*.{js,ts}", ["src/*.js", "src/*.ts"]),
+            # No braces
+            ("src/*.py", ["src/*.py"]),
+            # Multiple brace sets
+            ("src/{a,b}/{c,d}.py", ["src/a/c.py", "src/a/d.py", "src/b/c.py", "src/b/d.py"]),
+            # Empty string
+            ("", [""]),
+            # Braces with empty elements
+            ("src/{a,,b}.py", ["src/a.py", "src/.py", "src/b.py"]),
+            # No commas
+            ("src/{a}.py", ["src/a.py"]),
+        ],
+    )
+    def test_expand_braces(self, pattern, expected):
+        """Test brace expansion for glob patterns."""
+        assert sorted(GlobMatcher._expand_braces(pattern)) == sorted(expected)
+
+    @pytest.mark.parametrize(
+        "pattern",
+        [
+            "src/{}.py",
+            "src/{utils,models",
+            "src/utils,models}.py",
+        ],
+    )
+    def test_expand_braces_rejects_malformed_braces(self, pattern):
+        """Malformed brace globs should fail instead of looping forever."""
+        with pytest.raises(ValueError, match="Invalid glob brace expression"):
+            GlobMatcher._expand_braces(pattern)
+
+
+class TestMultiFileContentReplacer:
+    FILES = [
+        ("a/first.py", "import old_pkg\n\nvalue = old_pkg.compute()\n"),
+        ("b/second.py", "import old_pkg\nother = 1\n"),
+    ]
+
+    def test_find_occurrences_order_ids_and_lines(self):
+        replacer = MultiFileContentReplacer(mode="literal")
+        occurrences = replacer.find_occurrences(self.FILES, "old_pkg", "new_pkg")
+        assert [o.relative_path for o in occurrences] == ["a/first.py", "a/first.py", "b/second.py"]
+        assert [o.index_in_file for o in occurrences] == [0, 1, 0]
+        assert [o.start_line for o in occurrences] == [0, 2, 0]
+        for o in occurrences:
+            assert o.matched_text == "old_pkg"
+            assert o.replacement == "new_pkg"
+            assert MultiFileContentReplacer.OCCURRENCE_ID_REGEX.match(o.occurrence_id)
+        # ids are content-anchored: same matched text at the same index yields the same id across calls
+        again = replacer.find_occurrences(self.FILES, "old_pkg", "new_pkg")
+        assert [o.occurrence_id for o in again] == [o.occurrence_id for o in occurrences]
+
+    def test_regex_backreference_expansion(self):
+        replacer = MultiFileContentReplacer(mode="regex")
+        files = [("f.txt", "name=alpha\nname=beta\n")]
+        occurrences = replacer.find_occurrences(files, r"name=(\w+)", "id=$!1")
+        assert [o.replacement for o in occurrences] == ["id=alpha", "id=beta"]
+
+    def test_apply_to_content_selected_subset(self):
+        replacer = MultiFileContentReplacer(mode="literal")
+        path, content = self.FILES[0]
+        occurrences = [o for o in replacer.find_occurrences(self.FILES, "old_pkg", "new_pkg") if o.relative_path == path]
+        updated = replacer.apply_to_content(content, occurrences[1:])  # only the second occurrence
+        assert updated == "import old_pkg\n\nvalue = new_pkg.compute()\n"
+        updated_all = replacer.apply_to_content(content, occurrences)
+        assert updated_all == "import new_pkg\n\nvalue = new_pkg.compute()\n"
+
+    def test_ambiguous_multiline_match_is_flagged(self):
+        replacer = MultiFileContentReplacer(mode="regex")
+        files = [("f.txt", "start A\nstart B\nend\n")]
+        occurrences = replacer.find_occurrences(files, r"start.*?end", "X")
+        assert len(occurrences) == 1
+        assert occurrences[0].is_ambiguous
+
+    def test_render_occurrence_diff_minimal_lines(self):
+        replacer = MultiFileContentReplacer(mode="literal")
+        path, content = self.FILES[0]
+        occ = replacer.find_occurrences([(path, content)], "old_pkg.compute()", "new_pkg.compute_all()")[0]
+        diff = replacer.render_occurrence_diff(occ, content)
+        assert occ.occurrence_id in diff
+        assert "line 2" in diff
+        assert "    - value = old_pkg.compute()" in diff
+        assert "    + value = new_pkg.compute_all()" in diff
+        # only the affected line is shown, not the whole file
+        assert "import old_pkg" not in diff
+
+    def test_apply_to_content_rejects_drifted_occurrence(self):
+        replacer = MultiFileContentReplacer(mode="literal")
+        path, content = self.FILES[0]
+        occ = replacer.find_occurrences([(path, content)], "old_pkg", "new_pkg")[0]
+        with pytest.raises(AssertionError):
+            replacer.apply_to_content("completely different content", [occ])

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import os
+import subprocess
 from pathlib import Path
 from typing import Any
 
@@ -331,12 +332,33 @@ def _candidate_bundles() -> list[Path]:
         values.append(Path(explicit).expanduser())
     root = os.getenv("WEBGPT_CODEX_PLAYWRIGHT_MCP_ROOT")
     if root:
-        values.append(
-            Path(root).expanduser()
-            / "node_modules"
-            / "playwright-core"
-            / "lib"
-            / "coreBundle.js"
+        root_path = Path(root).expanduser()
+        values.extend(
+            (
+                root_path / "node_modules" / "playwright-core" / "lib" / "coreBundle.js",
+                root_path
+                / "node_modules"
+                / "@playwright"
+                / "mcp"
+                / "node_modules"
+                / "playwright-core"
+                / "lib"
+                / "coreBundle.js",
+            )
+        )
+    global_node_modules = _npm_global_node_modules()
+    if global_node_modules is not None:
+        values.extend(
+            (
+                global_node_modules / "playwright-core" / "lib" / "coreBundle.js",
+                global_node_modules
+                / "@playwright"
+                / "mcp"
+                / "node_modules"
+                / "playwright-core"
+                / "lib"
+                / "coreBundle.js",
+            )
         )
     values.append(
         Path("D:/AgentData/10_Workspaces/coding-tools-mcp-demo")
@@ -355,6 +377,31 @@ def _candidate_bundles() -> list[Path]:
             seen.add(key)
             deduped.append(candidate)
     return deduped
+
+
+def _npm_global_node_modules() -> Path | None:
+    try:
+        from .lifecycle import _find_command
+
+        npm = _find_command("npm")
+        if not npm:
+            return None
+        result = subprocess.run(
+            [npm, "root", "-g"],
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+            timeout=10,
+            check=False,
+            shell=False,
+        )
+    except (OSError, subprocess.SubprocessError):
+        return None
+    if result.returncode != 0:
+        return None
+    value = next((line.strip() for line in result.stdout.splitlines() if line.strip()), "")
+    return Path(value).expanduser() if value else None
 
 
 def locate_playwright_core_bundle() -> Path | None:

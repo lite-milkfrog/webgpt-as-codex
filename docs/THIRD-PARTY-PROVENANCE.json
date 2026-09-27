@@ -1,10 +1,11 @@
 {
   "schema_version": 1,
-  "generated_for": "STAGE-18-CHINESE-MIRROR-AND-THIRD-PARTY-NOTICES",
+  "generated_for": "WAC-COMPLETE-PUBLISH-20260927",
   "authority": {
     "components": "components/*.json",
     "python_dependencies": "pyproject.toml",
-    "note": "License/provenance labels are metadata references; upstream release license text controls redistribution obligations."
+    "note": "License/provenance labels are metadata references; each redistributed derivative retains its upstream license/NOTICE and exact modification evidence.",
+    "vendored_derivatives": "vendor/*/WAC_MODIFICATIONS.md"
   },
   "components": [
     {
@@ -33,21 +34,50 @@
       "source": "components/serena.json",
       "upstream": "https://github.com/oraios/serena",
       "license_field": "license_note",
-      "license": "v1.7.0 historical release; upstream main application GPL-3.0-or-later, SolidLSP MIT"
+      "license": "WebGPT derivative is based on complete Serena v1.7.0, the last MIT-licensed application release; upstream v2+ application code is GPL-3.0-or-later",
+      "upstream_ref": "v1.7.0",
+      "upstream_commit": "949a27ef1e5fda1a6e7b561e777bcece345c6ffd",
+      "distribution": "complete-derivative-source",
+      "vendor_path": "vendor/serena-agent",
+      "derivative_diff": "vendor/serena-agent/WAC_UPSTREAM_DIFF.patch",
+      "modification_notes": "vendor/serena-agent/WAC_MODIFICATIONS.md",
+      "bundled_derivative": true,
+      "bundled_source": "vendor/serena-agent",
+      "redistribution": "complete v1.7.0 source plus WAC implementation fallback and exact diff evidence",
+      "license_summary": "Complete vendored derivative is based on Serena v1.7.0, the last MIT-licensed application release."
     },
     {
       "id": "coding-tools",
       "source": "components/coding-tools.json",
       "upstream": "https://github.com/xyTom/coding-tools-mcp",
       "license_field": "license",
-      "license": "Apache-2.0"
+      "license": "Apache-2.0",
+      "upstream_base": "bedb632e1afd2e9ec9b268a50fe0b04695c22c64",
+      "distribution": "complete-derivative-source",
+      "vendor_path": "vendor/coding-tools-mcp",
+      "derivative_diff": "vendor/coding-tools-mcp/WAC_UPSTREAM_DIFF.patch",
+      "modification_notes": "vendor/coding-tools-mcp/WAC_MODIFICATIONS.md",
+      "notice": "vendor/coding-tools-mcp/NOTICE",
+      "bundled_derivative": true,
+      "bundled_source": "vendor/coding-tools-mcp",
+      "redistribution": "complete tracked upstream source plus WAC modifications; LICENSE/NOTICE and exact diff evidence retained"
     },
     {
       "id": "playwright",
       "source": "components/playwright.json",
       "upstream": "https://github.com/microsoft/playwright-mcp",
       "license_field": "license",
-      "license": "Apache-2.0"
+      "license": "Apache-2.0",
+      "distribution": "complete-source-plus-wac-overlay",
+      "overlay": "src/webgpt_as_codex/playwright_hotfix.py",
+      "bundled_derivative": true,
+      "bundled_source": "vendor/playwright-mcp",
+      "upstream_ref": "v0.0.81",
+      "upstream_commit": "e73d72e01f162054a3d0a6b0fe8d4affffb095ee",
+      "playwright_core_source": "vendor/playwright",
+      "playwright_core_version": "1.64.0-alpha-2026-09-14",
+      "playwright_core_commit": "d1ead3ecca23182f2d06d761c28e3d4edafb6595",
+      "redistribution": "complete MCP/Core source baselines; WAC deterministic runtime hotfix plus exact bundle diff evidence"
     },
     {
       "id": "windows-mcp",

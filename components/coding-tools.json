@@ -15,13 +15,17 @@
   "process_contains": [
     "coding-tools-mcp"
   ],
-  "install_hint": "uv tool install coding-tools-mcp",
+  "install_hint": "webgpt-codex deploy --apply --component coding-tools",
+  "bundled_source": "vendor/coding-tools-mcp",
+  "bundled_derivative": true,
   "install": {
-    "strategy": "uv-tool",
+    "strategy": "bundled-uv-tool",
     "package": "coding-tools-mcp",
     "latest": {
-      "source": "pypi",
-      "package": "coding-tools-mcp"
+      "source": "bundled",
+      "version": "0.3.0",
+      "path": "vendor/coding-tools-mcp",
+      "upstream_base": "bedb632e1afd2e9ec9b268a50fe0b04695c22c64"
     },
     "requirements": [
       "uv"

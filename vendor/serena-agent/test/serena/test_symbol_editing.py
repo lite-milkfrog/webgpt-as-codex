@@ -1,0 +1,740 @@
+"""
+Snapshot tests using the (awesome) syrupy pytest plugin https://github.com/syrupy-project/syrupy.
+Recreate the snapshots with `pytest --snapshot-update`.
+"""
+
+import logging
+import os
+import shutil
+import sys
+import tempfile
+import time
+from abc import ABC, abstractmethod
+from collections.abc import Iterator
+from contextlib import contextmanager
+from dataclasses import dataclass, field
+from difflib import SequenceMatcher
+from pathlib import Path
+from typing import Literal, NamedTuple
+
+import pytest
+from overrides import overrides
+from syrupy import SnapshotAssertion
+
+from serena.code_editor import CodeEditor, LanguageServerCodeEditor
+from solidlsp.ls_config import LanguageServerId
+from src.serena.symbol import LanguageServerSymbolRetriever
+from test.conftest import get_repo_path, language_server_tests_enabled, project_with_ls_context
+
+pytestmark = pytest.mark.snapshot
+
+log = logging.getLogger(__name__)
+
+
+class LineChange(NamedTuple):
+    """Represents a change to a specific line or range of lines."""
+
+    operation: Literal["insert", "delete", "replace"]
+    original_start: int
+    original_end: int
+    modified_start: int
+    modified_end: int
+    original_lines: list[str]
+    modified_lines: list[str]
+
+
+@dataclass
+class CodeDiff:
+    """
+    Represents the difference between original and modified code.
+    Provides object-oriented access to diff information including line numbers.
+    """
+
+    relative_path: str
+    original_content: str
+    modified_content: str
+    _line_changes: list[LineChange] = field(init=False)
+
+    def __post_init__(self) -> None:
+        """Compute the diff using difflib's SequenceMatcher."""
+        original_lines = self.original_content.splitlines(keepends=True)
+        modified_lines = self.modified_content.splitlines(keepends=True)
+
+        matcher = SequenceMatcher(None, original_lines, modified_lines)
+        self._line_changes = []
+
+        for tag, orig_start, orig_end, mod_start, mod_end in matcher.get_opcodes():
+            if tag == "equal":
+                continue
+            if tag == "insert":
+                self._line_changes.append(
+                    LineChange(
+                        operation="insert",
+                        original_start=orig_start,
+                        original_end=orig_start,
+                        modified_start=mod_start,
+                        modified_end=mod_end,
+                        original_lines=[],
+                        modified_lines=modified_lines[mod_start:mod_end],
+                    )
+                )
+            elif tag == "delete":
+                self._line_changes.append(
+                    LineChange(
+                        operation="delete",
+                        original_start=orig_start,
+                        original_end=orig_end,
+                        modified_start=mod_start,
+                        modified_end=mod_start,
+                        original_lines=original_lines[orig_start:orig_end],
+                        modified_lines=[],
+                    )
+                )
+            elif tag == "replace":
+                self._line_changes.append(
+                    LineChange(
+                        operation="replace",
+                        original_start=orig_start,
+                        original_end=orig_end,
+                        modified_start=mod_start,
+                        modified_end=mod_end,
+                        original_lines=original_lines[orig_start:orig_end],
+                        modified_lines=modified_lines[mod_start:mod_end],
+                    )
+                )
+
+    @property
+    def line_changes(self) -> list[LineChange]:
+        """Get all line changes in the diff."""
+        return self._line_changes
+
+    @property
+    def has_changes(self) -> bool:
+        """Check if there are any changes."""
+        return len(self._line_changes) > 0
+
+    @property
+    def added_lines(self) -> list[tuple[int, str]]:
+        """Get all added lines with their line numbers (0-based) in the modified file."""
+        result = []
+        for change in self._line_changes:
+            if change.operation in ("insert", "replace"):
+                for i, line in enumerate(change.modified_lines):
+                    result.append((change.modified_start + i, line))
+        return result
+
+    @property
+    def deleted_lines(self) -> list[tuple[int, str]]:
+        """Get all deleted lines with their line numbers (0-based) in the original file."""
+        result = []
+        for change in self._line_changes:
+            if change.operation in ("delete", "replace"):
+                for i, line in enumerate(change.original_lines):
+                    result.append((change.original_start + i, line))
+        return result
+
+    @property
+    def modified_line_numbers(self) -> list[int]:
+        """Get all line numbers (0-based) that were modified in the modified file."""
+        line_nums: set[int] = set()
+        for change in self._line_changes:
+            if change.operation in ("insert", "replace"):
+                line_nums.update(range(change.modified_start, change.modified_end))
+        return sorted(line_nums)
+
+    @property
+    def affected_original_line_numbers(self) -> list[int]:
+        """Get all line numbers (0-based) that were affected in the original file."""
+        line_nums: set[int] = set()
+        for change in self._line_changes:
+            if change.operation in ("delete", "replace"):
+                line_nums.update(range(change.original_start, change.original_end))
+        return sorted(line_nums)
+
+    def get_unified_diff(self, context_lines: int = 3) -> str:
+        """Get the unified diff as a string."""
+        import difflib
+
+        original_lines = self.original_content.splitlines(keepends=True)
+        modified_lines = self.modified_content.splitlines(keepends=True)
+
+        diff = difflib.unified_diff(
+            original_lines, modified_lines, fromfile=f"a/{self.relative_path}", tofile=f"b/{self.relative_path}", n=context_lines
+        )
+        return "".join(diff)
+
+    def get_context_diff(self, context_lines: int = 3) -> str:
+        """Get the context diff as a string."""
+        import difflib
+
+        original_lines = self.original_content.splitlines(keepends=True)
+        modified_lines = self.modified_content.splitlines(keepends=True)
+
+        diff = difflib.context_diff(
+            original_lines, modified_lines, fromfile=f"a/{self.relative_path}", tofile=f"b/{self.relative_path}", n=context_lines
+        )
+        return "".join(diff)
+
+
+class EditingTest(ABC):
+    def __init__(self, ls_id: LanguageServerId, rel_path: str):
+        """
+        :param ls_id: the language server to use
+        :param rel_path: the relative path of the edited file
+        """
+        self.rel_path = rel_path
+        self.ls_id = ls_id
+        self.original_repo_path = get_repo_path(ls_id)
+        self.repo_path: Path | None = None
+
+    @contextmanager
+    def _setup(self) -> Iterator[LanguageServerSymbolRetriever]:
+        """Context manager for setup/teardown with a temporary directory, providing the symbol manager."""
+        temp_dir = Path(tempfile.mkdtemp())
+        self.repo_path = temp_dir / self.original_repo_path.name
+        try:
+            print(f"Copying repo from {self.original_repo_path} to {self.repo_path}")
+            shutil.copytree(self.original_repo_path, self.repo_path)
+            # prevent deadlock on Windows due to file locks caused by antivirus or some other external software
+            # wait for a long time here
+            if os.name == "nt":
+                time.sleep(0.1)
+            log.info(f"Creating language server for {self.ls_id} {self.rel_path}")
+            with project_with_ls_context(self.ls_id, str(self.repo_path)) as project:
+                yield LanguageServerSymbolRetriever(project)
+        finally:
+            # prevent deadlock on Windows due to lingering file locks
+            if os.name == "nt":
+                time.sleep(0.1)
+            log.info(f"Removing temp directory {temp_dir}")
+            shutil.rmtree(temp_dir, ignore_errors=True)
+            log.info(f"Temp directory {temp_dir} removed")
+
+    def _read_file(self, rel_path: str) -> str:
+        """Read the content of a file in the test repository."""
+        assert self.repo_path is not None
+        file_path = self.repo_path / rel_path
+        with open(file_path, encoding="utf-8") as f:
+            return f.read()
+
+    def run_test(self, content_after_ground_truth: SnapshotAssertion | None) -> None:
+        with self._setup() as symbol_retriever:
+            content_before = self._read_file(self.rel_path)
+            code_editor = LanguageServerCodeEditor(symbol_retriever)
+            self._apply_edit(code_editor)
+            content_after = self._read_file(self.rel_path)
+            code_diff = CodeDiff(self.rel_path, original_content=content_before, modified_content=content_after)
+            self._test_diff(code_diff, content_after_ground_truth)
+
+    @abstractmethod
+    def _apply_edit(self, code_editor: CodeEditor) -> None:
+        pass
+
+    def _test_diff(self, code_diff: CodeDiff, snapshot: SnapshotAssertion | None) -> None:
+        assert code_diff.has_changes, f"Sanity check failed: No changes detected in {code_diff.relative_path}"
+        if snapshot is not None:
+            assert code_diff.modified_content == snapshot
+
+
+# Python test file path
+PYTHON_TEST_REL_FILE_PATH = os.path.join("test_repo", "variables.py")
+
+# TypeScript test file path
+TYPESCRIPT_TEST_FILE = "index.ts"
+
+
+class DeleteSymbolTest(EditingTest):
+    def __init__(self, ls_id: LanguageServerId, rel_path: str, deleted_symbol: str):
+        super().__init__(ls_id, rel_path)
+        self.deleted_symbol = deleted_symbol
+        self.rel_path = rel_path
+
+    def _apply_edit(self, code_editor: CodeEditor) -> None:
+        code_editor.delete_symbol(self.deleted_symbol, self.rel_path)
+
+
+@pytest.mark.parametrize(
+    "test_case",
+    [
+        pytest.param(
+            DeleteSymbolTest(
+                LanguageServerId.PYTHON,
+                PYTHON_TEST_REL_FILE_PATH,
+                "VariableContainer",
+            ),
+            marks=pytest.mark.python,
+        ),
+        pytest.param(
+            DeleteSymbolTest(
+                LanguageServerId.TYPESCRIPT,
+                TYPESCRIPT_TEST_FILE,
+                "DemoClass",
+            ),
+            marks=pytest.mark.typescript,
+        ),
+    ],
+)
+def test_delete_symbol(test_case, snapshot: SnapshotAssertion):
+    test_case.run_test(content_after_ground_truth=snapshot)
+
+
+NEW_PYTHON_FUNCTION = """def new_inserted_function():
+    print("This is a new function inserted before another.")"""
+
+NEW_PYTHON_CLASS_WITH_LEADING_NEWLINES = """
+
+class NewInsertedClass:
+    pass
+"""
+
+NEW_PYTHON_CLASS_WITH_TRAILING_NEWLINES = """class NewInsertedClass:
+    pass
+
+
+"""
+
+NEW_TYPESCRIPT_FUNCTION = """function newInsertedFunction(): void {
+    console.log("This is a new function inserted before another.");
+}"""
+
+
+NEW_PYTHON_VARIABLE = 'new_module_var = "Inserted after typed_module_var"'
+
+NEW_TYPESCRIPT_FUNCTION_AFTER = """function newFunctionAfterClass(): void {
+    console.log("This function is after DemoClass.");
+}"""
+
+
+class InsertInRelToSymbolTest(EditingTest):
+    def __init__(
+        self, ls_id: LanguageServerId, rel_path: str, symbol_name: str, new_content: str, mode: Literal["before", "after"] | None = None
+    ):
+        super().__init__(ls_id, rel_path)
+        self.symbol_name = symbol_name
+        self.new_content = new_content
+        self.mode: Literal["before", "after"] | None = mode
+
+    def set_mode(self, mode: Literal["before", "after"]):
+        self.mode = mode
+
+    def _apply_edit(self, code_editor: CodeEditor) -> None:
+        assert self.mode is not None
+        if self.mode == "before":
+            code_editor.insert_before_symbol(self.symbol_name, self.rel_path, self.new_content)
+        elif self.mode == "after":
+            code_editor.insert_after_symbol(self.symbol_name, self.rel_path, self.new_content)
+
+
+@pytest.mark.parametrize("mode", ["before", "after"])
+@pytest.mark.parametrize(
+    "test_case",
+    [
+        pytest.param(
+            InsertInRelToSymbolTest(
+                LanguageServerId.PYTHON,
+                PYTHON_TEST_REL_FILE_PATH,
+                "use_module_variables",
+                NEW_PYTHON_FUNCTION,
+            ),
+            marks=pytest.mark.python,
+        ),
+        pytest.param(
+            InsertInRelToSymbolTest(
+                LanguageServerId.TYPESCRIPT,
+                TYPESCRIPT_TEST_FILE,
+                "DemoClass",
+                NEW_TYPESCRIPT_FUNCTION_AFTER,
+            ),
+            marks=pytest.mark.typescript,
+        ),
+        pytest.param(
+            InsertInRelToSymbolTest(
+                LanguageServerId.TYPESCRIPT,
+                TYPESCRIPT_TEST_FILE,
+                "helperFunction",
+                NEW_TYPESCRIPT_FUNCTION,
+            ),
+            marks=pytest.mark.typescript,
+        ),
+    ],
+)
+def test_insert_in_rel_to_symbol(test_case: InsertInRelToSymbolTest, mode: Literal["before", "after"], snapshot: SnapshotAssertion):
+    test_case.set_mode(mode)
+    test_case.run_test(content_after_ground_truth=snapshot)
+
+
+@pytest.mark.python
+def test_insert_python_class_before(snapshot: SnapshotAssertion):
+    InsertInRelToSymbolTest(
+        LanguageServerId.PYTHON,
+        PYTHON_TEST_REL_FILE_PATH,
+        "VariableDataclass",
+        NEW_PYTHON_CLASS_WITH_TRAILING_NEWLINES,
+        mode="before",
+    ).run_test(snapshot)
+
+
+@pytest.mark.python
+def test_insert_python_class_after(snapshot: SnapshotAssertion):
+    InsertInRelToSymbolTest(
+        LanguageServerId.PYTHON,
+        PYTHON_TEST_REL_FILE_PATH,
+        "VariableDataclass",
+        NEW_PYTHON_CLASS_WITH_LEADING_NEWLINES,
+        mode="after",
+    ).run_test(snapshot)
+
+
+PYTHON_REPLACED_BODY = """def modify_instance_var(self):
+        # This body has been replaced
+        self.instance_var = "Replaced!"
+        self.reassignable_instance_var = 999
+"""
+
+TYPESCRIPT_REPLACED_BODY = """function printValue() {
+        // This body has been replaced
+        console.warn("New value: " + this.value);
+    }
+"""
+
+
+class ReplaceBodyTest(EditingTest):
+    def __init__(self, ls_id: LanguageServerId, rel_path: str, symbol_name: str, new_body: str):
+        super().__init__(ls_id, rel_path)
+        self.symbol_name = symbol_name
+        self.new_body = new_body
+
+    def _apply_edit(self, code_editor: CodeEditor) -> None:
+        code_editor.replace_body(self.symbol_name, self.rel_path, self.new_body)
+
+
+@pytest.mark.parametrize(
+    "test_case",
+    [
+        pytest.param(
+            ReplaceBodyTest(
+                LanguageServerId.PYTHON,
+                PYTHON_TEST_REL_FILE_PATH,
+                "VariableContainer/modify_instance_var",
+                PYTHON_REPLACED_BODY,
+            ),
+            marks=pytest.mark.python,
+        ),
+        pytest.param(
+            ReplaceBodyTest(
+                LanguageServerId.TYPESCRIPT,
+                TYPESCRIPT_TEST_FILE,
+                "DemoClass/printValue",
+                TYPESCRIPT_REPLACED_BODY,
+            ),
+            marks=pytest.mark.typescript,
+        ),
+    ],
+)
+def test_replace_body(test_case: ReplaceBodyTest, snapshot: SnapshotAssertion):
+    # assert "a" in snapshot
+    test_case.run_test(content_after_ground_truth=snapshot)
+
+
+NIX_ATTR_REPLACEMENT = """c = 3;"""
+
+
+class NixAttrReplacementTest(EditingTest):
+    """Test for replacing individual attributes in Nix that should NOT result in double semicolons."""
+
+    def __init__(self, ls_id: LanguageServerId, rel_path: str, symbol_name: str, new_body: str):
+        super().__init__(ls_id, rel_path)
+        self.symbol_name = symbol_name
+        self.new_body = new_body
+
+    def _apply_edit(self, code_editor: CodeEditor) -> None:
+        code_editor.replace_body(self.symbol_name, self.rel_path, self.new_body)
+
+
+@pytest.mark.nix
+@pytest.mark.skipif(not language_server_tests_enabled(LanguageServerId.NIX), reason="Nix tests are disabled (nixd not available)")
+def test_nix_symbol_replacement_no_double_semicolon(snapshot: SnapshotAssertion):
+    """
+    Test that replacing a Nix attribute does not result in double semicolons.
+
+    This test exercises the bug where:
+    - Original: users.users.example = { isSystemUser = true; group = "example"; description = "Example service user"; };
+    - Replacement: c = 3;
+    - Bug result would be: c = 3;; (double semicolon)
+    - Correct result should be: c = 3; (single semicolon)
+
+    The replacement body includes a semicolon, but the language server's range extension
+    logic should prevent double semicolons.
+    """
+    test_case = NixAttrReplacementTest(
+        LanguageServerId.NIX,
+        "default.nix",
+        "testUser",  # Simple attrset with multiple key-value pairs
+        NIX_ATTR_REPLACEMENT,
+    )
+    test_case.run_test(content_after_ground_truth=snapshot)
+
+
+# A single `type` declaration body that re-supplies the leading `type` keyword, as a user would
+# after copying the body returned by find_symbol. Replacing the body with this must not duplicate
+# the keyword.
+GO_DECL_REPLACEMENT = """type NamedInt int64"""
+
+
+class GoDeclReplacementTest(EditingTest):
+    """Test for replacing a single Go ``type``/``var``/``const`` declaration that should NOT result
+    in a duplicated leading keyword (e.g. ``type type NamedInt``).
+    """
+
+    def __init__(self, ls_id: LanguageServerId, rel_path: str, symbol_name: str, new_body: str):
+        super().__init__(ls_id, rel_path)
+        self.symbol_name = symbol_name
+        self.new_body = new_body
+
+    def _apply_edit(self, code_editor: CodeEditor) -> None:
+        code_editor.replace_body(self.symbol_name, self.rel_path, self.new_body)
+
+    @overrides
+    def _test_diff(self, code_diff: CodeDiff, snapshot: SnapshotAssertion | None) -> None:
+        # the leading declaration keyword must appear exactly once (no `type type` corruption)
+        for keyword in ("type", "var", "const"):
+            assert f"{keyword} {keyword} " not in code_diff.modified_content, (
+                f"Replacement duplicated the '{keyword}' keyword: {code_diff.modified_content!r}"
+            )
+        return super()._test_diff(code_diff, snapshot)
+
+
+@pytest.mark.go
+@pytest.mark.skipif(sys.platform == "win32", reason="gopls is not provisioned on the Windows CI runner")
+def test_go_symbol_replacement_no_double_keyword(snapshot: SnapshotAssertion):
+    """
+    Test that replacing a Go ``type``/``var``/``const`` declaration does not duplicate the leading
+    keyword.
+
+    This exercises the bug where:
+    - Original: type NamedInt int
+    - Replacement body (as displayed by find_symbol): type NamedInt int64
+    - Bug result would be: type type NamedInt int64 (the original `type ` prefix is kept because the
+      gopls symbol range starts at the identifier, and the supplied body adds another `type`)
+    - Correct result should be: type NamedInt int64
+
+    gopls reports the symbol range of such declarations starting at the identifier (after the
+    keyword), unlike ``func`` declarations whose range includes the ``func`` keyword. The gopls
+    range extension prevents the duplicated keyword.
+    """
+    test_case = GoDeclReplacementTest(
+        LanguageServerId.GO,
+        "symbol_body.go",
+        "NamedInt",
+        GO_DECL_REPLACEMENT,
+    )
+    test_case.run_test(content_after_ground_truth=snapshot)
+
+
+class RenameSymbolTest(EditingTest):
+    def __init__(self, ls_id: LanguageServerId, rel_path: str, symbol_name: str, new_name: str):
+        super().__init__(ls_id, rel_path)
+        self.symbol_name = symbol_name
+        self.new_name = new_name
+
+    def _apply_edit(self, code_editor: CodeEditor) -> None:
+        code_editor.rename_symbol(self.symbol_name, self.rel_path, self.new_name)
+
+    @overrides
+    def _test_diff(self, code_diff: CodeDiff, snapshot: SnapshotAssertion | None) -> None:
+        # sanity check (e.g., for newly generated snapshots) that the new name is actually in the modified content
+        assert self.new_name in code_diff.modified_content, f"New name '{self.new_name}' not found in modified content."
+        return super()._test_diff(code_diff, snapshot)
+
+
+@pytest.mark.python
+def test_rename_symbol(snapshot: SnapshotAssertion):
+    test_case = RenameSymbolTest(
+        LanguageServerId.PYTHON,
+        PYTHON_TEST_REL_FILE_PATH,
+        "typed_module_var",
+        "renamed_typed_module_var",
+    )
+    test_case.run_test(content_after_ground_truth=snapshot)
+
+
+class InsertAndDeleteSymbolTest(EditingTest):
+    """
+    Inserts a symbol after another symbol and then deletes the inserted symbol, which should result
+    in no change to the file content.
+    """
+
+    def __init__(self, ls_id: LanguageServerId, rel_path: str, rel_symbol: str, deleted_symbol: str, insertion: str):
+        """
+        :param ls_id: specifies the language server to use
+        :param rel_path: relative path of the file
+        :param rel_symbol: symbol after which the insertion is made
+        :param deleted_symbol: the symbol to be deleted after the insertion
+        :param insertion: text which inserts the symbol `deleted_symbol`
+        """
+        super().__init__(ls_id, rel_path)
+        self.rel_symbol = rel_symbol
+        self.deleted_symbol = deleted_symbol
+        self.rel_path = rel_path
+        self.insertion = insertion
+
+    def _apply_edit(self, code_editor: CodeEditor) -> None:
+        code_editor.insert_after_symbol(self.rel_symbol, self.rel_path, self.insertion)
+        code_editor.delete_symbol(self.deleted_symbol, self.rel_path)
+
+    def _test_diff(self, code_diff: CodeDiff, snapshot: SnapshotAssertion | None) -> None:
+        assert not code_diff.has_changes
+
+
+def test_insert_and_delete_no_change():
+    """
+    Tests that inserting and immediately deleting a symbol results in no change to the file content.
+    """
+    insertion = "    def inserted_function():\n        pass"
+    test_case = InsertAndDeleteSymbolTest(
+        LanguageServerId.PYTHON,
+        PYTHON_TEST_REL_FILE_PATH,
+        "VariableContainer/modify_instance_var",
+        "VariableContainer/inserted_function",
+        insertion,
+    )
+    test_case.run_test(None)
+
+
+# ===== VUE WRITE OPERATIONS TESTS =====
+
+VUE_TEST_FILE = os.path.join("src", "components", "CalculatorButton.vue")
+VUE_STORE_FILE = os.path.join("src", "stores", "calculator.ts")
+
+NEW_VUE_HANDLER = """const handleDoubleClick = () => {
+    pressCount.value++;
+    emit('click', props.label);
+}"""
+
+
+@pytest.mark.parametrize(
+    "test_case",
+    [
+        pytest.param(
+            DeleteSymbolTest(
+                LanguageServerId.VUE,
+                VUE_TEST_FILE,
+                "handleMouseEnter",
+            ),
+            marks=pytest.mark.vue,
+        ),
+    ],
+)
+def test_delete_symbol_vue(test_case: DeleteSymbolTest, snapshot: SnapshotAssertion) -> None:
+    test_case.run_test(content_after_ground_truth=snapshot)
+
+
+@pytest.mark.parametrize("mode", ["before", "after"])
+@pytest.mark.parametrize(
+    "test_case",
+    [
+        pytest.param(
+            InsertInRelToSymbolTest(
+                LanguageServerId.VUE,
+                VUE_TEST_FILE,
+                "handleClick",
+                NEW_VUE_HANDLER,
+            ),
+            marks=pytest.mark.vue,
+        ),
+    ],
+)
+def test_insert_in_rel_to_symbol_vue(
+    test_case: InsertInRelToSymbolTest,
+    mode: Literal["before", "after"],
+    snapshot: SnapshotAssertion,
+) -> None:
+    test_case.set_mode(mode)
+    test_case.run_test(content_after_ground_truth=snapshot)
+
+
+VUE_REPLACED_HANDLECLICK_BODY = """const handleClick = () => {
+    if (!props.disabled) {
+        pressCount.value = 0;  // Reset instead of incrementing
+        emit('click', props.label);
+    }
+}"""
+
+
+@pytest.mark.parametrize(
+    "test_case",
+    [
+        pytest.param(
+            ReplaceBodyTest(
+                LanguageServerId.VUE,
+                VUE_TEST_FILE,
+                "handleClick",
+                VUE_REPLACED_HANDLECLICK_BODY,
+            ),
+            marks=pytest.mark.vue,
+        ),
+    ],
+)
+def test_replace_body_vue(test_case: ReplaceBodyTest, snapshot: SnapshotAssertion) -> None:
+    test_case.run_test(content_after_ground_truth=snapshot)
+
+
+VUE_REPLACED_PRESSCOUNT_BODY = """const pressCount = ref(100)"""
+
+
+@pytest.mark.parametrize(
+    "test_case",
+    [
+        pytest.param(
+            ReplaceBodyTest(
+                LanguageServerId.VUE,
+                VUE_TEST_FILE,
+                "pressCount",
+                VUE_REPLACED_PRESSCOUNT_BODY,
+            ),
+            marks=pytest.mark.vue,
+        ),
+    ],
+)
+def test_replace_body_vue_with_disambiguation(test_case: ReplaceBodyTest, snapshot: SnapshotAssertion) -> None:
+    """Test symbol disambiguation when replacing body in Vue files.
+
+    This test verifies the fix for the Vue LSP symbol duplication issue.
+    When the LSP returns two symbols with the same name (e.g., pressCount appears both as
+    a definition `const pressCount = ref(0)` and as a shorthand property in `defineExpose({ pressCount })`),
+    the _find_unique_symbol method should prefer the symbol with the larger range (the definition).
+
+    The test exercises this by calling replace_body on 'pressCount', which internally calls
+    _find_unique_symbol and should correctly select the definition (line 40, 19 chars) over
+    the reference (line 97, 10 chars).
+    """
+    test_case.run_test(content_after_ground_truth=snapshot)
+
+
+VUE_STORE_REPLACED_CLEAR_BODY = """function clear() {
+    // Modified: Reset to initial state with a log
+    console.log('Clearing calculator state');
+    displayValue.value = '0';
+    expression.value = '';
+    operationHistory.value = [];
+    lastResult.value = undefined;
+}"""
+
+
+@pytest.mark.parametrize(
+    "test_case",
+    [
+        pytest.param(
+            ReplaceBodyTest(
+                LanguageServerId.VUE,
+                VUE_STORE_FILE,
+                "clear",
+                VUE_STORE_REPLACED_CLEAR_BODY,
+            ),
+            marks=pytest.mark.vue,
+        ),
+    ],
+)
+def test_replace_body_vue_ts_file(test_case: ReplaceBodyTest, snapshot: SnapshotAssertion) -> None:
+    """Test that TypeScript files within Vue projects can be edited."""
+    test_case.run_test(content_after_ground_truth=snapshot)

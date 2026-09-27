@@ -26,6 +26,7 @@ def build_parser() -> argparse.ArgumentParser:
     sub.add_parser("bootstrap")
     sub.add_parser("add-mcp")
     sub.add_parser("loop")
+    sub.add_parser("skill-workflow")
     return parser
 
 
@@ -57,6 +58,7 @@ def main(argv: list[str] | None = None) -> int:
         "bootstrap",
         "add-mcp",
         "loop",
+        "skill-workflow",
     }:
         from .commands import dispatch
         return dispatch(args.command or "status", unknown)

@@ -39,9 +39,22 @@ WebGPT-as-Codex 解决的不是“怎么再接一个 MCP”，而是 MCP 多起�
 
 ## 最快的使用方式：把仓库交给 AI
 
-仓库地址：**[https://github.com/liusiong/webgpt-as-codex](https://github.com/liusiong/webgpt-as-codex)**
+仓库地址：**[https://github.com/lite-milkfrog/webgpt-as-codex](https://github.com/lite-milkfrog/webgpt-as-codex)**
 
-不想手搓环境？把**整个仓库链接**和 [`prompts/ONE-CLICK-AGENT-DEPLOY.md`](prompts/ONE-CLICK-AGENT-DEPLOY.md) 一起交给一个能操作目标 Windows 电脑的 Agent。前者告诉 Agent“项目在哪里”，后者告诉它“怎么检查环境、部署、验证和收口”。
+对一个能够操作目标 Windows 电脑的 Agent，现在预期的交付方式就是两行：
+
+```text
+https://github.com/lite-milkfrog/webgpt-as-codex
+请帮我部署这个项目。
+```
+
+仓库现在会**自行把部署任务路由下去**：根目录 [`AGENTS.md`](AGENTS.md) 明确要求部署 Agent 自动继续读取 [`prompts/ONE-CLICK-AGENT-DEPLOY.md`](prompts/ONE-CLICK-AGENT-DEPLOY.md) 和 [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md)，先确认**当前默认分支最新 HEAD**，对已有脏工作树/分叉 checkout 采取 preserve 而不是 reset/clean，然后持续执行到真实验收。所以只要 Agent 能正常阅读仓库文件，你不需要再额外复制那一大段部署 Prompt。
+
+对于不会自动读取仓库说明的客户端，仍然可以直接把 one-click Prompt 文件一起交给它。
+
+而且每个真正使用 WAC 的 Agent session 都有强制 Skill bootstrap：开始实质性本机操作前，必须重新读取 canonical [`skills/webgpt-as-codex/SKILL.md`](skills/webgpt-as-codex/SKILL.md)，并执行 [`session-bootstrap.md`](skills/webgpt-as-codex/session-bootstrap.md)。上一窗口读过不能替代当前窗口。
+
+WAC 自己二次开发过的 MCP 行为也必须可从本仓库复现：完整源码快照分别位于 `vendor/coding-tools-mcp/`、`vendor/serena-agent/`、`vendor/playwright-mcp/` 和 `vendor/playwright/`。部署 metadata 会安装 bundled Coding Tools / Serena / Playwright MCP，而不是静默追 registry latest；Playwright Core 的 WAC 二次修复再由仓库内 hotfix 层和 exact bundle diff 重放。
 
 它会按真实环境自动完成：
 
@@ -60,7 +73,7 @@ WebGPT-as-Codex 解决的不是“怎么再接一个 MCP”，而是 MCP 多起�
 
 正常的日常用法应该很简单：
 
-1. 第一次，把仓库链接 **https://github.com/liusiong/webgpt-as-codex** 和 [`prompts/ONE-CLICK-AGENT-DEPLOY.md`](prompts/ONE-CLICK-AGENT-DEPLOY.md) 交给能操作 Windows 的 Agent，让它从仓库读取真实项目并把环境和服务配好；
+1. 第一次，只把 **https://github.com/lite-milkfrog/webgpt-as-codex** 给能操作 Windows 的 Agent，再说“请帮我部署这个项目”；仓库自己的部署分流契约会要求它读取部署 Prompt/Contract，并在安装前核对默认分支最新 source HEAD；
 2. 完成一次必要的账号登录、OAuth consent 和 ChatGPT MCP 连接；
 3. 以后电脑开机，**双击桌面的 WebGPT-as-Codex 一键启动器**；
 4. 启动器先通过 **machine-local prestart（只存在于你本机的启动前钩子）** 恢复已经批准的外部 MCP 后端，再启动/恢复 **Gateway（统一 MCP 网关）**、**OAuth Edge（负责公网授权与 HTTPS 接入的边缘层）**、Manager 等 WebGPT 服务，并做分层 **READY（整套链路真正可用）** 检查；
@@ -184,7 +197,7 @@ Remote Desktop Commander
 
 ```powershell
 python -m venv .venv
-.\.venv\Scripts\python -m pip install .
+.\.venv\Scripts\python -m pip install -e .
 .\.venv\Scripts\webgpt-codex.exe --version
 ```
 
@@ -201,6 +214,8 @@ webgpt-codex doctor
 
 完整契约见 [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md)。
 
+部署后保留这份已经验证过的源码 checkout。WAC 二次开发过的 Coding Tools / Serena 完整源码就在 `vendor/`；因此 fresh-machine 的 canonical 部署源是 Git 源码 checkout，而不是单独一个不含 vendor 的瘦 wheel。
+
 ## 当前已经验证的关键行为
 
 - Unified Gateway 可聚合核心 MCP，并通过 namespaced tool surface 暴露；
@@ -209,7 +224,8 @@ webgpt-codex doctor
 - Start All 幂等，能 preserve 健康外部服务，不重复拉实例；
 - OAuth Edge READY 不再只看 9340/9341 本地端口，还校验真实 Funnel 443 target；
 - 桌面 launcher 与 Autostart 可安全升级、可逆、无凭据；
-- 唯一正式 Skill 为 `skills/webgpt-as-codex/`，保留完整 Experience Ledger、原有 53 个 regression scenarios、3 个 legacy compatibility aliases，并加入 R54 destructive-action authorization regression（当前总计 57），以及 MCP Guides；
+- 唯一正式 Skill 为 `skills/webgpt-as-codex/`；Skill 1.4.0 强制每个 WAC session 重新 bootstrap，当前 registry 共 60 个 regression scenarios（含 legacy compatibility aliases）；
+- Coding Tools / Serena / Playwright MCP 与对应 Playwright Core 的完整源码基线都在 `vendor/`；Playwright runtime derivative 由 WAC deterministic overlay + exact diff 复现；
 - Manager 提供中英文 UI、Doctor/Repair、版本/环境/Gateway/OAuth/HTTPS 状态，但普通状态接口不泄露 Secret。
 
 ## CLI

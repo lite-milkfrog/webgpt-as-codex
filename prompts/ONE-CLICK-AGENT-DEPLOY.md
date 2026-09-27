@@ -11,6 +11,19 @@ REPOSITORY = <本仓库 URL 或本地路径>
 TARGET = 当前 Windows 用户电脑
 PRODUCT = WebGPT-as-Codex
 CANONICAL_SKILL = skills/webgpt-as-codex/
+CANONICAL_DEPLOYMENT_ARTIFACT = GitHub source checkout
+BUNDLED_DERIVATIVES = vendor/coding-tools-mcp + vendor/serena-agent + vendor/playwright-mcp + vendor/playwright
+
+## -1. Source Freshness Gate（“最新版”必须可证明）
+- 如果任务起点只有 GitHub 仓库 URL，就以**用户给出的仓库**为 source of truth，先解析它的当前 default branch，再 clone/fetch；不得因为本机碰巧有旧目录就直接部署旧 HEAD。
+- fresh clone 必须来自用户给出的仓库 URL 的当前 default branch；除非用户明确指定，否则不得用旧 release/tag/archive 代替 default-branch latest。
+- 已存在 checkout 时，先确认其 remote 对应用户给出的仓库，再 `git fetch` 当前 default branch，并比较本地 `HEAD` 与 `origin/<default-branch>`。
+- 只有工作树干净、没有未知本地修改，并且可以安全 fast-forward 时，才允许用 `git pull --ff-only`（或等价 fast-forward）更新旧 checkout。
+- 如果 checkout dirty/diverged，不得用 `reset --hard` / `clean` / 覆盖未知文件来追最新；保留原目录，在可行时另建安全目录 fresh clone 最新 default branch 并从那里部署。若连安全新目录都无法建立，再明确报告阻塞。
+- **实际安装 WebGPT 源码前再次 fetch 一次**，记录 `SOURCE_REPOSITORY`、`SOURCE_BRANCH`、`SOURCE_HEAD`，并确认部署源 `HEAD == origin/<default-branch>`。这三个字段进入最终验收摘要。
+- 当前仓库维护 Coding Tools 与 Serena 的完整 derivative source；fresh deployment 必须保留 source checkout，不能先做一个不含 `vendor/` 的瘦 wheel 再删除 checkout。
+- 后续 WebGPT lifecycle/deploy 命令必须以该 checkout 根为 cwd；如果 Agent 的执行器会改变 cwd，则为部署进程设置 `WEBGPT_CODEX_SOURCE_ROOT=<checkout-root>`，确保安装进 venv 后仍能定位 bundled derivative source。
+- 旧聊天记录、旧 handoff、旧 release note 只能作为历史证据，不能覆盖当前 Git 远端真值。
 
 ## 0. 不变量
 - 先发现真实环境，再安装；健康的现有服务必须 preserve，禁止为了“统一”重复安装。
@@ -30,14 +43,23 @@ CANONICAL_SKILL = skills/webgpt-as-codex/
 4. docs/DEPLOYMENT.md
 5. docs/ARCHITECTURE.md
 6. skills/webgpt-as-codex/SKILL.md
-7. skills/webgpt-as-codex/product-contract.md
-8. skills/webgpt-as-codex/routing.md
+7. skills/webgpt-as-codex/session-bootstrap.md
+8. skills/webgpt-as-codex/product-contract.md
+9. skills/webgpt-as-codex/routing.md
+
+从这一刻起，canonical WebGPT-as-Codex Skill 是整个部署 session 的强制执行合同；不得只在安装 Skill 时读一次，也不得用旧聊天记忆替代当前 session bootstrap。
 
 ## 2. 环境与安装
 - 确认 Windows、Python、Git、winget、uv、Node/npm、Tailscale 的真实状态。
 - 建立项目 venv 并安装 WebGPT-as-Codex；开发 checkout 可使用 editable install。
 - 先运行 `webgpt-codex deploy` dry-run，检查 preserve/install/upgrade/diagnose/manual 分类。
 - 无冲突后运行 `webgpt-codex deploy --apply`；只有明确采用已有 stopped external install 时才使用项目允许的 adopt 路径。
+- 对 component metadata 标记为 `bundled_derivative=true` 的组件，必须从**当前 checkout 的 vendor 完整源码**安装并记录 source path/base revision；禁止为了省事改回 PyPI/npm 上游原版。当前包括：
+  - `vendor/coding-tools-mcp/`：完整 Apache-2.0 Coding Tools derivative；
+  - `vendor/serena-agent/`：完整 Serena v1.7.0 MIT derivative。
+  - `vendor/playwright-mcp/`：完整 Playwright MCP v0.0.81 Apache-2.0 source snapshot，通过 `bundled-npm` 安装；
+  - `vendor/playwright/`：与其依赖匹配的完整 Playwright / Playwright Core source baseline（gitHead `d1ead3e...`）。
+- Playwright 的 WAC runtime derivative 仍由本仓库 `playwright_hotfix.py`/launcher 应用到 bundled MCP 安装出来的 pinned Core；部署后必须验证 hotfix markers / exactly-once / tab reconciliation，不能仅安装 source 就宣称已复现当前 WAC 行为。
 - 运行 `webgpt-codex bootstrap` / 必要的 apply 路径完成 machine-local state 与系统依赖准备。
 - 若 Tailscale 未登录，打开官方登录流程并把该步骤标记为 HUMAN_AUTH_REQUIRED；不要伪造成功。
 
@@ -63,8 +85,11 @@ CANONICAL_SKILL = skills/webgpt-as-codex/
 
 ## 6. Skill
 - 唯一正式 Skill 名为 `webgpt-as-codex`。
+- 当前 canonical Skill 必须为 `1.4.0` 或仓库中更新版本。
+- 每个新的 WAC Agent session 都必须重新完成 `session-bootstrap.md`；任何 substantive WAC mutation 前都要实际读取当前 `SKILL.md` + `routing.md`，不能用上一窗口记忆替代。
+- 多阶段任务先匹配 Workflow，再只加载当前 Stage 需要的 Skills；强制使用 canonical Skill 不等于一次性加载整个 Skills 库。
 - 不再安装第二套 `computer-agent` Skill；如发现旧版，先归档，再迁移 machine-local overlay/experience，最后退休旧入口。
-- 运行 `scripts/sync_webgpt_skill.py` 和 Skill validator；Experience Ledger、53+ regression scenarios、MCP Guides/workflows 不得因迁移丢失。
+- 运行 `scripts/sync_webgpt_skill.py` 和 Skill validator；Experience Ledger、60+ regression scenarios、MCP Guides/workflows 不得因迁移丢失。
 
 ## 7. 最终验收
 必须实际验证并报告：
@@ -76,6 +101,9 @@ CANONICAL_SKILL = skills/webgpt-as-codex/
 - Unified Gateway 暴露预期核心 MCP 工具；
 - desktop launcher 与 autostart = installed + managed；
 - 唯一 canonical Skill = WebGPT-as-Codex，validator PASS；
+- 当前 session 已完成 `session-bootstrap.md`，且 portable Skill 与本机同步版本一致；
+- Coding Tools / Serena / Playwright MCP 实际安装来源与 component metadata 的 bundled derivative source 一致，不是 registry-latest fallback；
+- Serena derivative 保留 `implementation_fallback=exact-name-and-kind`；Coding Tools bundled tree 保留 upstream LICENSE/NOTICE 与 WAC 修改；Playwright bundled source/version/core gitHead 一致且 overlay 的目标 signature 验证通过；
 - repository tests / Ruff / secret scan / `git diff --check` PASS（若这是源码 checkout）。
 
 ## 8. ChatGPT 最后一公里
@@ -84,6 +112,7 @@ CANONICAL_SKILL = skills/webgpt-as-codex/
 只有真实 ChatGPT connector 完成 OAuth 并能进行至少一个安全 MCP 实调后，才标记 `CHATGPT_CONNECTOR_VERIFIED`。
 
 最终输出只需要：完成状态、唯一 MCP URL 的安全展示方式、仍需人的交互（若有）、验证摘要和任何明确阻塞。不要让用户重复手工执行你已经能执行的步骤。
+验证摘要必须包含 `SOURCE_REPOSITORY / SOURCE_BRANCH / SOURCE_HEAD`，用于证明实际部署的是当次解析出的最新默认分支版本。
 ```
 
 这个 Prompt 不包含机器特定 URL、密码或 Token；目标 Agent 必须从目标电脑实时发现这些信息。

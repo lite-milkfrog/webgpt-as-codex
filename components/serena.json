@@ -5,7 +5,7 @@
   "required": true,
   "enabled_by_default": true,
   "upstream": "https://github.com/oraios/serena",
-  "license_note": "v1.7.0 historical release; upstream main application GPL-3.0-or-later, SolidLSP MIT",
+  "license_note": "WebGPT derivative is based on complete Serena v1.7.0, the last MIT-licensed application release; upstream v2+ application code is GPL-3.0-or-later",
   "transport": "streamable_http",
   "default_endpoint": "http://127.0.0.1:9121/mcp",
   "version_command": [
@@ -16,13 +16,18 @@
     "serena",
     "start-mcp-server"
   ],
-  "install_hint": "uv tool install serena-agent",
+  "install_hint": "webgpt-codex deploy --apply --component serena",
+  "bundled_source": "vendor/serena-agent",
+  "bundled_derivative": true,
   "install": {
-    "strategy": "uv-tool",
+    "strategy": "bundled-uv-tool",
     "package": "serena-agent",
     "latest": {
-      "source": "pypi",
-      "package": "serena-agent"
+      "source": "bundled",
+      "version": "1.7.0",
+      "path": "vendor/serena-agent",
+      "upstream_ref": "v1.7.0",
+      "upstream_commit": "949a27ef1e5fda1a6e7b561e777bcece345c6ffd"
     },
     "requirements": [
       "uv"

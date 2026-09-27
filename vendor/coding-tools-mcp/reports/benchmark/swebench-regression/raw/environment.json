@@ -1,0 +1,24 @@
+{
+  "cwd": "/workspace",
+  "executables": {
+    "docker": null,
+    "git": "/usr/bin/git"
+  },
+  "github": {
+    "actions": null,
+    "ref": null,
+    "repository": "cf-pages/coding-tools-mcp",
+    "run_attempt": null,
+    "run_id": null,
+    "runner_os": null,
+    "sha": null
+  },
+  "packages": {
+    "datasets": null,
+    "docker": null,
+    "swebench": null
+  },
+  "platform": "Linux-6.8.0-1052-azure-x86_64-with-glibc2.36",
+  "python": "3.12.13 (main, Jun 24 2026, 02:09:08) [GCC 12.2.0]",
+  "python_executable": "/usr/local/bin/python3"
+}

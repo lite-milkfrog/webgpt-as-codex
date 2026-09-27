@@ -1,0 +1,5 @@
+description: The onboarding process is not used (memories may have been created externally)
+prompt: |
+  The onboarding process is not applied.
+excluded_tools:
+  - onboarding

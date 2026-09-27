@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import sys
 import tomllib
 from pathlib import Path
@@ -52,8 +53,7 @@ def test_resource_root_falls_back_to_installed_share(
 
 def test_skill_manifest_matches_skill_frontmatter() -> None:
     root = paths.repo_root() / "skills" / "webgpt-as-codex"
-    manifest = (root / "manifest.json").read_text(encoding="utf-8")
+    manifest = json.loads((root / "manifest.json").read_text(encoding="utf-8"))
     skill = (root / "SKILL.md").read_text(encoding="utf-8")
 
-    assert '\"version\":  \"1.3.2\"' in manifest or '\"version\": \"1.3.2\"' in manifest
-    assert "version: 1.3.2" in skill
+    assert f"version: {manifest['version']}" in skill

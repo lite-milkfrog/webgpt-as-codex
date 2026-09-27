@@ -1,0 +1,169 @@
+# Publishes npm packages via ESRP. Manual trigger only, regular publishing
+# is done from GitHub Actions, see .github/workflows/publish_release.yml.
+# Depending on the selected ref, a manual run publishes:
+# - @next (alpha with commit timestamp) from main
+# - @beta (beta with commit timestamp) from release-* branches
+# - @latest from v* release tags
+trigger: none
+
+pr: none
+
+resources:
+  repositories:
+  - repository: 1esPipelines
+    type: git
+    name: 1ESPipelineTemplates/1ESPipelineTemplates
+    ref: refs/tags/release
+
+extends:
+  template: v1/1ES.Official.PipelineTemplate.yml@1esPipelines
+  parameters:
+    pool:
+      name: DevDivPlaywrightAzurePipelinesUbuntu2204
+      os: linux
+    sdl:
+      sourceAnalysisPool:
+        # SDL tools require windows, see https://aka.ms/AAo6v8e
+        name: DevDivPlaywrightAzurePipelinesWindows2022
+        os: windows
+    stages:
+    - stage: Stage
+      jobs:
+      - job: Build
+        displayName: "Build npm packages"
+        templateContext:
+          outputs:
+          - output: pipelineArtifact
+            path: $(Build.ArtifactStagingDirectory)/esrp-build
+            artifact: esrp-build
+        steps:
+        - checkout: self
+          displayName: "Checkout code"
+
+        - task: Bash@3
+          displayName: "Check the branch is main, release-* or a v* tag"
+          inputs:
+            targetType: "inline"
+            script: |
+              if [[ "$BUILD_SOURCE_BRANCH" != "refs/heads/main" && "$BUILD_SOURCE_BRANCH" != refs/heads/release-* && "$BUILD_SOURCE_BRANCH" != refs/tags/v* ]]; then
+                echo "Can only publish from main, release-* branches or v* tags."
+                echo "Unexpected branch: $BUILD_SOURCE_BRANCH"
+                exit 1
+              fi
+          env:
+            BUILD_SOURCE_BRANCH: $(Build.SourceBranch)
+
+        - task: UseNode@1
+          inputs:
+            version: '26.x'
+          displayName: "Install Node.js"
+
+        - task: Bash@3
+          displayName: "setup .npmrc"
+          inputs:
+            targetType: "inline"
+            script: |
+              echo "registry=https://devdiv.pkgs.visualstudio.com/DevDiv/_packaging/DevDiv_PublicPackages/npm/registry/" >> .npmrc
+              echo "registry=https://devdiv.pkgs.visualstudio.com/DevDiv/_packaging/DevDiv_PublicPackages/npm/registry/" >> tests/playwright-test/stable-test-runner/.npmrc
+
+        - task: npmAuthenticate@0
+          displayName: "authenticate the private npm registry"
+          inputs:
+            workingFile: .npmrc
+
+        - task: npmAuthenticate@0
+          displayName: "authenticate the private npm registry for stable-test-runner"
+          inputs:
+            workingFile: tests/playwright-test/stable-test-runner/.npmrc
+
+        - script: npm ci
+          displayName: "npm ci"
+
+        - script: npm run build
+          displayName: "npm run build"
+
+        - task: Bash@3
+          name: setVersion
+          displayName: "Set version and dist-tag"
+          inputs:
+            targetType: "inline"
+            script: |
+              set -e
+              if [[ "$BUILD_SOURCE_BRANCH" == refs/tags/v* ]]; then
+                # Release version is already checked in, only publish what the tag points at.
+                NPM_DIST_TAG="latest"
+              elif [[ "$BUILD_SOURCE_BRANCH" == refs/heads/release-* ]]; then
+                NPM_DIST_TAG="beta"
+                node utils/build/update_canary_version.js --beta --commit-timestamp
+              elif [[ "$BUILD_REASON" == "Schedule" ]]; then
+                NPM_DIST_TAG="next"
+                node utils/build/update_canary_version.js --alpha --today-date
+              else
+                NPM_DIST_TAG="next"
+                node utils/build/update_canary_version.js --alpha --commit-timestamp
+              fi
+              node utils/workspace.js --ensure-consistent
+              VERSION=$(node utils/workspace.js --get-version)
+              if [[ "$NPM_DIST_TAG" == "latest" && "$BUILD_SOURCE_BRANCH" != "refs/tags/v$VERSION" ]]; then
+                echo "ERROR: version '$VERSION' does not match tag '$BUILD_SOURCE_BRANCH'"
+                exit 1
+              fi
+              if [[ "$NPM_DIST_TAG" == "beta" && "$VERSION" != *-beta-* ]]; then
+                echo "ERROR: unexpected version '$VERSION', must be a beta version"
+                exit 1
+              fi
+              if [[ "$NPM_DIST_TAG" == "next" && "$VERSION" != *-alpha-* ]]; then
+                echo "ERROR: unexpected version '$VERSION', must be an alpha version"
+                exit 1
+              fi
+              echo "Publishing version $VERSION with dist-tag $NPM_DIST_TAG"
+              echo "##vso[task.setvariable variable=npmDistTag;isOutput=true]$NPM_DIST_TAG"
+          env:
+            BUILD_SOURCE_BRANCH: $(Build.SourceBranch)
+            BUILD_REASON: $(Build.Reason)
+
+        - task: Bash@3
+          displayName: "Pack all packages"
+          inputs:
+            targetType: "inline"
+            script: |
+              set -e
+              mkdir -p "$(Build.ArtifactStagingDirectory)/esrp-build"
+              node utils/workspace.js --list-public-package-paths | while read package; do
+                npm pack --pack-destination="$(Build.ArtifactStagingDirectory)/esrp-build" "$package"
+              done
+              ls -la "$(Build.ArtifactStagingDirectory)/esrp-build"
+
+      - job: Publish
+        displayName: "ESRP Release to npm"
+        dependsOn: Build
+        variables:
+          npmDistTag: $[ dependencies.Build.outputs['setVersion.npmDistTag'] ]
+        templateContext:
+          type: releaseJob
+          isProduction: true
+          inputs:
+          - input: pipelineArtifact
+            artifactName: esrp-build
+            targetPath: $(Build.ArtifactStagingDirectory)/esrp-build
+        steps:
+          - checkout: none
+          - task: EsrpRelease@11
+            inputs:
+              connectedservicename: 'Playwright-ESRP-PME'
+              usemanagedidentity: true
+              keyvaultname: 'playwright-esrp-pme'
+              signcertname: 'ESRP-Release-Sign'
+              clientid: '13434a40-7de4-4c23-81a3-d843dc81c2c5'
+              intent: 'PackageDistribution'
+              contenttype: 'npm'
+              # npm dist-tag to publish with.
+              productstate: '$(npmDistTag)'
+              folderlocation: '$(Build.ArtifactStagingDirectory)/esrp-build'
+              waitforreleasecompletion: true
+              owners: 'yurys@microsoft.com'
+              approvers: 'yurys@microsoft.com'
+              serviceendpointurl: 'https://api.esrp.microsoft.com'
+              mainpublisher: 'Playwright'
+              domaintenantid: '975f013f-7f24-47e8-a7d3-abc4752bf346'
+            displayName: 'ESRP Release to npm'

@@ -39,9 +39,22 @@ That is why `skills/webgpt-as-codex/` is not a thin “use Playwright for websit
 
 ## Fastest path: give the repository to an AI agent
 
-Repository: **[https://github.com/liusiong/webgpt-as-codex](https://github.com/liusiong/webgpt-as-codex)**
+Repository: **[https://github.com/lite-milkfrog/webgpt-as-codex](https://github.com/lite-milkfrog/webgpt-as-codex)**
 
-Give the agent both the **repository link** and [`prompts/ONE-CLICK-AGENT-DEPLOY.md`](prompts/ONE-CLICK-AGENT-DEPLOY.md). The repository tells it where the real project is; the deployment prompt tells it how to inspect the machine, install/recover the stack, verify it and close the setup correctly.
+For a capable computer/coding agent, the intended handoff is now just:
+
+```text
+https://github.com/lite-milkfrog/webgpt-as-codex
+Please deploy this project.
+```
+
+The repository is self-dispatching for deployment. Root [`AGENTS.md`](AGENTS.md) tells an agent that a deployment request must continue into [`prompts/ONE-CLICK-AGENT-DEPLOY.md`](prompts/ONE-CLICK-AGENT-DEPLOY.md) and [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md), resolve the **current default-branch HEAD**, preserve unsafe/dirty existing checkouts instead of resetting them, and continue through real acceptance. You do **not** need to paste the deployment prompt separately when the agent can inspect repository instructions.
+
+The direct prompt link remains available for clients that do not automatically inspect repository guidance.
+
+Every real WAC session also has a mandatory Skill bootstrap. Before an agent uses WAC for substantive local work, it must read the canonical [`skills/webgpt-as-codex/SKILL.md`](skills/webgpt-as-codex/SKILL.md) and follow [`session-bootstrap.md`](skills/webgpt-as-codex/session-bootstrap.md). This is session-scoped: a previous conversation having read the Skill does not satisfy the next one.
+
+WebGPT-specific derivative MCP behavior is reproducible from this repository. Complete source snapshots live under `vendor/coding-tools-mcp/`, `vendor/serena-agent/`, `vendor/playwright-mcp/` and `vendor/playwright/`. Deployment metadata installs the bundled Coding Tools, Serena and Playwright MCP sources instead of silently replacing them with registry-latest copies; Playwright Core's WebGPT-specific runtime derivative is then reproduced by the repository-owned hotfix layer and exact bundle-diff evidence.
 
 The prompt tells it to actually deploy—not just explain how—to:
 
@@ -60,7 +73,7 @@ The first deployment has real setup work—OAuth, Tailscale, MCPs, the Skill and
 
 The normal path is:
 
-1. Once, give the agent the repository URL **https://github.com/liusiong/webgpt-as-codex** together with [`prompts/ONE-CLICK-AGENT-DEPLOY.md`](prompts/ONE-CLICK-AGENT-DEPLOY.md), so it works from the real repository instead of from copied instructions;
+1. Once, give a Windows-capable agent only **https://github.com/lite-milkfrog/webgpt-as-codex** and ask it to deploy the project; the repository dispatch contract makes it read the deployment prompt/contract itself and verify the latest default-branch source HEAD before installation;
 2. complete the required account login, OAuth consent and ChatGPT MCP connection;
 3. on later boots, **double-click the WebGPT-as-Codex desktop one-click launcher**;
 4. the launcher runs the **machine-local prestart (a local-only startup hook)** for approved external MCP backends, then starts or recovers the **Gateway (the unified MCP entry point)**, **OAuth Edge (the public authorization/HTTPS edge)**, Manager and the rest of the WebGPT runtime, followed by layered **READY (the whole chain is actually usable)** checks;
@@ -181,7 +194,7 @@ Python 3.11+ is required.
 
 ```powershell
 python -m venv .venv
-.\.venv\Scripts\python -m pip install .
+.\.venv\Scripts\python -m pip install -e .
 .\.venv\Scripts\webgpt-codex.exe --version
 ```
 
@@ -198,6 +211,8 @@ webgpt-codex doctor
 
 See [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md) for the complete deployment contract.
 
+Keep the verified source checkout in place. It contains the complete WAC-maintained Coding Tools and Serena derivative sources under `vendor/`; the source checkout, not a thin wheel alone, is the canonical fresh-machine deployment artifact.
+
 ## Verified behavior
 
 - the Unified Gateway aggregates the core MCP backends behind a namespaced tool surface;
@@ -206,7 +221,8 @@ See [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md) for the complete deployment contr
 - Start All is idempotent and preserves healthy unmanaged services instead of duplicating them;
 - OAuth Edge readiness verifies the real Funnel 443 target, not only local 9340/9341 listeners;
 - desktop launcher and autostart are reversible, credential-free and structurally upgradeable;
-- the only canonical Skill is `skills/webgpt-as-codex/`, preserving the full Experience Ledger, 53 original regression scenarios plus 3 legacy compatibility aliases and the R54 destructive-action authorization regression (57 total), and MCP Guides;
+- the only canonical Skill is `skills/webgpt-as-codex/`; Skill 1.4.0 requires per-session WAC bootstrap and the current registry carries 60 regression scenarios including legacy compatibility aliases;
+- complete Coding Tools, Serena, Playwright MCP and matching Playwright Core source baselines are carried in `vendor/`; Playwright's runtime derivative remains a deterministic WAC overlay with exact diff evidence;
 - the bilingual Manager exposes Doctor/Repair and environment/Gateway/OAuth/HTTPS state without returning secrets in normal status.
 
 ## CLI and safety boundary

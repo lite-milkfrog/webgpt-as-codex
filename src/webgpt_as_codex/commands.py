@@ -47,4 +47,7 @@ def dispatch(command: str, argv: list[str]) -> int:
     if command == "loop":
         from .loop import cli_loop
         return cli_loop(argv)
+    if command == "skill-workflow":
+        from .skill_workflow import cli_skill_workflow
+        return cli_skill_workflow(argv)
     raise ValueError(command)

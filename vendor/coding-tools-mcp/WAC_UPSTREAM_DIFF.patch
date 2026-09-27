@@ -1,0 +1,597 @@
+diff --git a/apps/desktop-client/mcp_desktop_client/language_manager.py b/apps/desktop-client/mcp_desktop_client/language_manager.py
+index c24b71c..e11b657 100644
+--- a/apps/desktop-client/mcp_desktop_client/language_manager.py
++++ b/apps/desktop-client/mcp_desktop_client/language_manager.py
+@@ -1,5 +1,6 @@
+ from __future__ import annotations
+ 
++import os
+ from pathlib import Path
+ 
+ from PySide6.QtCore import (
+@@ -13,6 +14,7 @@ from PySide6.QtCore import (
+ )
+ 
+ from .i18n import tr
++from .storage import APP_HOME
+ 
+ 
+ LANGUAGE_CODES = {"system", "en_US", "zh_CN"}
+@@ -29,11 +31,13 @@ class LanguageManager(QObject):
+         self, parent: QObject | None = None, *, settings: QSettings | None = None
+     ) -> None:
+         super().__init__(parent)
+-        self._settings = (
+-            settings
+-            if settings is not None
+-            else QSettings(self.SETTINGS_ORGANIZATION, self.SETTINGS_APPLICATION)
+-        )
++        self._settings = settings
++        if self._settings is None:
++            if os.environ.get("CODING_TOOLS_MCP_DESKTOP_HOME"):
++                APP_HOME.mkdir(parents=True, exist_ok=True)
++                self._settings = QSettings(str(APP_HOME / "ui.ini"), QSettings.Format.IniFormat)
++            else:
++                self._settings = QSettings(self.SETTINGS_ORGANIZATION, self.SETTINGS_APPLICATION)
+         self._app_translator = QTranslator(self)
+         self._qt_translator = QTranslator(self)
+         self._configured_language = str(
+diff --git a/apps/desktop-client/mcp_desktop_client/storage.py b/apps/desktop-client/mcp_desktop_client/storage.py
+index e7ebb96..eeff39a 100644
+--- a/apps/desktop-client/mcp_desktop_client/storage.py
++++ b/apps/desktop-client/mcp_desktop_client/storage.py
+@@ -11,7 +11,7 @@ from .models import WorkspaceProfile
+ from .i18n import tr
+ 
+ 
+-APP_HOME = Path.home() / ".coding-tools-mcp-desktop"
++APP_HOME = Path(os.environ.get("CODING_TOOLS_MCP_DESKTOP_HOME") or (Path.home() / ".coding-tools-mcp-desktop")).expanduser()
+ PROFILES_FILE = APP_HOME / "profiles.json"
+ SECRETS_FILE = APP_HOME / "secrets.json"
+ STATE_DIR = APP_HOME / "state"
+diff --git a/coding_tools_mcp/processes.py b/coding_tools_mcp/processes.py
+index d2c286a..aab3593 100644
+--- a/coding_tools_mcp/processes.py
++++ b/coding_tools_mcp/processes.py
+@@ -90,12 +90,22 @@ def spawn_process(
+         )
+         return process, None
+     if os.name == "nt":
+-        raise ToolFailure(
+-            "TTY_UNSUPPORTED",
+-            "tty=true requires ConPTY support, which is not available in this build.",
+-            category="runtime",
+-            details={"platform": os.name, "retry_hint": "Run the command without tty=true."},
++        # Windows builds may not have a ConPTY binding available.  Keep the
++        # interactive contract usable with pipe-backed stdin/stdout/stderr
++        # instead of rejecting tty=true outright.  Programs that require
++        # isatty() specifically can still detect the fallback, while REPLs and
++        # command loops remain writable through write_stdin.
++        process = subprocess.Popen(
++            command,
++            cwd=cwd,
++            shell=shell,
++            stdin=subprocess.PIPE,
++            stdout=subprocess.PIPE,
++            stderr=subprocess.PIPE,
++            env=env,
++            **popen_kwargs,
+         )
++        return process, None
+     try:
+         import pty
+ 
+diff --git a/coding_tools_mcp/server.py b/coding_tools_mcp/server.py
+index d66b8f7..e379511 100644
+--- a/coding_tools_mcp/server.py
++++ b/coding_tools_mcp/server.py
+@@ -1405,6 +1405,8 @@ class Workspace:
+                 [git, "-C", str(self.root), "check-ignore", "--stdin", "-z"],
+                 input="\0".join(rel_paths) + "\0",
+                 text=True,
++                encoding="utf-8",
++                errors="replace",
+                 stdout=subprocess.PIPE,
+                 stderr=subprocess.DEVNULL,
+                 timeout=2,
+@@ -2639,6 +2641,8 @@ class Runtime:
+                     args,
+                     cwd=str(resolved.path),
+                     text=True,
++                    encoding="utf-8",
++                    errors="replace",
+                     stdout=subprocess.PIPE,
+                     stderr=subprocess.PIPE,
+                     timeout=10,
+@@ -2812,6 +2816,8 @@ class Runtime:
+                 args,
+                 cwd=str(self.workspace.root),
+                 text=True,
++                encoding="utf-8",
++                errors="replace",
+                 stdout=subprocess.PIPE,
+                 stderr=subprocess.DEVNULL,
+             )
+@@ -3668,6 +3674,8 @@ class Runtime:
+         return subprocess.run(
+             cmd,
+             text=True,
++            encoding="utf-8",
++            errors="replace",
+             stdout=subprocess.PIPE,
+             stderr=subprocess.PIPE,
+             timeout=timeout,
+@@ -3703,6 +3711,38 @@ class Runtime:
+         completed = self._run_git_text([require_git(), "-C", str(path), "rev-parse", rev], env=env)
+         return completed.stdout.strip() if completed.returncode == 0 else ""
+ 
++    def _git_repo_root(self, path: Path, *, env: dict[str, str] | None = None) -> Path | None:
++        probe = path if path.is_dir() else path.parent
++        completed = self._run_git_text(
++            [require_git(), "-C", str(probe), "rev-parse", "--show-toplevel"],
++            env=env,
++        )
++        if completed.returncode != 0:
++            return None
++        root_text = completed.stdout.strip()
++        if not root_text:
++            return None
++        root = Path(root_text).resolve()
++        try:
++            root.relative_to(self.workspace.root.resolve())
++        except ValueError:
++            return None
++        return root
++
++    def _git_repo_filter(self, path: Path, repo_root: Path) -> str:
++        resolved = path.resolve()
++        root = repo_root.resolve()
++        try:
++            relative = resolved.relative_to(root)
++        except ValueError as exc:
++            raise ToolFailure(
++                "PATH_OUTSIDE_REPOSITORY",
++                f"Path is not inside repository: {path}",
++                category="validation",
++            ) from exc
++        value = relative.as_posix()
++        return value if value not in {"", "."} else "."
++
+     def _git_path_filters(self, args: dict[str, Any]) -> list[str]:
+         path_filters: list[str] = []
+         if isinstance(args.get("path"), str):
+@@ -4038,6 +4078,9 @@ class Runtime:
+                         first_output_at = time.time()
+                     if time.time() - first_output_at >= 0.05:
+                         break
++        if command.process.poll() is not None:
++            command.refresh_status()
++            command.drain_readers()
+         payload = command.snapshot_since_cursor(int(args.get("max_output_bytes", 65536)))
+         return self._format_command_output(command, payload, args)
+ 
+@@ -4168,21 +4211,39 @@ class Runtime:
+         include_untracked = bool(args.get("include_untracked", True))
+         context = int(args.get("context_lines", 3))
+         max_bytes = int(args.get("max_bytes", 262144))
++
++        repo_root = self.workspace.root
+         path_filters = self._git_path_filters(args)
+-        if not self._is_git_repo(self.workspace.root, env=git_env):
++        requested_path = args.get("path")
++        if isinstance(requested_path, str):
++            try:
++                resolved_context = self.resolve_existing(requested_path)
++            except ToolFailure:
++                resolved_context = None
++            if resolved_context is not None:
++                nested_root = self._git_repo_root(resolved_context.path, env=git_env)
++                if nested_root is not None:
++                    repo_root = nested_root
++                    path_filters = []
++                    primary_filter = self._git_repo_filter(resolved_context.path, repo_root)
++                    if primary_filter != ".":
++                        path_filters.append(primary_filter)
++                    if isinstance(args.get("paths"), list):
++                        for raw in args["paths"]:
++                            candidate = self.resolve_for_write(str(raw)).path
++                            path_filters.append(self._git_repo_filter(candidate, repo_root))
++
++        if not self._is_git_repo(repo_root, env=git_env):
+             return self._fallback_diff(path_filters, max_bytes)
+         chunks: list[bytes] = []
+         if unstaged:
+-            chunks.append(self._run_git_diff(git, context, path_filters, cached=False, env=git_env))
++            chunks.append(self._run_git_diff(git, repo_root, context, path_filters, cached=False, env=git_env))
+         if staged:
+-            chunks.append(self._run_git_diff(git, context, path_filters, cached=True, env=git_env))
++            chunks.append(self._run_git_diff(git, repo_root, context, path_filters, cached=True, env=git_env))
+         warnings: list[str] = []
+-        # A file created by apply_patch is untracked, so plain `git diff` cannot
+-        # confirm it exists. Diff each untracked path against an empty file so
+-        # an added file is verifiable from the same output as an edited one.
+         if include_untracked and unstaged:
+             untracked_chunks, untracked_warnings = self._untracked_diffs(
+-                git, context, path_filters, max_bytes, env=git_env
++                git, repo_root, context, path_filters, max_bytes, env=git_env
+             )
+             chunks.extend(untracked_chunks)
+             warnings.extend(untracked_warnings)
+@@ -4191,7 +4252,11 @@ class Runtime:
+             if combined and chunk and not combined.endswith(b"\n"):
+                 combined += b"\n"
+             combined += chunk
+-        diff_truncation = truncate_text_head(combined.decode("utf-8", errors="replace"), max_lines=DEFAULT_MAX_LINES, max_bytes=max_bytes)
++        diff_truncation = truncate_text_head(
++            combined.decode("utf-8", errors="replace"),
++            max_lines=DEFAULT_MAX_LINES,
++            max_bytes=max_bytes,
++        )
+         diff_text = diff_truncation.content
+         truncated = diff_truncation.truncated
+         if truncated:
+@@ -4207,13 +4272,14 @@ class Runtime:
+     def _untracked_diffs(
+         self,
+         git: str,
++        repo_root: Path,
+         context: int,
+         path_filters: list[str],
+         max_bytes: int,
+         *,
+         env: dict[str, str] | None = None,
+     ) -> tuple[list[bytes], list[str]]:
+-        listing = [git, "-C", str(self.workspace.root), "ls-files", "--others", "--exclude-standard", "-z"]
++        listing = [git, "-C", str(repo_root), "ls-files", "--others", "--exclude-standard", "-z"]
+         if path_filters:
+             listing.append("--")
+             listing.extend(path_filters)
+@@ -4237,7 +4303,7 @@ class Runtime:
+                 [
+                     git,
+                     "-C",
+-                    str(self.workspace.root),
++                    str(repo_root),
+                     "diff",
+                     "--no-index",
+                     f"--unified={context}",
+@@ -4248,9 +4314,6 @@ class Runtime:
+                 timeout=10,
+                 env=env,
+             )
+-            # --no-index reports a difference with exit 1; anything else is a
+-            # per-file problem (unreadable path, vanished file) that must not
+-            # fail the whole diff.
+             if chunk.returncode not in {0, 1}:
+                 warnings.append(f"untracked file could not be diffed: {rel}")
+                 continue
+@@ -4259,9 +4322,16 @@ class Runtime:
+         return chunks, warnings
+ 
+     def _run_git_diff(
+-        self, git: str, context: int, path_filters: list[str], *, cached: bool, env: dict[str, str] | None = None
++        self,
++        git: str,
++        repo_root: Path,
++        context: int,
++        path_filters: list[str],
++        *,
++        cached: bool,
++        env: dict[str, str] | None = None,
+     ) -> bytes:
+-        cmd = [git, "-C", str(self.workspace.root), "diff", f"--unified={context}"]
++        cmd = [git, "-C", str(repo_root), "diff", f"--unified={context}"]
+         if cached:
+             cmd.append("--cached")
+         if path_filters:
+@@ -4269,7 +4339,11 @@ class Runtime:
+             cmd.extend(path_filters)
+         completed = self._run_git_bytes(cmd, timeout=10, env=env)
+         if completed.returncode not in {0, 1}:
+-            raise ToolFailure("GIT_ERROR", completed.stderr.decode("utf-8", errors="replace"), category="runtime")
++            raise ToolFailure(
++                "GIT_ERROR",
++                completed.stderr.decode("utf-8", errors="replace"),
++                category="runtime",
++            )
+         return completed.stdout
+ 
+     def _fallback_diff(self, path_filters: list[str], max_bytes: int) -> dict[str, Any]:
+@@ -4316,16 +4390,17 @@ class Runtime:
+         git_env = self._git_env()
+         requested_path = str(args.get("path", "."))
+         resolved = self.resolve_existing(requested_path)
+-        if not self._is_git_repo(resolved.path, env=git_env):
++        repo_root = self._git_repo_root(resolved.path, env=git_env)
++        if repo_root is None:
+             return {"is_repo": False, "commits": [], "truncated": False, "warnings": []}
+         ref = validate_git_ref(str(args.get("ref", "HEAD")))
+         max_count = int(args.get("max_count", 20))
+         skip = int(args.get("skip", 0))
+-        path_filter = resolved.display
++        path_filter = self._git_repo_filter(resolved.path, repo_root)
+         cmd = [
+             git,
+             "-C",
+-            str(self.workspace.root),
++            str(repo_root),
+             "log",
+             f"--max-count={max_count + 1}",
+             f"--skip={skip}",
+@@ -4358,6 +4433,7 @@ class Runtime:
+             "is_repo": True,
+             "ref": ref,
+             "path": path_filter,
++            "repo_root": normalize_rel_display(repo_root, self.workspace.root),
+             "max_count": max_count,
+             "skip": skip,
+             "commits": commits[:max_count],
+@@ -4379,17 +4455,45 @@ class Runtime:
+     def git_show(self, args: dict[str, Any]) -> dict[str, Any]:
+         git = require_git()
+         git_env = self._git_env()
+-        if not self._is_git_repo(self.workspace.root, env=git_env):
++        repo_root = self.workspace.root
++        normalized_filters: list[str] = []
++
++        requested_path = args.get("path")
++        if isinstance(requested_path, str):
++            try:
++                resolved_context = self.resolve_existing(requested_path)
++            except ToolFailure:
++                resolved_context = None
++            if resolved_context is not None:
++                nested_root = self._git_repo_root(resolved_context.path, env=git_env)
++                if nested_root is not None:
++                    repo_root = nested_root
++                    primary_filter = self._git_repo_filter(resolved_context.path, repo_root)
++                    if primary_filter != ".":
++                        normalized_filters.append(primary_filter)
++                    if isinstance(args.get("paths"), list):
++                        for raw in args["paths"]:
++                            candidate = self.resolve_for_write(str(raw)).path
++                            normalized_filters.append(self._git_repo_filter(candidate, repo_root))
++        elif isinstance(args.get("paths"), list) and args["paths"]:
++            first = self.resolve_existing(str(args["paths"][0]))
++            nested_root = self._git_repo_root(first.path, env=git_env)
++            if nested_root is not None:
++                repo_root = nested_root
++                for raw in args["paths"]:
++                    candidate = self.resolve_for_write(str(raw)).path
++                    normalized_filters.append(self._git_repo_filter(candidate, repo_root))
++
++        if not self._is_git_repo(repo_root, env=git_env):
+             return {"is_repo": False, "content": "", "files": [], "truncated": False, "warnings": []}
+         rev = validate_git_ref(str(args.get("rev", "HEAD")))
+         context = int(args.get("context_lines", 3))
+         max_bytes = int(args.get("max_bytes", 262144))
+         include_diff = bool(args.get("include_diff", True))
+-        normalized_filters = self._git_path_filters(args)
+         cmd = [
+             git,
+             "-C",
+-            str(self.workspace.root),
++            str(repo_root),
+             "show",
+             "--no-ext-diff",
+             "--format=fuller",
+@@ -4403,12 +4507,21 @@ class Runtime:
+             cmd.extend(normalized_filters)
+         completed = self._run_git_bytes(cmd, timeout=10, env=git_env)
+         if completed.returncode != 0:
+-            raise ToolFailure("GIT_ERROR", completed.stderr.decode("utf-8", errors="replace").strip() or "git show failed", category="runtime")
+-        truncation = truncate_text_head(completed.stdout.decode("utf-8", errors="replace"), max_lines=DEFAULT_MAX_LINES, max_bytes=max_bytes)
++            raise ToolFailure(
++                "GIT_ERROR",
++                completed.stderr.decode("utf-8", errors="replace").strip() or "git show failed",
++                category="runtime",
++            )
++        truncation = truncate_text_head(
++            completed.stdout.decode("utf-8", errors="replace"),
++            max_lines=DEFAULT_MAX_LINES,
++            max_bytes=max_bytes,
++        )
+         content = truncation.content
+         return {
+             "is_repo": True,
+             "rev": rev,
++            "repo_root": normalize_rel_display(repo_root, self.workspace.root),
+             "content": content,
+             "files": parse_diff_files(content),
+             **truncation_fields(truncation),
+@@ -4422,8 +4535,10 @@ class Runtime:
+         resolved = self.resolve_existing(requested_path)
+         if resolved.path.is_dir():
+             raise ToolFailure("IS_DIRECTORY", "Path is a directory.", category="validation")
+-        if not self._is_git_repo(self.workspace.root, env=git_env):
++        repo_root = self._git_repo_root(resolved.path, env=git_env)
++        if repo_root is None:
+             return {"is_repo": False, "path": resolved.display, "lines": [], "truncated": False, "warnings": []}
++        repo_path = self._git_repo_filter(resolved.path, repo_root)
+         ref_arg = args.get("rev")
+         ref = validate_git_ref(str(ref_arg)) if isinstance(ref_arg, str) and ref_arg else None
+         start_line = int(args.get("start_line", 1))
+@@ -4441,7 +4556,7 @@ class Runtime:
+         cmd = [
+             git,
+             "-C",
+-            str(self.workspace.root),
++            str(repo_root),
+             "blame",
+             "--line-porcelain",
+             "-L",
+@@ -4449,7 +4564,7 @@ class Runtime:
+         ]
+         if ref:
+             cmd.append(ref)
+-        cmd.extend(["--", resolved.display])
++        cmd.extend(["--", repo_path])
+         completed = self._run_git_text(cmd, timeout=10, env=git_env)
+         if completed.returncode != 0:
+             raise ToolFailure("GIT_ERROR", completed.stderr.strip() or "git blame failed", category="runtime")
+@@ -4459,7 +4574,8 @@ class Runtime:
+             truncated = True
+         result = {
+             "is_repo": True,
+-            "path": resolved.display,
++            "path": repo_path,
++            "repo_root": normalize_rel_display(repo_root, self.workspace.root),
+             "rev": ref,
+             "start_line": start_line,
+             "end_line": final_line,
+diff --git a/tests/compliance/test_windows_msvc_smoke.py b/tests/compliance/test_windows_msvc_smoke.py
+index 6e40269..6b2fca2 100644
+--- a/tests/compliance/test_windows_msvc_smoke.py
++++ b/tests/compliance/test_windows_msvc_smoke.py
+@@ -27,22 +27,139 @@ class WindowsProcessSmokeTests(unittest.TestCase):
+         if sys.platform != "win32":
+             self.skipTest("requires Windows")
+ 
+-    def test_windows_tty_request_is_explicitly_unsupported(self) -> None:
++    def test_windows_tty_pipe_fallback_remains_interactive(self) -> None:
+         with tempfile.TemporaryDirectory() as tmp:
+             workspace = Path(tmp)
++            command = subprocess.list2cmdline(
++                [
++                    sys.executable,
++                    "-u",
++                    "-c",
++                    (
++                        "import sys,time; "
++                        "print('TTY_READY', flush=True); "
++                        "line=sys.stdin.readline().strip(); "
++                        "print('TTY_GOT:'+line, flush=True); "
++                        "time.sleep(0.2)"
++                    ),
++                ]
++            )
++            with StdioMCPClient(
++                workspace,
++                extra_args=["--permission-mode", "trusted"],
++            ) as client:
++                started = assert_tool_success(
++                    self,
++                    client.call_tool(
++                        "exec_command",
++                        {
++                            "cmd": command,
++                            "tty": True,
++                            "timeout_ms": 5000,
++                            "yield_time_ms": 300,
++                        },
++                    ),
++                )
++                self.assertIn(started.get("status"), {"running", "exited"}, started)
++                self.assertIn("TTY_READY", started.get("stdout", ""), started)
++                command_id = started.get("command_id")
++                self.assertIsInstance(command_id, str, started)
++                if started.get("status") == "running":
++                    replied = assert_tool_success(
++                        self,
++                        client.call_tool(
++                            "write_stdin",
++                            {
++                                "command_id": command_id,
++                                "chars": "PING\n",
++                                "yield_time_ms": 1000,
++                            },
++                        ),
++                    )
++                    self.assertIn("TTY_GOT:PING", replied.get("stdout", ""), replied)
++                    settled = assert_tool_success(
++                        self,
++                        client.call_tool(
++                            "write_stdin",
++                            {
++                                "command_id": command_id,
++                                "chars": "",
++                                "yield_time_ms": 1000,
++                            },
++                        ),
++                    )
++                    if settled.get("status") == "running":
++                        assert_tool_success(
++                            self,
++                            client.call_tool(
++                                "kill_command",
++                                {"command_id": command_id, "signal": "KILL", "wait_ms": 3000},
++                            ),
++                        )
++
++    def test_windows_search_text_handles_utf8_rg_output(self) -> None:
++        with tempfile.TemporaryDirectory() as tmp:
++            workspace = Path(tmp)
++            (workspace / "馃摎-emoji.txt").write_text("needle 馃摎 unicode\n", encoding="utf-8")
+             with StdioMCPClient(workspace) as client:
+-                result = client.call_tool(
+-                    "exec_command",
+-                    {
+-                        "cmd": "echo tty-check",
+-                        "tty": True,
+-                        "timeout_ms": 5000,
+-                        "yield_time_ms": 0,
+-                    },
++                result = assert_tool_success(
++                    self,
++                    client.call_tool(
++                        "search_text",
++                        {"query": "needle", "path": ".", "max_results": 10},
++                    ),
++                )
++                self.assertEqual(result.get("total_matches"), 1, result)
++                self.assertIn("馃摎", result.get("matches", [{}])[0].get("preview", ""), result)
++                self.assertIn("馃摎", result.get("matches", [{}])[0].get("path", ""), result)
++
++    def test_windows_nested_git_tools_use_nested_repository_root(self) -> None:
++        with tempfile.TemporaryDirectory() as tmp:
++            workspace = Path(tmp)
++            nested = workspace / "nested"
++            nested.mkdir()
++            subprocess.run(["git", "init", "-q", str(nested)], check=True)
++            subprocess.run(["git", "-C", str(nested), "config", "user.email", "smoke@example.test"], check=True)
++            subprocess.run(["git", "-C", str(nested), "config", "user.name", "Smoke"], check=True)
++            tracked = nested / "README.md"
++            tracked.write_text("alpha\n", encoding="utf-8")
++            subprocess.run(["git", "-C", str(nested), "add", "README.md"], check=True)
++            subprocess.run(["git", "-C", str(nested), "commit", "-q", "-m", "initial"], check=True)
++            tracked.write_text("alpha\nbeta\n", encoding="utf-8")
++
++            with StdioMCPClient(workspace) as client:
++                log = assert_tool_success(
++                    self,
++                    client.call_tool("git_log", {"path": "nested", "max_count": 5}),
++                )
++                self.assertIs(log.get("is_repo"), True, log)
++                self.assertTrue(log.get("commits"), log)
++
++                show = assert_tool_success(
++                    self,
++                    client.call_tool(
++                        "git_show",
++                        {"path": "nested", "rev": "HEAD", "include_diff": False},
++                    ),
++                )
++                self.assertIs(show.get("is_repo"), True, show)
++                self.assertIn("initial", show.get("content", ""), show)
++
++                blame = assert_tool_success(
++                    self,
++                    client.call_tool(
++                        "git_blame",
++                        {"path": "nested/README.md", "start_line": 1, "end_line": 1},
++                    ),
++                )
++                self.assertIs(blame.get("is_repo"), True, blame)
++                self.assertTrue(blame.get("lines"), blame)
++
++                diff = assert_tool_success(
++                    self,
++                    client.call_tool("git_diff", {"path": "nested"}),
+                 )
+-                self.assertIs(result.get("isError"), True, result)
+-                payload = structured_payload(result)
+-                self.assertEqual(payload.get("error", {}).get("code"), "TTY_UNSUPPORTED")
++                self.assertIn("+beta", diff.get("diff", ""), diff)
+ 
+     def test_windows_force_kill_cleans_background_command(self) -> None:
+         with tempfile.TemporaryDirectory() as tmp:

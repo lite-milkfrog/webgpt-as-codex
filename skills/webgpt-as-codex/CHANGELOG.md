@@ -1,5 +1,14 @@
 # Changelog
 
+## 1.4.0 — 2026-09-27
+
+- Made the canonical WebGPT-as-Codex Skill a mandatory per-session bootstrap gate for substantive WAC work. A new Agent/session must actually load `SKILL.md` and `routing.md`; cross-session memory is not accepted as proof that the current session loaded the operating contract.
+- Added `session-bootstrap.md` with a bounded bootstrap sequence: canonical Skill -> routing -> machine-local Inventory/environment when relevant -> Workflow selection -> only the current Stage's leaf Skills.
+- Preserved context efficiency: mandatory bootstrap does **not** mean loading every Skill. Complex tasks select a canonical Workflow first, then recursively load only required/optional Skills for the active Stage.
+- Added bundled derivative-source policy for WAC-maintained Coding Tools and Serena modifications so a fresh source deployment can reproduce the verified local behavior instead of silently reinstalling pristine upstream packages.
+- Recorded Playwright modifications as a deterministic WAC overlay rather than an unnecessary full upstream fork.
+- Added regression coverage that forbids substantive WAC mutation before current-session Skill bootstrap.
+
 ## 1.3.2 — 2026-09-22
 
 - Promoted ChatGPT Loop handoff from a behavior-only rule set to a prompt-hash transaction: the canonical helper now identifies the exact handoff by whitespace-normalized SHA-256 instead of accepting any `/c/` conversation with a user message.

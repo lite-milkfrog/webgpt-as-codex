@@ -1,0 +1,2 @@
+vendor/** -text -diff
+vendor/**/WAC_MODIFICATIONS.md text eol=lf diff

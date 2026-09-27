@@ -1,0 +1,129 @@
+name: compliance
+
+on:
+  push:
+    branches: [main, "recover-*", "release/**", "hotfix/**"]
+  pull_request:
+    branches: [main, "release/**"]
+  workflow_dispatch:
+  workflow_call:
+
+jobs:
+  compliance:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6.0.2
+
+      - name: Set up Python
+        uses: actions/setup-python@v6.2.0
+        with:
+          python-version: "3.11"
+
+      - name: Set up Node
+        uses: actions/setup-node@v6
+        with:
+          node-version: "22"
+
+      - name: Install runtime and CI tools
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -e ".[dev]"
+
+      - name: Run lint
+        run: make lint
+
+      - name: Run typecheck
+        run: make typecheck
+
+      - name: Run unit discovery
+        run: make test
+
+      - name: Run patch recovery repro gate
+        run: make test-patch-repro
+
+      - name: Run protocol gate
+        run: make test-protocol
+
+      - name: Run integration gate
+        run: make test-integration
+
+      - name: Run required docs gate
+        run: make test-docs-required
+
+      - name: Run schema drift gate
+        run: make test-schema-drift
+
+      - name: Run dispatch inputs gate
+        run: make check-dispatch-inputs
+
+      - name: Run npm launcher gate
+        run: make check-npm-launcher
+
+      - name: Run dogfood smoke
+        run: make dogfood-smoke
+
+      - name: Run latency benchmark
+        run: make benchmark-latency
+
+      - name: Validate SWE-bench smoke preflight
+        run: make benchmark-smoke
+
+      - name: Refresh full compliance report
+        run: make compliance
+
+      - name: Upload CI evidence
+        if: always()
+        uses: actions/upload-artifact@v7.0.1
+        with:
+          name: compliance-evidence
+          path: |
+            reports/compliance/**
+            reports/benchmark/**
+            reports/dogfood/**
+            docs/dogfood/**
+          if-no-files-found: ignore
+          retention-days: 14
+
+  windows-msvc-smoke:
+    runs-on: windows-latest
+    timeout-minutes: 20
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6.0.2
+
+      - name: Set up Python
+        uses: actions/setup-python@v6.2.0
+        with:
+          python-version: "3.11"
+
+      - name: Install runtime
+        shell: pwsh
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -e .
+
+      - name: Locate Visual Studio C++ tools
+        shell: pwsh
+        run: |
+          $vswhere = Join-Path ${env:ProgramFiles(x86)} "Microsoft Visual Studio\Installer\vswhere.exe"
+          if (-not (Test-Path $vswhere)) {
+            throw "vswhere.exe not found at $vswhere"
+          }
+          $installationPath = & $vswhere -latest -products * -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath
+          if (-not $installationPath) {
+            throw "Visual Studio C++ x64 tools were not found"
+          }
+          $vcvarsAll = Join-Path $installationPath "VC\Auxiliary\Build\vcvarsall.bat"
+          if (-not (Test-Path $vcvarsAll)) {
+            throw "vcvarsall.bat not found at $vcvarsAll"
+          }
+          "VCVARSALL=$vcvarsAll" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+
+      - name: Run MSVC environment inheritance smoke
+        shell: cmd
+        run: |
+          call "%VCVARSALL%" x64
+          where cl.exe
+          python -m unittest tests.compliance.test_windows_msvc_smoke

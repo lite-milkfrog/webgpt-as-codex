@@ -1,0 +1,130 @@
+name: final-audit
+
+on:
+  workflow_dispatch:
+    inputs:
+      compliance_run_id:
+        description: "Successful compliance run ID for this commit"
+        required: true
+      real_workloads_run_id:
+        description: "Successful real-workloads run ID for this commit"
+        required: true
+      swebench_run_id:
+        description: "Successful swebench-lite run ID for this commit"
+        required: true
+      release_tag:
+        description: "Release tag that points at this commit"
+        required: true
+
+jobs:
+  final-audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      actions: read
+      contents: read
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6.0.2
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v6.2.0
+        with:
+          python-version: "3.11"
+
+      - name: Validate release tag and metadata
+        env:
+          EXPECTED_SHA: ${{ github.sha }}
+          RELEASE_TAG: ${{ inputs.release_tag }}
+        run: |
+          tag_sha="$(git rev-list -n 1 "$RELEASE_TAG")"
+          expected_ref="refs/tags/$RELEASE_TAG"
+          if [ "$GITHUB_REF" != "$expected_ref" ]; then
+            echo "workflow ref $GITHUB_REF does not match release ref $expected_ref" >&2
+            exit 1
+          fi
+          if [ "$tag_sha" != "$EXPECTED_SHA" ]; then
+            echo "release tag $RELEASE_TAG points to $tag_sha, expected $EXPECTED_SHA" >&2
+            exit 1
+          fi
+          python scripts/check_release_versions.py --tag "$RELEASE_TAG"
+
+      - name: Validate referenced runs
+        env:
+          GH_TOKEN: ${{ github.token }}
+          EXPECTED_SHA: ${{ github.sha }}
+          REPO: ${{ github.repository }}
+          COMPLIANCE_RUN_ID: ${{ inputs.compliance_run_id }}
+          REAL_WORKLOADS_RUN_ID: ${{ inputs.real_workloads_run_id }}
+          SWEBENCH_RUN_ID: ${{ inputs.swebench_run_id }}
+        run: |
+          python - <<'PY'
+          import json
+          import os
+          import subprocess
+          import sys
+
+          expected_sha = os.environ["EXPECTED_SHA"]
+          repo = os.environ["REPO"]
+          runs = {
+              "compliance": os.environ["COMPLIANCE_RUN_ID"],
+              "real-workloads": os.environ["REAL_WORKLOADS_RUN_ID"],
+              "swebench-lite": os.environ["SWEBENCH_RUN_ID"],
+          }
+          failures = []
+          for expected_workflow, run_id in runs.items():
+              result = subprocess.run(
+                  [
+                      "gh",
+                      "run",
+                      "view",
+                      run_id,
+                      "--repo",
+                      repo,
+                      "--json",
+                      "headSha,conclusion,status,workflowName,url",
+                  ],
+                  text=True,
+                  stdout=subprocess.PIPE,
+                  stderr=subprocess.PIPE,
+                  check=False,
+              )
+              if result.returncode != 0:
+                  failures.append(f"{expected_workflow} {run_id}: gh failed: {result.stderr.strip()}")
+                  continue
+              payload = json.loads(result.stdout)
+              if payload.get("workflowName") != expected_workflow:
+                  failures.append(f"{run_id}: workflowName={payload.get('workflowName')!r}, expected {expected_workflow!r}")
+              if payload.get("headSha") != expected_sha:
+                  failures.append(f"{run_id}: headSha={payload.get('headSha')!r}, expected {expected_sha!r}")
+              if payload.get("status") != "completed" or payload.get("conclusion") != "success":
+                  failures.append(f"{run_id}: status={payload.get('status')!r}, conclusion={payload.get('conclusion')!r}")
+              print(f"{expected_workflow}: {payload.get('url')} {payload.get('conclusion')} {payload.get('headSha')}")
+          if failures:
+              for failure in failures:
+                  print(failure, file=sys.stderr)
+              raise SystemExit(1)
+          PY
+
+      - name: Render final report
+        run: |
+          python scripts/render_final_report.py \
+            --repo "${{ github.repository }}" \
+            --branch "${{ github.ref_name }}" \
+            --commit "${{ github.sha }}" \
+            --tag "${{ inputs.release_tag }}" \
+            --compliance-run-id "${{ inputs.compliance_run_id }}" \
+            --real-workloads-run-id "${{ inputs.real_workloads_run_id }}" \
+            --swebench-run-id "${{ inputs.swebench_run_id }}" \
+            --final-audit-run-id "${{ github.run_id }}" \
+            --output reports/final.md
+
+      - name: Upload final audit evidence
+        uses: actions/upload-artifact@v7.0.1
+        with:
+          name: final-audit-evidence
+          path: reports/final.md
+          if-no-files-found: error
+          retention-days: 30

@@ -1,0 +1,39 @@
+{
+  "name": "v0.5.0 starter",
+  "notes": "Hermetic warm-up tasks that need no network and no clone. The 30-task release run adds repo/commit tasks alongside these; see docs/agent-evaluation.md.",
+  "tasks": [
+    {
+      "id": "py-off-by-one",
+      "category": "python",
+      "fixture": "../fixtures/py-off-by-one",
+      "prompt": "chunk() in textkit/chunker.py drops the final partial chunk. Fix it so every element appears exactly once, then make sure the tests pass.",
+      "verify": "python3 -m unittest discover -s . -p 'test_*.py' -q",
+      "regression_verify": "python3 -c \"import textkit.chunker as c; assert c.chunk([], 3) == []\"",
+      "timeout_s": 120,
+      "max_rounds": 3,
+      "tags": ["bugfix", "single-file"]
+    },
+    {
+      "id": "py-missing-guard",
+      "category": "python",
+      "fixture": "../fixtures/py-missing-guard",
+      "prompt": "parse_duration() in textkit/duration.py raises on an empty string instead of returning 0. Fix it and keep the existing behavior for valid input.",
+      "verify": "python3 -m unittest discover -s . -p 'test_*.py' -q",
+      "regression_verify": "python3 -c \"import textkit.duration as d; assert d.parse_duration('2m') == 120\"",
+      "timeout_s": 120,
+      "max_rounds": 3,
+      "tags": ["bugfix", "edge-case"]
+    },
+    {
+      "id": "py-add-feature",
+      "category": "python",
+      "fixture": "../fixtures/py-add-feature",
+      "prompt": "Add a `dedupe` function to textkit/lists.py that removes duplicates while preserving order, and make the tests in test_lists.py pass.",
+      "verify": "python3 -m unittest discover -s . -p 'test_*.py' -q",
+      "regression_verify": "python3 -c \"import textkit.lists as l; assert l.flatten([[1],[2]]) == [1, 2]\"",
+      "timeout_s": 120,
+      "max_rounds": 3,
+      "tags": ["feature", "new-symbol"]
+    }
+  ]
+}

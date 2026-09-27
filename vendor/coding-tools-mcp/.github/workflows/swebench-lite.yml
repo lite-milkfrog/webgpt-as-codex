@@ -1,0 +1,127 @@
+name: swebench-lite
+
+on:
+  workflow_dispatch:
+    inputs:
+      instance_ids:
+        description: "Comma-separated SWE-bench Lite instance IDs"
+        required: false
+        default: "sympy__sympy-12419"
+      max_workers:
+        description: "SWE-bench max workers"
+        required: false
+        default: "1"
+      require_evaluation_pass:
+        description: "Fail unless official harness resolves candidate >= baseline with real predictions"
+        required: false
+        type: boolean
+        default: true
+      prediction_source:
+        description: "Prediction files to evaluate"
+        required: false
+        type: choice
+        options:
+          - reference_patch
+          - checked_in
+        default: reference_patch
+      install_swebench:
+        description: "Attempt to install the official SWE-bench package"
+        required: false
+        type: boolean
+        default: true
+  workflow_call:
+    inputs:
+      instance_ids:
+        required: false
+        type: string
+        default: "sympy__sympy-12419"
+      max_workers:
+        required: false
+        type: string
+        default: "1"
+      require_evaluation_pass:
+        required: false
+        type: boolean
+        default: true
+      prediction_source:
+        required: false
+        type: string
+        default: reference_patch
+      install_swebench:
+        required: false
+        type: boolean
+        default: true
+
+jobs:
+  swebench-lite:
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6.0.2
+
+      - name: Set up Python
+        uses: actions/setup-python@v6.2.0
+        with:
+          python-version: "3.11"
+
+      - name: Install runtime
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -e .
+
+      - name: Record Docker diagnostics
+        run: |
+          docker version
+          docker info
+
+      - name: Attempt SWE-bench Lite official evaluation
+        run: |
+          ids="${{ inputs.instance_ids }}"
+          args=()
+          prediction_args=()
+          IFS=',' read -ra parts <<< "$ids"
+          for id in "${parts[@]}"; do
+            trimmed="$(echo "$id" | xargs)"
+            if [ -n "$trimmed" ]; then
+              args+=(--instance-id "$trimmed")
+            fi
+          done
+          if [ "${{ inputs.prediction_source }}" = "reference_patch" ]; then
+            mkdir -p reports/benchmark/swebench-reference-predictions
+            python benchmarks/swebench/generate_reference_predictions.py \
+              "${args[@]}" \
+              --baseline-output reports/benchmark/swebench-reference-predictions/baseline_reference.jsonl \
+              --candidate-output reports/benchmark/swebench-reference-predictions/candidate_reference.jsonl \
+              --metadata-output reports/benchmark/swebench-reference-predictions/metadata.json
+            prediction_args=(
+              --baseline-predictions reports/benchmark/swebench-reference-predictions/baseline_reference.jsonl
+              --candidate-predictions reports/benchmark/swebench-reference-predictions/candidate_reference.jsonl
+            )
+          fi
+          install_flag=()
+          if [ "${{ inputs.install_swebench }}" = "true" ]; then
+            install_flag=(--install-swebench)
+          fi
+          require_flag=()
+          if [ "${{ inputs.require_evaluation_pass }}" = "true" ]; then
+            require_flag=(--require-evaluation-pass)
+          fi
+          python benchmarks/swebench/run_smoke.py \
+            "${install_flag[@]}" \
+            --run-evaluation \
+            --max-workers "${{ inputs.max_workers }}" \
+            "${args[@]}" \
+            "${prediction_args[@]}" \
+            "${require_flag[@]}" \
+            --report-json reports/benchmark/swebench-official-attempt.json \
+            --report-md reports/benchmark/swebench-official-attempt.md
+
+      - name: Upload SWE-bench evidence
+        if: always()
+        uses: actions/upload-artifact@v7.0.1
+        with:
+          name: swebench-lite-evidence
+          path: reports/benchmark/**
+          if-no-files-found: ignore
+          retention-days: 14

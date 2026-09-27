@@ -1,0 +1,349 @@
+import os
+from pathlib import Path
+
+import pytest
+
+from serena.symbol import LanguageServerSymbol
+from serena.util.text_utils import find_text_coordinates
+from solidlsp import SolidLanguageServer
+from solidlsp.ls_config import LanguageServerId
+from solidlsp.ls_types import SymbolKind
+from solidlsp.ls_utils import SymbolUtils
+from test.conftest import find_identifier_position, get_repo_path, ls_has_verified_implementation_support
+from test.solidlsp.conftest import format_symbol_for_assert, has_malformed_name, read_repo_file, request_all_symbols
+
+
+@pytest.mark.go
+class TestGoLanguageServer:
+    @pytest.mark.parametrize("language_server", [LanguageServerId.GO], indirect=True)
+    def test_find_symbol(self, language_server: SolidLanguageServer) -> None:
+        symbols = language_server.request_full_symbol_tree()
+        assert SymbolUtils.symbol_tree_contains_name(symbols, "main"), "main function not found in symbol tree"
+        assert SymbolUtils.symbol_tree_contains_name(symbols, "Helper"), "Helper function not found in symbol tree"
+        assert SymbolUtils.symbol_tree_contains_name(symbols, "DemoStruct"), "DemoStruct not found in symbol tree"
+
+    @pytest.mark.parametrize("language_server", [LanguageServerId.GO], indirect=True)
+    def test_find_symbol_matches_go_method_by_bare_name(self, language_server: SolidLanguageServer) -> None:
+        symbols = language_server.request_full_symbol_tree(within_relative_path="main.go")
+
+        assert SymbolUtils.symbol_tree_contains_name(symbols, "Value"), "Expected Go method name to be normalized to bare name"
+        assert not SymbolUtils.symbol_tree_contains_name(symbols, "(*DemoStruct).Value"), (
+            "Expected receiver-qualified Go method name to be normalized away"
+        )
+
+        bare_name_matches = [match for root in symbols for match in LanguageServerSymbol(root).find("Value")]
+
+        assert bare_name_matches, "Expected a Go method to match by bare name"
+        assert all(match.name == "Value" for match in bare_name_matches)
+
+    @pytest.mark.parametrize("language_server", [LanguageServerId.GO], indirect=True)
+    def test_find_referencing_symbols(self, language_server: SolidLanguageServer) -> None:
+        file_path = os.path.join("main.go")
+        symbols = language_server.request_document_symbols(file_path).get_all_symbols_and_roots()
+        helper_symbol = None
+        for sym in symbols[0]:
+            if sym.get("name") == "Helper":
+                helper_symbol = sym
+                break
+        assert helper_symbol is not None, "Could not find 'Helper' function symbol in main.go"
+        sel_start = helper_symbol["selectionRange"]["start"]
+        refs = language_server.request_references(file_path, sel_start["line"], sel_start["character"])
+        assert any("main.go" in ref.get("uri", "") for ref in refs), "Expected at least one reference result to point at main.go"
+
+    @pytest.mark.parametrize("language_server", [LanguageServerId.GO], indirect=True)
+    def test_type_var_const_body_includes_leading_keyword(self, language_server: SolidLanguageServer) -> None:
+        """
+        Single ``type``/``var``/``const`` declarations must expose a body and replacement range that
+        include the leading keyword, just like ``func`` declarations do.
+
+        Regression test for gopls reporting the symbol range of such declarations starting at the
+        declared identifier (after the keyword) rather than at the keyword. That asymmetry made
+        replace_symbol_body drop the keyword from the body and replacement range, so a natural
+        keyword-inclusive round-trip edit corrupted the file (e.g. ``type Foo`` -> ``type type Foo``).
+        """
+        all_symbols, _ = language_server.request_document_symbols("symbol_body.go").get_all_symbols_and_roots()
+        symbols_by_name = {sym.get("name"): sym for sym in all_symbols}
+
+        # single declarations: body starts with the keyword, the range start moves to the keyword
+        # (column 0 here), and the selection range still points at the identifier after the keyword
+        expected_keyword_by_name = {
+            "BodyStruct": "type ",
+            "NamedInt": "type ",
+            "AliasInt": "type ",
+            "GlobalCounter": "var ",
+            "MaxItems": "const ",
+        }
+        for name, keyword in expected_keyword_by_name.items():
+            sym = symbols_by_name.get(name)
+            assert sym is not None, f"{name} not found in symbol_body.go"
+            body = sym["body"].get_text()
+            assert body.startswith(keyword), f"Expected body of {name} to start with {keyword!r}, got {body[:24]!r}"
+            assert sym["location"]["range"]["start"]["character"] == 0, f"Expected {name} body range to start at the keyword (col 0)"
+            assert sym["selectionRange"]["start"]["character"] > 0, f"Expected {name} selectionRange to point at the identifier"
+
+        # grouped declarations keep the keyword on a separate line (e.g. ``var ( ... )``), so their
+        # bodies must NOT include it and their ranges must be left untouched
+        for name in ("GroupedA", "GroupedB"):
+            sym = symbols_by_name.get(name)
+            assert sym is not None, f"{name} not found in symbol_body.go"
+            body = sym["body"].get_text()
+            assert body.startswith(name), f"Expected grouped var {name} body to start with the identifier, got {body[:24]!r}"
+            assert not body.startswith("var"), f"Grouped var {name} body must not include the 'var' keyword"
+
+    @pytest.mark.parametrize("language_server", [LanguageServerId.GO], indirect=True)
+    def test_request_containing_symbol_const_group_member(self, language_server: SolidLanguageServer) -> None:
+        """A reference inside a ``const`` group must be attributed to the enclosing constant."""
+        file_path = os.path.join("containment_sample.go")
+        file_content = read_repo_file(language_server, file_path)
+        coords = find_text_coordinates(file_content, r"SevLow (Severity) = iota")
+        assert coords is not None, "Could not find the Severity reference in the const group"
+        containing_symbol = language_server.request_containing_symbol(file_path, coords.line, coords.col)
+        assert containing_symbol is not None, "Expected a containing symbol for a reference inside a const group"
+        assert containing_symbol["name"] == "SevLow"
+        assert containing_symbol["kind"] == SymbolKind.Constant
+
+    @pytest.mark.parametrize("language_server", [LanguageServerId.GO], indirect=True)
+    def test_request_containing_symbol_struct_field(self, language_server: SolidLanguageServer) -> None:
+        """A reference in a struct field declaration must be attributed to the enclosing struct."""
+        file_path = os.path.join("containment_sample.go")
+        file_content = read_repo_file(language_server, file_path)
+        coords = find_text_coordinates(file_content, r"Level (Severity)")
+        assert coords is not None, "Could not find the Severity reference in the struct field"
+        containing_symbol = language_server.request_containing_symbol(file_path, coords.line, coords.col)
+        assert containing_symbol is not None, "Expected a containing symbol for a reference inside a struct body"
+        assert containing_symbol["name"] == "Alert"
+        assert containing_symbol["kind"] == SymbolKind.Struct
+
+    @pytest.mark.parametrize("language_server", [LanguageServerId.GO], indirect=True)
+    def test_request_containing_symbol_interface_method(self, language_server: SolidLanguageServer) -> None:
+        """A reference in an interface method signature must be attributed to the enclosing interface."""
+        file_path = os.path.join("containment_sample.go")
+        file_content = read_repo_file(language_server, file_path)
+        coords = find_text_coordinates(file_content, r"Notify\(level (Severity)\)")
+        assert coords is not None, "Could not find the Severity reference in the interface method"
+        containing_symbol = language_server.request_containing_symbol(file_path, coords.line, coords.col)
+        assert containing_symbol is not None, "Expected a containing symbol for a reference inside an interface body"
+        assert containing_symbol["name"] == "Notifier"
+        assert containing_symbol["kind"] == SymbolKind.Interface
+
+    @pytest.mark.parametrize("language_server", [LanguageServerId.GO], indirect=True)
+    def test_request_referencing_symbols_attributes_containers(self, language_server: SolidLanguageServer) -> None:
+        """References to a type used in a const group, a struct field and an interface method must
+        be attributed to the constant, the struct and the interface respectively, not to the file.
+        """
+        file_path = os.path.join("containment_sample.go")
+        all_symbols, _ = language_server.request_document_symbols(file_path).get_all_symbols_and_roots()
+        severity_symbol = next((sym for sym in all_symbols if sym.get("name") == "Severity"), None)
+        assert severity_symbol is not None, "Could not find the 'Severity' type symbol in containment_sample.go"
+        sel_start = severity_symbol["selectionRange"]["start"]
+        ref_symbols = [
+            ref.symbol for ref in language_server.request_referencing_symbols(file_path, sel_start["line"], sel_start["character"])
+        ]
+        assert ref_symbols, "Expected references to the Severity type"
+        ref_names = {ref["name"] for ref in ref_symbols}
+        assert "SevLow" in ref_names
+        assert "Alert" in ref_names
+        assert "Notifier" in ref_names
+        assert all(ref["kind"] != SymbolKind.File for ref in ref_symbols), f"File-level fallback attribution in {ref_names}"
+
+    if ls_has_verified_implementation_support(LanguageServerId.GO):
+
+        @pytest.mark.parametrize("language_server", [LanguageServerId.GO], indirect=True)
+        def test_find_implementations(self, language_server: SolidLanguageServer) -> None:
+            repo_path = get_repo_path(LanguageServerId.GO)
+            pos = find_identifier_position(repo_path / "main.go", "FormatGreeting")
+            assert pos is not None, "Could not find Greeter.FormatGreeting in fixture"
+
+            implementations = language_server.request_implementation("main.go", *pos)
+            assert implementations, "Expected at least one implementation of Greeter.FormatGreeting"
+            assert any("main.go" in implementation.get("relativePath", "") for implementation in implementations), (
+                f"Expected ConsoleGreeter.FormatGreeting in implementations, got: {implementations}"
+            )
+
+        @pytest.mark.parametrize("language_server", [LanguageServerId.GO], indirect=True)
+        def test_request_implementing_symbols(self, language_server: SolidLanguageServer) -> None:
+            repo_path = get_repo_path(LanguageServerId.GO)
+            pos = find_identifier_position(repo_path / "main.go", "FormatGreeting")
+            assert pos is not None, "Could not find Greeter.FormatGreeting in fixture"
+
+            implementing_symbols = language_server.request_implementing_symbols("main.go", *pos)
+            assert implementing_symbols, "Expected implementing symbols for Greeter.FormatGreeting"
+            assert any(
+                symbol.get("name") == "FormatGreeting" and "main.go" in symbol["location"].get("relativePath", "")
+                for symbol in implementing_symbols
+            ), f"Expected FormatGreeting symbol, got: {implementing_symbols}"
+
+
+def _filter_symbols_by_name_in_repo(symbols: list | None, target_name: str, repo_name: str = "test_repo") -> list:
+    """Filter workspace symbols to exact name matches in the test repo."""
+    if symbols is None:
+        return []
+    return [s for s in symbols if s.get("name") == target_name and repo_name in s.get("location", {}).get("uri", "")]
+
+
+@pytest.mark.go
+class TestGoBuildTags:
+    """Tests for Go build tag/constraint support."""
+
+    def _copy_go_fixture(self, tmp_path: Path) -> Path:
+        """Copy Go fixture repo into tmp_path."""
+        import shutil
+
+        from test.conftest import get_repo_path
+
+        fixture_path = get_repo_path(LanguageServerId.GO)
+        target_path = tmp_path / "test_repo"
+
+        shutil.copytree(fixture_path, target_path)
+        return target_path
+
+    def test_default_context_contains_xnotfoo(self, tmp_path: Path) -> None:
+        """Default build context should contain XNotFoo and not XFoo."""
+        from test.conftest import start_ls_context
+
+        repo_path = self._copy_go_fixture(tmp_path)
+
+        with start_ls_context(LanguageServerId.GO, repo_path=str(repo_path), solidlsp_dir=tmp_path) as ls:
+            xnotfoo_symbols = ls.request_workspace_symbol("XNotFoo")
+            xfoo_symbols = ls.request_workspace_symbol("XFoo")
+
+            xnotfoo_matches = _filter_symbols_by_name_in_repo(xnotfoo_symbols, "XNotFoo")
+            xfoo_matches = _filter_symbols_by_name_in_repo(xfoo_symbols, "XFoo")
+
+            assert len(xnotfoo_matches) > 0, "Default context should contain XNotFoo"
+            assert len(xfoo_matches) == 0, "Default context should NOT contain XFoo"
+
+    def test_foo_context_contains_xfoo(self, tmp_path: Path) -> None:
+        """Build context with -tags=foo should contain XFoo and not XNotFoo."""
+        from test.conftest import start_ls_context
+
+        repo_path = self._copy_go_fixture(tmp_path)
+
+        ls_settings = {
+            LanguageServerId.GO: {
+                "gopls_settings": {
+                    "buildFlags": ["-tags=foo"],
+                },
+            },
+        }
+
+        with start_ls_context(LanguageServerId.GO, repo_path=str(repo_path), ls_specific_settings=ls_settings, solidlsp_dir=tmp_path) as ls:
+            xfoo_symbols = ls.request_workspace_symbol("XFoo")
+            xnotfoo_symbols = ls.request_workspace_symbol("XNotFoo")
+
+            xfoo_matches = _filter_symbols_by_name_in_repo(xfoo_symbols, "XFoo")
+            xnotfoo_matches = _filter_symbols_by_name_in_repo(xnotfoo_symbols, "XNotFoo")
+
+            assert len(xfoo_matches) > 0, "Foo context should contain XFoo"
+            assert len(xnotfoo_matches) == 0, "Foo context should NOT contain XNotFoo"
+
+    def test_disk_cache_is_invalidated_on_build_context_switch(self, tmp_path: Path) -> None:
+        """Go build context switches must not reuse persisted SolidLSP document-symbol caches."""
+        import pickle
+
+        from test.conftest import start_ls_context
+
+        repo_path = self._copy_go_fixture(tmp_path)
+
+        ls_settings_foo = {
+            LanguageServerId.GO: {
+                "gopls_settings": {
+                    "buildFlags": ["-tags=foo"],
+                },
+            },
+        }
+
+        main_go = os.path.join("main.go")
+
+        def _assert_caches_loaded_and_clean(ls: SolidLanguageServer) -> None:
+            # White-box assertions: SolidLanguageServer currently has no public API to verify that
+            # caches were loaded from disk vs created lazily on first request.
+            assert ls._raw_document_symbols_cache, "Expected raw document-symbol cache to load from disk"
+            assert ls._document_symbols_cache, "Expected document-symbol cache to load from disk"
+            assert not ls._raw_document_symbols_cache_is_modified
+            assert not ls._document_symbols_cache_is_modified
+
+        def _assert_caches_empty(ls: SolidLanguageServer) -> None:
+            assert ls._raw_document_symbols_cache == {}
+            assert ls._document_symbols_cache == {}
+
+        def _assert_caches_modified(ls: SolidLanguageServer) -> None:
+            assert ls._raw_document_symbols_cache_is_modified
+            assert ls._document_symbols_cache_is_modified
+
+        # Run 1 (default context): populate caches and persist them to disk.
+        with start_ls_context(LanguageServerId.GO, repo_path=str(repo_path), solidlsp_dir=tmp_path) as ls_default:
+            _ = ls_default.request_document_symbols(main_go)
+
+            default_raw_cache_version = ls_default._raw_document_symbols_cache_version()
+            default_doc_cache_version = ls_default._document_symbols_cache_version()
+
+            ls_default.save_cache()
+            cache_dir = ls_default.cache_dir
+
+            cache_files = [p for p in cache_dir.rglob("*") if p.is_file()]
+            assert cache_files, f"Expected SolidLSP to create cache artifacts under {cache_dir}"
+
+            versioned_cache_files: list[tuple[Path, object]] = []
+            for p in cache_files:
+                try:
+                    with p.open("rb") as f:
+                        data = pickle.load(f)
+                except Exception:
+                    continue
+                if isinstance(data, dict) and "__cache_version" in data:
+                    versioned_cache_files.append((p, data["__cache_version"]))
+
+            assert versioned_cache_files, f"Expected at least one SolidLSP cache file with a __cache_version under {cache_dir}"
+            saved_versions = {v for _, v in versioned_cache_files}
+            assert default_raw_cache_version in saved_versions or default_doc_cache_version in saved_versions, (
+                "Expected at least one persisted cache to match the default-context cache version"
+            )
+
+        # Run 2 (default context again): prove that persisted caches are actually loaded and used.
+        with start_ls_context(LanguageServerId.GO, repo_path=str(repo_path), solidlsp_dir=tmp_path) as ls_default_again:
+            assert ls_default_again.cache_dir == cache_dir
+
+            _assert_caches_loaded_and_clean(ls_default_again)
+
+            _ = ls_default_again.request_document_symbols(main_go)
+
+            # A cache hit should not mark caches as modified.
+            assert not ls_default_again._raw_document_symbols_cache_is_modified
+            assert not ls_default_again._document_symbols_cache_is_modified
+
+        # Run 3 (foo context): the same on-disk cache directory exists, but MUST be treated as stale.
+        with start_ls_context(
+            LanguageServerId.GO,
+            repo_path=str(repo_path),
+            ls_specific_settings=ls_settings_foo,
+            solidlsp_dir=tmp_path,
+        ) as ls_foo:
+            assert ls_foo.cache_dir == cache_dir
+
+            foo_raw_cache_version = ls_foo._raw_document_symbols_cache_version()
+            foo_doc_cache_version = ls_foo._document_symbols_cache_version()
+
+            assert foo_raw_cache_version != default_raw_cache_version
+            assert foo_doc_cache_version != default_doc_cache_version
+
+            # Different build context => persisted caches must not be loaded.
+            _assert_caches_empty(ls_foo)
+
+            _ = ls_foo.request_document_symbols(main_go)
+
+            # A cache miss should repopulate and mark caches modified.
+            _assert_caches_modified(ls_foo)
+
+    @pytest.mark.parametrize("language_server", [LanguageServerId.GO], indirect=True)
+    def test_bare_symbol_names(self, language_server) -> None:
+        all_symbols = request_all_symbols(language_server)
+        malformed_symbols = []
+        for s in all_symbols:
+            if has_malformed_name(s):
+                malformed_symbols.append(s)
+        if malformed_symbols:
+            pytest.fail(
+                f"Found malformed symbols: {[format_symbol_for_assert(sym) for sym in malformed_symbols]}",
+                pytrace=False,
+            )

@@ -1,0 +1,245 @@
+"""
+Provides Perl specific instantiation of the LanguageServer class using Perl::LanguageServer.
+
+Note: Windows is not supported as Nix itself doesn't support Windows natively.
+"""
+
+import logging
+import time
+from typing import Any
+
+from overrides import override
+
+from solidlsp.ls import SolidLanguageServer
+from solidlsp.ls_config import LanguageServerConfig, LanguageServerId
+from solidlsp.ls_utils import PlatformId, PlatformUtils
+from solidlsp.lsp_protocol_handler.lsp_types import DidChangeConfigurationParams
+from solidlsp.lsp_protocol_handler.server import ProcessLaunchInfo
+from solidlsp.settings import SolidLSPSettings
+from solidlsp.util.subprocess_util import subprocess_run
+
+log = logging.getLogger(__name__)
+
+# Defaults handed to Perl::LanguageServer via its `perl.fileFilter` / `perl.ignoreDirs` settings.
+# Exposed for override via `ls_specific_settings["perl"]`. Extensions added via `file_filter` are
+# also synced into Language.PERL.get_source_fn_matcher() (a cached singleton) so Serena's symbol
+# index and the language server agree on which files are Perl sources (#1449).
+_DEFAULT_FILE_FILTER: list[str] = [".pm", ".pl", ".t"]
+_DEFAULT_IGNORE_DIRS: list[str] = [".git", ".svn", "blib", "local", ".carton", "vendor", "_build", "cover_db"]
+
+
+class PerlLanguageServer(SolidLanguageServer):
+    """
+    Provides Perl specific instantiation of the LanguageServer class using Perl::LanguageServer.
+
+    You can pass the following entries in ``ls_specific_settings["perl"]``:
+        - file_filter: List of file extensions (with leading dot) that Perl::LanguageServer should
+          index, e.g. ``[".pm", ".pl", ".t", ".cgi"]``. Defaults to ``[".pm", ".pl", ".t"]``.
+          The same extensions are added to Serena's Perl source-file matcher, so ``find_symbol``
+          and symbol indexing treat them consistently (see #1449).
+        - ignore_dirs: Directory names Perl::LanguageServer should skip when indexing. Defaults to
+          ``[".git", ".svn", "blib", "local", ".carton", "vendor", "_build", "cover_db"]``.
+    """
+
+    @staticmethod
+    def _get_perl_version() -> str | None:
+        """Get the installed Perl version or None if not found."""
+        try:
+            result = subprocess_run(["perl", "-v"], capture_output=True, text=True, check=False)
+            if result.returncode == 0:
+                return result.stdout.strip()
+        except FileNotFoundError:
+            return None
+        return None
+
+    @staticmethod
+    def _get_perl_language_server_version() -> str | None:
+        """Get the installed Perl::LanguageServer version or None if not found."""
+        try:
+            result = subprocess_run(
+                ["perl", "-MPerl::LanguageServer", "-e", "print $Perl::LanguageServer::VERSION"],
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+            if result.returncode == 0:
+                return result.stdout.strip()
+        except FileNotFoundError:
+            return None
+        return None
+
+    @override
+    def is_ignored_dirname(self, dirname: str) -> bool:
+        # For Perl projects, we should ignore:
+        # - blib: build library directory
+        # - local: local Perl module installation
+        # - .carton: Carton dependency manager cache
+        # - vendor: vendored dependencies
+        # - _build: Module::Build output
+        return super().is_ignored_dirname(dirname) or dirname in ["blib", "local", ".carton", "vendor", "_build", "cover_db"]
+
+    @classmethod
+    def _setup_runtime_dependencies(cls) -> str:
+        """
+        Check if required Perl runtime dependencies are available.
+        Raises RuntimeError with helpful message if dependencies are missing.
+        """
+        platform_id = PlatformUtils.get_platform_id()
+
+        valid_platforms = [
+            PlatformId.LINUX_x64,
+            PlatformId.LINUX_arm64,
+            PlatformId.OSX,
+            PlatformId.OSX_x64,
+            PlatformId.OSX_arm64,
+        ]
+        if platform_id not in valid_platforms:
+            raise RuntimeError(f"Platform {platform_id} is not supported for Perl at the moment")
+
+        perl_version = cls._get_perl_version()
+        if not perl_version:
+            raise RuntimeError(
+                "Perl is not installed. Please install Perl from https://www.perl.org/get.html and make sure it is added to your PATH."
+            )
+
+        perl_ls_version = cls._get_perl_language_server_version()
+        if not perl_ls_version:
+            raise RuntimeError(
+                "Found a Perl version but Perl::LanguageServer is not installed.\n"
+                "Please install Perl::LanguageServer: cpanm Perl::LanguageServer\n"
+                "See: https://metacpan.org/pod/Perl::LanguageServer"
+            )
+
+        return "perl -MPerl::LanguageServer -e 'Perl::LanguageServer::run'"
+
+    @staticmethod
+    def _resolve_filter_settings(solidlsp_settings: SolidLSPSettings) -> tuple[list[str], list[str]]:
+        """Resolve the ``fileFilter`` / ``ignoreDirs`` to hand to Perl::LanguageServer.
+
+        Reads optional overrides from ``ls_specific_settings["perl"]`` (keys ``file_filter`` and
+        ``ignore_dirs``); falls back to the defaults otherwise. Extracted as a pure function so the
+        configuration plumbing can be unit-tested without starting the language server.
+        """
+        perl_settings = solidlsp_settings.get_ls_specific_settings(LanguageServerId.PERL)
+        file_filter = perl_settings.get("file_filter", list(_DEFAULT_FILE_FILTER))
+        ignore_dirs = perl_settings.get("ignore_dirs", list(_DEFAULT_IGNORE_DIRS))
+        return file_filter, ignore_dirs
+
+    @staticmethod
+    def _sync_source_fn_matcher(file_filter: list[str]) -> None:
+        """Keep Serena's Perl source-file matcher in sync with the LS ``fileFilter``.
+
+        ``Language.PERL.get_source_fn_matcher()`` is a ``@cache``d per-language singleton, so adding
+        the configured extensions here propagates to every consumer of the matcher — symbol index
+        traversal (``project.is_ignored_path``), the LS ignore check (``ls.is_ignored_path``), and
+        language composition detection. Without this, ``find_symbol`` would not surface symbols in
+        files whose extensions were added to ``file_filter`` (#1449).
+        """
+        LanguageServerId.PERL.get_source_fn_matcher().add_extensions(*file_filter)
+
+    def __init__(self, config: LanguageServerConfig, repository_root_path: str, solidlsp_settings: SolidLSPSettings):
+        # Setup runtime dependencies before initializing
+        perl_ls_cmd = self._setup_runtime_dependencies()
+
+        super().__init__(
+            config, repository_root_path, ProcessLaunchInfo(cmd=perl_ls_cmd, cwd=repository_root_path), "perl", solidlsp_settings
+        )
+        self.request_id = 0
+        self._file_filter, self._ignore_dirs = self._resolve_filter_settings(solidlsp_settings)
+        # Sync Serena's source-file matcher with the configured extensions so find_symbol and the
+        # language server agree on which files are Perl sources (see #1449).
+        self._sync_source_fn_matcher(self._file_filter)
+
+    def _create_base_initialize_params(self) -> dict:
+        """
+        Returns the initialize params for Perl::LanguageServer.
+        Based on the expected structure from Perl::LanguageServer::Methods::_rpcreq_initialize.
+        """
+        initialize_params = {
+            "capabilities": {
+                "textDocument": {
+                    "synchronization": {"didSave": True, "dynamicRegistration": True},
+                    "definition": {"dynamicRegistration": True},
+                    "references": {"dynamicRegistration": True},
+                    "documentSymbol": {"dynamicRegistration": True},
+                    "hover": {"dynamicRegistration": True},
+                },
+                "workspace": {
+                    "workspaceFolders": True,
+                    "didChangeConfiguration": {"dynamicRegistration": True},
+                    "symbol": {"dynamicRegistration": True},
+                },
+            },
+            "initializationOptions": {},
+        }
+
+        return initialize_params
+
+    def _start_server(self) -> None:
+        """Start Perl::LanguageServer process"""
+
+        def register_capability_handler(params: Any) -> None:
+            return
+
+        def window_log_message(msg: dict) -> None:
+            log.info(f"LSP: window/logMessage: {msg}")
+
+        def do_nothing(params: Any) -> None:
+            return
+
+        def workspace_configuration_handler(params: Any) -> Any:
+            """Handle workspace/configuration request from Perl::LanguageServer."""
+            log.info(f"Received workspace/configuration request: {params}")
+
+            perl_config = {
+                "perlInc": [self.repository_root_path, "."],
+                "fileFilter": self._file_filter,
+                "ignoreDirs": self._ignore_dirs,
+            }
+
+            return [perl_config]
+
+        self.server.on_request("client/registerCapability", register_capability_handler)
+        self.server.on_request("workspace/configuration", workspace_configuration_handler)
+        self.server.on_notification("window/logMessage", window_log_message)
+        self.server.on_notification("$/progress", do_nothing)
+        self.server.on_notification("textDocument/publishDiagnostics", do_nothing)
+
+        log.info("Starting Perl::LanguageServer process")
+        self.server.start()
+        initialize_params = self._create_initialize_params()
+
+        log.info("Sending initialize request from LSP client to LSP server and awaiting response")
+        init_response = self.server.send.initialize(initialize_params)
+        log.info(
+            "After sent initialize params",
+        )
+
+        # Verify server capabilities
+        assert "textDocumentSync" in init_response["capabilities"]
+        assert "definitionProvider" in init_response["capabilities"]
+        assert "referencesProvider" in init_response["capabilities"]
+
+        self.server.notify.initialized({})
+
+        # Send workspace configuration to Perl::LanguageServer
+        # Perl::LanguageServer requires didChangeConfiguration to set perlInc, fileFilter, and ignoreDirs
+        # See: Perl::LanguageServer::Methods::workspace::_rpcnot_didChangeConfiguration
+        perl_config: DidChangeConfigurationParams = {
+            "settings": {
+                "perl": {
+                    "perlInc": [self.repository_root_path, "."],
+                    "fileFilter": self._file_filter,
+                    "ignoreDirs": self._ignore_dirs,
+                }
+            }
+        }
+        log.info(f"Sending workspace/didChangeConfiguration notification with config: {perl_config}")
+        self.server.notify.workspace_did_change_configuration(perl_config)
+
+        # Perl::LanguageServer needs time to index files and resolve cross-file references
+        # Without this delay, requests for definitions/references may return empty results
+        settling_time = 0.5
+        log.info(f"Allowing {settling_time} seconds for Perl::LanguageServer to index files...")
+        time.sleep(settling_time)
+        log.info("Perl::LanguageServer settling period complete")

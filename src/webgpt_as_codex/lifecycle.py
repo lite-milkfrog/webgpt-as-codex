@@ -7,6 +7,7 @@ import platform
 import re
 import shutil
 import subprocess
+import tempfile
 import time
 from dataclasses import dataclass
 from pathlib import Path
@@ -16,7 +17,7 @@ from urllib.parse import quote
 import requests
 
 from .discovery import discover_component, process_health, process_snapshot
-from .paths import ensure_state_dirs, user_home
+from .paths import ensure_state_dirs, repo_root, resource_root, user_home
 from .provision import ApprovedArtifact, provision_artifact
 from .registry import Component, load_components
 from .stateio import atomic_write_json
@@ -26,6 +27,8 @@ _VERSION_RE = re.compile(
 )
 _STABLE_VERSION_RE = re.compile(r"^v?\d+(?:\.\d+){1,3}$", re.IGNORECASE)
 _SUPPORTED_STRATEGIES = {
+    "bundled-uv-tool",
+    "bundled-npm",
     "uv-tool",
     "npm-global",
     "winget",
@@ -87,6 +90,11 @@ def _find_command(name: str) -> str | None:
     local_appdata = os.getenv("LOCALAPPDATA")
     if local_appdata:
         candidates.append(Path(local_appdata) / "Microsoft" / "WinGet" / "Links" / filename)
+    appdata = os.getenv("APPDATA")
+    if appdata and name.lower() == "uv":
+        python_root = Path(appdata) / "Python"
+        if python_root.is_dir():
+            candidates.extend(sorted(python_root.glob(f"Python*/Scripts/{filename}"), reverse=True))
     if name.lower() in {"node", "npm"}:
         program_files = os.getenv("ProgramFiles", r"C:\Program Files")
         node_name = "npm.cmd" if name.lower() == "npm" else "node.exe"
@@ -178,8 +186,21 @@ def install_spec(component: Component) -> InstallSpec | None:
     assets = raw.get("assets")
     archive_member = raw.get("archive_member")
     destination = raw.get("destination")
-    if strategy == "uv-tool" and not package:
-        raise ValueError(f"{component.id} uv-tool strategy requires package")
+    if strategy in {"uv-tool", "bundled-uv-tool"} and not package:
+        raise ValueError(f"{component.id} {strategy} strategy requires package")
+    if strategy in {"bundled-uv-tool", "bundled-npm"}:
+        source_path = latest.get("path")
+        source_version = latest.get("version")
+        if not isinstance(source_path, str) or not source_path.strip():
+            raise ValueError(f"{component.id} {strategy} requires latest.path")
+        relative = Path(source_path)
+        if relative.is_absolute() or ".." in relative.parts:
+            raise ValueError(f"{component.id} bundled source path must be repository-relative")
+        if not isinstance(source_version, str):
+            raise ValueError(f"{component.id} {strategy} requires latest.version")
+        _stable_version(source_version)
+    if strategy == "bundled-npm" and not package:
+        raise ValueError(f"{component.id} bundled-npm strategy requires package")
     if strategy == "npm-global" and not package:
         raise ValueError(f"{component.id} npm-global strategy requires package")
     if strategy == "winget" and not isinstance(winget_id, str):
@@ -327,6 +348,40 @@ def _latest_from_winget(component: Component, spec: InstallSpec) -> LatestReleas
     raise ValueError("winget output did not expose a stable package version")
 
 
+def _bundled_source_path(spec: InstallSpec) -> Path:
+    relative = Path(str(spec.latest.get("path") or ""))
+    roots: list[Path] = []
+    explicit = os.getenv("WEBGPT_CODEX_SOURCE_ROOT")
+    if explicit:
+        roots.append(Path(explicit).expanduser())
+    roots.extend((Path.cwd(), repo_root(), resource_root()))
+    seen: set[str] = set()
+    for root in roots:
+        try:
+            resolved_root = root.resolve()
+        except OSError:
+            continue
+        key = str(resolved_root).casefold()
+        if key in seen:
+            continue
+        seen.add(key)
+        candidate = (resolved_root / relative).resolve()
+        try:
+            candidate.relative_to(resolved_root)
+        except ValueError:
+            continue
+        marker = "package.json" if spec.strategy == "bundled-npm" else "pyproject.toml"
+        if (candidate / marker).is_file():
+            return candidate
+    raise FileNotFoundError(f"bundled source unavailable: {relative.as_posix()}")
+
+
+def _latest_from_bundled(component: Component, spec: InstallSpec) -> LatestRelease:
+    version = _stable_version(str(spec.latest.get("version") or ""))
+    _bundled_source_path(spec)
+    return LatestRelease(component.id, version, "bundled")
+
+
 def resolve_latest(component: Component) -> LatestRelease:
     spec = install_spec(component)
     if spec is None:
@@ -340,6 +395,8 @@ def resolve_latest(component: Component) -> LatestRelease:
         return _latest_from_github(component, spec)
     if source == "winget":
         return _latest_from_winget(component, spec)
+    if source == "bundled":
+        return _latest_from_bundled(component, spec)
     raise ValueError(f"unsupported latest source: {source}")
 
 
@@ -515,7 +572,7 @@ def installed_version(component: Component, spec: InstallSpec) -> str | None:
         version = _installed_npm_version(spec.package)
         if version:
             return version
-    if spec.strategy == "uv-tool" and spec.package:
+    if spec.strategy in {"uv-tool", "bundled-uv-tool"} and spec.package:
         version = _installed_uv_version(spec.package)
         if version:
             return version
@@ -870,6 +927,59 @@ def _install_uv(spec: InstallSpec, version: str) -> dict[str, Any]:
     }
 
 
+def _install_bundled_uv(spec: InstallSpec) -> dict[str, Any]:
+    ready = _ensure_winget_tool("uv")
+    if not ready["ok"]:
+        return ready
+    uv = str(ready["path"])
+    source = _bundled_source_path(spec)
+    result = _run([uv, "tool", "install", "--force", str(source)], timeout=600)
+    return {
+        "ok": result.returncode == 0,
+        "status": "installed" if result.returncode == 0 else "install-failed",
+        "source": str(source),
+    }
+
+
+def _install_bundled_npm(spec: InstallSpec) -> dict[str, Any]:
+    ready = _ensure_winget_tool("npm")
+    if not ready["ok"]:
+        return ready
+    npm = str(ready["path"])
+    source = _bundled_source_path(spec)
+    with tempfile.TemporaryDirectory(prefix="webgpt-bundled-npm-") as temp_dir:
+        packed = _run(
+            [npm, "pack", str(source), "--pack-destination", temp_dir, "--silent"],
+            timeout=180,
+        )
+        if packed.returncode != 0:
+            return {
+                "ok": False,
+                "status": "pack-failed",
+                "source": str(source),
+            }
+        archive_name = next(
+            (line.strip() for line in reversed(packed.stdout.splitlines()) if line.strip()),
+            "",
+        )
+        archive = Path(temp_dir) / archive_name
+        if not archive.is_file():
+            return {
+                "ok": False,
+                "status": "pack-output-missing",
+                "source": str(source),
+            }
+        result = _run(
+            [npm, "install", "-g", str(archive), "--no-audit", "--no-fund"],
+            timeout=600,
+        )
+    return {
+        "ok": result.returncode == 0,
+        "status": "installed" if result.returncode == 0 else "install-failed",
+        "source": str(source),
+    }
+
+
 def _install_npm(spec: InstallSpec, version: str) -> dict[str, Any]:
     ready = _ensure_winget_tool("npm")
     if not ready["ok"]:
@@ -976,7 +1086,11 @@ def apply_component(
         }
 
     try:
-        if spec.strategy == "uv-tool":
+        if spec.strategy == "bundled-uv-tool":
+            result = _install_bundled_uv(spec)
+        elif spec.strategy == "bundled-npm":
+            result = _install_bundled_npm(spec)
+        elif spec.strategy == "uv-tool":
             result = _install_uv(spec, latest.version)
         elif spec.strategy == "npm-global":
             result = _install_npm(spec, latest.version)

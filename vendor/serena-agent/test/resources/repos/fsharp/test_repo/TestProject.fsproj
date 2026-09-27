@@ -1,0 +1,17 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0</TargetFramework>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Include="Calculator.fs" />
+    <Compile Include="DiagnosticsSample.fs" />
+    <Compile Include="Formatter.fs" />
+    <Compile Include="Shapes.fs" />
+    <Compile Include="Models/Person.fs" />
+    <Compile Include="Program.fs" />
+  </ItemGroup>
+
+</Project>

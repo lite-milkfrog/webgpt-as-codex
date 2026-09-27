@@ -2,6 +2,14 @@
 
 ## 任务完成检查
 
+### WAC Session Bootstrap
+
+- 当前 session 在 substantive WAC 操作前是否实际读取 canonical `SKILL.md` 与 `routing.md`？
+- 本机任务是否读取 Inventory / `environment.local.md`？
+- 多阶段任务是否先匹配 Workflow，再只加载当前 Stage 所需 Skills？
+- 是否避免用“上一个会话读过”或模型记忆代替当前 session bootstrap？
+- 若 portable core 漂移，是否先 sync/check/validate 再继续写操作？
+
 ### 路由
 
 - 是否用了最结构化、最窄权限的工具？

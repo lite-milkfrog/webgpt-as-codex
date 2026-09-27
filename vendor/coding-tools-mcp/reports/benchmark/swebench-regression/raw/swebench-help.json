@@ -1,0 +1,12 @@
+{
+  "command": [
+    "/usr/local/bin/python3",
+    "-m",
+    "swebench.harness.run_evaluation",
+    "--help"
+  ],
+  "ran": true,
+  "returncode": 1,
+  "stderr": "/usr/local/bin/python3: Error while finding module specification for 'swebench.harness.run_evaluation' (ModuleNotFoundError: No module named 'swebench')\n",
+  "stdout": ""
+}

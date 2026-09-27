@@ -6,6 +6,8 @@
   "enabled_by_default": true,
   "upstream": "https://github.com/microsoft/playwright-mcp",
   "license": "Apache-2.0",
+  "derivative_overlay": "src/webgpt_as_codex/playwright_hotfix.py",
+  "derivative_distribution": "official npm package plus deterministic WebGPT source overlay",
   "transport": "streamable_http",
   "default_endpoint": "http://127.0.0.1:8931/mcp",
   "version_command": [],
@@ -13,13 +15,21 @@
     "@playwright",
     "mcp"
   ],
-  "install_hint": "npm install -g @playwright/mcp",
+  "install_hint": "webgpt-codex deploy --apply --component playwright",
+  "bundled_source": "vendor/playwright-mcp",
+  "bundled_derivative": true,
+  "bundled_core_source": "vendor/playwright",
   "install": {
-    "strategy": "npm-global",
+    "strategy": "bundled-npm",
     "package": "@playwright/mcp",
     "latest": {
-      "source": "npm",
-      "package": "@playwright/mcp"
+      "source": "bundled",
+      "version": "0.0.81",
+      "path": "vendor/playwright-mcp",
+      "upstream_ref": "v0.0.81",
+      "upstream_commit": "e73d72e01f162054a3d0a6b0fe8d4affffb095ee",
+      "playwright_core_version": "1.64.0-alpha-2026-09-14",
+      "playwright_core_commit": "d1ead3ecca23182f2d06d761c28e3d4edafb6595"
     },
     "requirements": [
       "node",

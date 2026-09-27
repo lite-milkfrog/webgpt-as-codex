@@ -2,7 +2,7 @@
 name: webgpt-as-codex
 description: 让网页端大模型通过 MCP 可靠接管本地代码与电脑工作流，覆盖多 MCP 路由、自动恢复、Loop Engineering、OAuth/Gateway、桌面一键启动与跨会话持续执行。
 metadata:
-  version: 1.3.2
+  version: 1.4.0
   portability: public-safe-local-first-gpt-web-ready
   secrets-policy: no-secrets-in-skill
 ---
@@ -14,10 +14,24 @@ metadata:
 ## 发行 / 本机一致性
 
 - `skills/webgpt-as-codex/` 是唯一 canonical portable Skill。
-- 本机 `.skills/webgpt-as-codex/` 使用同一个 `1.3.2` portable core，只额外保留 `environment.local.md`、`MCP-SKILLS-INVENTORY.*`、`state/` 等 machine-local overlay。
+- 本机 `.skills/webgpt-as-codex/` 使用同一个 `1.4.0` portable core，只额外保留 `environment.local.md`、`MCP-SKILLS-INVENTORY.*`、`state/` 等 machine-local overlay。
 - portable 文件不允许“本机先长、发行版以后再补”或反向漂移；使用 `scripts/sync_webgpt_skill.py --check` 验证。
 - 旧 `computer-agent` 仅作为迁移来源；最终发行包、本机主 Skill 和 README 都只暴露 WebGPT-as-Codex。
 - Experience Ledger、MCP 专项经验、GUI/Playwright/Loop Engineering 规则必须无损保留；本地端口、路径、账户态和 transient health 仍只放 machine-local overlay，不进入 portable release。
+
+## WAC Session Bootstrap — 强制
+
+每个新的 WAC Agent session / ChatGPT 窗口，只要准备通过 WebGPT-as-Codex 使用本机 MCP 做实质性工作，就必须先完成 `session-bootstrap.md`。这不是可选参考。
+
+最小启动顺序：
+
+1. 定位并读取 canonical `SKILL.md`；
+2. 读取 `routing.md`；
+3. 涉及本机工具时读取 machine-local Inventory / `environment.local.md`；
+4. 多阶段任务先匹配 `workflow-registry.json`，再只加载当前 Stage 需要的 leaf Skills / MCP Guides；
+5. 若 portable Skill 缺失或与仓库版本漂移，先执行 sync/check/validate，再继续 substantive WAC mutation。
+
+健康探测、定位 Skill、读取配置属于 bootstrap 本身，可以在完整 Skill 加载前执行；代码修改、文件写入、浏览器提交、GUI 操作、发布等 substantive action 不可以绕过 bootstrap。禁止把“上一个窗口已经读过”“模型记得这些规则”当成当前 session 已加载 Skill 的证据。
 
 ## 产品专项合同
 
@@ -61,6 +75,8 @@ Gateway/OAuth、Manager、Bootstrap/Doctor/Repair、Runtime Supervisor 与发布
 30. **用户桌面 launcher 与浏览器自动化 profile 分离**：用户双击桌面 launcher 打开的本地 Manager/控制页，应优先复用用户已经运行的正常浏览器 profile；浏览器未运行时走 Windows 正常 URL handler/default browser。不得因为项目也使用 Playwright 就让桌面 launcher 创建 temp user-data-dir、isolated profile、InPrivate 或 automation-only 空白 profile。Playwright 的 Extension/shared-context 生命周期与桌面 URL opener 是两个独立职责。
 31. **Playwright handoff 必须防 session churn 与重复页**：若上一调用已成功创建 ChatGPT tab，但下一 connector 调用只看到 Extension Welcome，先把它分类为可能的 MCP session/observer churn，而不是“页面消失”。恢复时枚举 persistent context 中现存页面与 composer 后态，复用唯一可归因目标；禁止继续批量新建 tab、重复填 prompt 或重复 submit。handoff 成功后只清理当前 Agent 明确创建且未使用的空白/重复页，不关闭用户原有标签页。
 32. **Loop handoff 必须只有一个 mutation owner**：自动交棒的目标发现/复用、prompt fill、submit、post-state、receipt 由 canonical `scripts/chatgpt-loop-handoff.mjs`（或与其等价的一次事务化持久客户端）独占。普通网页 connector 在 helper 失败后只允许做只读诊断，不能再并行开页、重填或 submit。handoff transaction identity 是 whitespace-normalized prompt SHA-256；恢复只能复用 exact-hash 草稿/消息或本机 durable receipt。真实 submit side effect 前必须先落盘 `SUBMIT_ATTEMPTED` write-ahead receipt；只要 receipt 已进入 `SUBMIT_ATTEMPTED` 或更后状态，即使用户关闭 tab、connector 断线或 takeover 暂时不可见，也禁止盲目再次发送，只能先恢复/证明先前尝试的后态。exact submit 被证明后升级 `SUBMITTED`，takeover 被证明后升级 `HANDOFF_OK`。
+33. **复杂任务先选 Workflow，再选 Stage Skills**：多阶段交付或需要多个 Skills 协作时，先读取 `workflow-registry.json`，按 `Task -> Workflow -> Stage -> Skill selectors -> MCP routing -> gate` 执行。只加载当前 Stage 需要的 Skills；required Skill 缺失时阻塞该 Stage，optional Skill 缺失只能降级。Manager 的分类/拖动只改变 machine-local 组织视图，不能偷偷改写 repository-owned Workflow 语义。Workflow 运行态和证据必须写 machine-local durable state，网页 UI 只读取/操作这套真值，不能成为新的 SoT。
+34. **每个 WAC session 必须重新 bootstrap canonical Skill**：任何 substantive WAC 本机操作前，当前 Agent session 必须实际读取 `SKILL.md` + `routing.md`，并按 `session-bootstrap.md` 完成 local overlay / Workflow 选择。不得用跨会话记忆代替当前读取；不得为了省事一次性加载全部 leaf Skills，而应按当前 Stage 递归加载。
 
 ## 首选路由
 
@@ -129,7 +145,7 @@ Serena / Desktop Commander：
 - 桌面应用自动化：Desktop Commander 先检查是否有 CLI/API → 无结构化入口再 Windows-MCP。
 - Web 后台操作：优先 Playwright；只有浏览器 chrome、系统弹窗或不可访问区域才 Windows-MCP。
 
-复杂场景读取 `workflows/` 对应文件。
+复杂场景先读取 `workflow-registry.json` 判断是否存在 canonical Workflow，再读取当前 Stage 需要的 `workflows/` 与 leaf Skills。没有匹配 Workflow 的简单任务继续直接路由，不强行编排。
 
 ## 失败与回退
 
@@ -166,6 +182,7 @@ Serena / Desktop Commander：
 - Windows GUI 视觉坐标 / 高 DPI / 自绘控件 → `workflows/windows-gui-visual-calibration.md`
 - 微信文件传输助手发送文件 → `workflows/wechat-file-transfer.md`（已有登录窗口优先；FileDropList + Ctrl+V 是已验证稳定路径；发送后必须看业务后态）
 - 文件/终端 → `workflows/files.md`
+- 多阶段 Skill 编排 / Workflow 匹配 → `workflow-registry.json`
 - 多工具长任务 → `workflows/cross-tool.md`
 - 分阶段自动接力 / Loop Engineering → `workflows/loop-engineering.md`
 - 下一窗口固定 prompt 结构 → `workflows/handoff-template.md`

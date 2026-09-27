@@ -8,6 +8,8 @@ An Agent or user starts from this repository only. The repository decides the de
 
 Deployment is discovery-first, idempotent and version-aware.
 
+The verified Git source checkout is the canonical fresh-machine deployment artifact. WebGPT-as-Codex carries complete derivative source snapshots for WAC-maintained Coding Tools and Serena changes under `vendor/`; a thin Python wheel that omits those trees is not, by itself, a complete deployment source.
+
 The Stage 15 repository CLI for the component lifecycle plan is:
 
 ```powershell
@@ -19,8 +21,14 @@ This is a dry-run by default. It reports preserve/install/upgrade/diagnose/manua
 ## Phase 0 — language and repository truth
 
 1. Select English or Chinese instructions.
-2. Read `AGENTS.md`, this document, `docs/CURRENT-PROJECT-STATE.md`, `docs/ARCHITECTURE.md` and the WebGPT Skill.
+2. Read `AGENTS.md`, this document, `docs/CURRENT-PROJECT-STATE.md`, `docs/ARCHITECTURE.md`, `skills/webgpt-as-codex/SKILL.md`, `session-bootstrap.md` and `routing.md`.
 3. Never treat a prior machine's installed state as a fresh-machine prerequisite.
+4. Resolve the repository URL supplied by the user and its current default branch. A generic request such as "deploy this project" means deploy that branch's current remote HEAD unless the user explicitly requests a tag/commit/release.
+5. On a fresh machine, clone the current default branch. For an existing checkout, verify the remote and fetch before deployment. Fast-forward only when the checkout is clean and non-divergent; never discard unknown local work with `reset --hard` or `clean` merely to reach latest.
+6. If the existing checkout is dirty/diverged, preserve it and use a fresh clone in a separate safe directory when possible.
+7. Immediately before source installation, fetch again and record `SOURCE_REPOSITORY`, `SOURCE_BRANCH` and `SOURCE_HEAD`; the deployment source HEAD must equal the fetched `origin/<default-branch>` HEAD.
+8. Keep that verified checkout available for the WAC runtime and use a source-preserving/editable install. Do not delete it after creating a wheel, because bundled derivative MCP sources resolve from its `vendor/` tree. Run lifecycle/deploy commands from the checkout root; if an executor changes cwd, set `WEBGPT_CODEX_SOURCE_ROOT` to the verified checkout root.
+9. Before substantive WAC machine work, complete the per-session Skill bootstrap. Complex work selects a Workflow first and loads only the active Stage's leaf Skills.
 
 ## Phase 1 — environment gate
 
@@ -71,9 +79,18 @@ For each declared MCP:
 7. classify as preserve / install / upgrade / diagnose / incompatible;
 8. mutate only after component-specific authority is established.
 
+Repository-bundled derivatives are first-class deployment sources, not emergency patches. When a component declares `bundled_derivative=true` and the `bundled-uv-tool` strategy, the source under the repository's declared `vendor/` path is the release source for that WebGPT component version. Do not substitute an unmodified registry package merely because PyPI/npm has the same nominal version.
+
+Current bundled derivative sources:
+- `vendor/coding-tools-mcp/`: complete Coding Tools MCP source snapshot based on upstream `bedb632e1afd2e9ec9b268a50fe0b04695c22c64`, including WebGPT's Windows/process/desktop fixes, upstream Apache-2.0 LICENSE/NOTICE, modification notices and exact derivative-diff evidence.
+- `vendor/serena-agent/`: complete Serena v1.7.0 source snapshot (upstream tag commit `949a27ef1e5fda1a6e7b561e777bcece345c6ffd`, the last MIT-licensed Serena release), including the verified `find_implementations` exact-name-and-kind fallback and exact derivative-diff evidence.
+
+Before accepting a bundled install, verify that the declared source directory exists, contains its `pyproject.toml` and license/provenance files, installation succeeds through the repository lifecycle adapter, and the installed runtime passes its normal MCP readiness/safe-call contract.
+
 Never deploy a duplicate healthy instance merely because a package executable is absent from PATH.
 
 Supported automatic installation channels are intentionally explicit:
+- WAC-maintained Python derivative MCPs: repository-bundled complete source + `uv tool install`;
 - Python MCP packages: `uv tool`;
 - Node MCP packages: global npm package;
 - Windows system prerequisites: allowlisted winget IDs;
@@ -85,6 +102,8 @@ Every automatic adapter also declares:
 - a compatibility window for versions WebGPT is allowed to install.
 
 Installed version, upstream latest and verified compatibility are separate fields. If the latest resolver is unavailable, the deployment report remains unknown/blocking rather than claiming the installed copy is current. If latest is outside the compatibility window, install/upgrade is blocked. If the existing installed version is newer but compatible, it is preserved and never downgraded.
+
+For `bundled-uv-tool` components, “latest” means the version declared by the verified bundled source in this repository, not the public package registry. Replacing it with PyPI latest would destroy WAC's derivative reproducibility contract.
 
 A successful latest lookup is cached machine-locally for no more than 24 hours. During a transient registry/API failure, only a still-fresh previously verified entry may be reused. For GitHub binary releases that entry must still contain the expected repository asset URL/name and SHA-256 evidence. With no valid cache, latest remains unknown/blocking.
 

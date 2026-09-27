@@ -16,9 +16,10 @@ def _component(
     package: str | None = "sample-package",
     required: bool = True,
 ) -> Component:
+    latest_source = "npm" if strategy == "npm-global" else "pypi"
     install: dict = {
         "strategy": strategy,
-        "latest": {"source": "pypi", "package": package or "sample-package"},
+        "latest": {"source": latest_source, "package": package or "sample-package"},
     }
     if strategy != "manual":
         install["requirements"] = []
@@ -133,6 +134,7 @@ def test_latest_registry_adapters_use_stable_versions(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     serena = load_components()["serena"]
+    coding_tools = load_components()["coding-tools"]
     playwright = load_components()["playwright"]
 
     def fake_json(url: str) -> dict:
@@ -144,8 +146,83 @@ def test_latest_registry_adapters_use_stable_versions(
 
     monkeypatch.setattr(lifecycle, "_request_json", fake_json)
 
-    assert lifecycle.resolve_latest(serena).version == "1.7.0"
-    assert lifecycle.resolve_latest(playwright).version == "0.0.82"
+    serena_latest = lifecycle.resolve_latest(serena)
+    coding_latest = lifecycle.resolve_latest(coding_tools)
+    assert serena_latest.version == "1.7.0"
+    assert serena_latest.source == "bundled"
+    assert coding_latest.version == "0.3.0"
+    assert coding_latest.source == "bundled"
+    playwright_latest = lifecycle.resolve_latest(playwright)
+    assert playwright_latest.version == "0.0.81"
+    assert playwright_latest.source == "bundled"
+
+
+def test_bundled_derivatives_are_repository_sources() -> None:
+    components = load_components()
+    for component_id, expected_path, expected_strategy in (
+        ("coding-tools", "vendor/coding-tools-mcp", "bundled-uv-tool"),
+        ("serena", "vendor/serena-agent", "bundled-uv-tool"),
+        ("playwright", "vendor/playwright-mcp", "bundled-npm"),
+    ):
+        spec = lifecycle.install_spec(components[component_id])
+        assert spec is not None
+        assert spec.strategy == expected_strategy
+        assert spec.latest["source"] == "bundled"
+        assert spec.latest["path"] == expected_path
+        assert lifecycle._bundled_source_path(spec).is_dir()
+
+
+def test_bundled_npm_packs_source_before_global_install(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    source = tmp_path / "vendor" / "playwright-mcp"
+    source.mkdir(parents=True)
+    (source / "package.json").write_text('{"name":"@playwright/mcp","version":"0.0.81"}', encoding="utf-8")
+    spec = lifecycle.InstallSpec(
+        strategy="bundled-npm",
+        package="@playwright/mcp",
+        latest={"source": "bundled", "version": "0.0.81", "path": "vendor/playwright-mcp"},
+    )
+    monkeypatch.setenv("WEBGPT_CODEX_SOURCE_ROOT", str(tmp_path))
+    monkeypatch.setattr(
+        lifecycle,
+        "_ensure_winget_tool",
+        lambda _tool: {"ok": True, "path": "npm.cmd"},
+    )
+    commands: list[list[str]] = []
+
+    def fake_run(command: list[str], *, timeout: float = 120.0):
+        del timeout
+        commands.append(command)
+        if command[1] == "pack":
+            archive = Path(command[command.index("--pack-destination") + 1]) / "playwright-mcp-0.0.81.tgz"
+            archive.write_bytes(b"tgz")
+            return lifecycle.subprocess.CompletedProcess(command, 0, archive.name + "\n", "")
+        return lifecycle.subprocess.CompletedProcess(command, 0, "installed\n", "")
+
+    monkeypatch.setattr(lifecycle, "_run", fake_run)
+    result = lifecycle._install_bundled_npm(spec)
+
+    assert result["ok"] is True
+    assert commands[0][1:3] == ["pack", str(source)]
+    assert commands[1][1:3] == ["install", "-g"]
+    assert commands[1][3].endswith(".tgz")
+
+
+def test_find_command_discovers_uv_in_roaming_python_scripts(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    appdata = tmp_path / "Roaming"
+    uv = appdata / "Python" / "Python312" / "Scripts" / "uv.exe"
+    uv.parent.mkdir(parents=True)
+    uv.write_bytes(b"")
+    monkeypatch.setenv("APPDATA", str(appdata))
+    monkeypatch.delenv("LOCALAPPDATA", raising=False)
+    monkeypatch.setattr(lifecycle.shutil, "which", lambda _name: None)
+
+    assert lifecycle._find_command("uv") == str(uv)
 
 
 def test_latest_github_requires_asset_digest_and_approved_origin(
@@ -666,7 +743,11 @@ def test_machine_binary_version_resolves_when_not_on_path(
 def test_prerelease_latest_is_rejected_by_default(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    component = load_components()["playwright"]
+    component = _component(
+        "npm-prerelease",
+        strategy="npm-global",
+        package="@example/prerelease",
+    )
     monkeypatch.setattr(
         lifecycle,
         "_request_json",

@@ -1,0 +1,255 @@
+{
+  "baseline": {
+    "artifacts": [],
+    "command": [
+      "/usr/local/bin/python3",
+      "-m",
+      "swebench.harness.run_evaluation",
+      "--dataset_name",
+      "princeton-nlp/SWE-bench_Lite",
+      "--predictions_path",
+      "/workspace/benchmarks/swebench/predictions/baseline_native.jsonl",
+      "--max_workers",
+      "2",
+      "--run_id",
+      "coding_tools_native_smoke",
+      "--instance_ids",
+      "astropy__astropy-12907",
+      "django__django-11099",
+      "matplotlib__matplotlib-18869",
+      "pallets__flask-4992",
+      "psf__requests-2317",
+      "pydata__xarray-3364",
+      "pytest-dev__pytest-5221",
+      "scikit-learn__scikit-learn-10297",
+      "sphinx-doc__sphinx-10325",
+      "sympy__sympy-12419"
+    ],
+    "completed": null,
+    "count": 10,
+    "errors": [],
+    "expected": null,
+    "missing_report_ids": [],
+    "model_names": [
+      "baseline_native_scaffold"
+    ],
+    "path": "/workspace/benchmarks/swebench/predictions/baseline_native.jsonl",
+    "placeholder": true,
+    "report_paths": [],
+    "resolved": null,
+    "resolved_ids": [],
+    "run": {
+      "command": [
+        "/usr/local/bin/python3",
+        "-m",
+        "swebench.harness.run_evaluation",
+        "--dataset_name",
+        "princeton-nlp/SWE-bench_Lite",
+        "--predictions_path",
+        "/workspace/benchmarks/swebench/predictions/baseline_native.jsonl",
+        "--max_workers",
+        "2",
+        "--run_id",
+        "coding_tools_native_smoke",
+        "--instance_ids",
+        "astropy__astropy-12907",
+        "django__django-11099",
+        "matplotlib__matplotlib-18869",
+        "pallets__flask-4992",
+        "psf__requests-2317",
+        "pydata__xarray-3364",
+        "pytest-dev__pytest-5221",
+        "scikit-learn__scikit-learn-10297",
+        "sphinx-doc__sphinx-10325",
+        "sympy__sympy-12419"
+      ],
+      "ran": false,
+      "returncode": null,
+      "stderr": "",
+      "stdout": ""
+    },
+    "unresolved_ids": []
+  },
+  "candidate": {
+    "artifacts": [],
+    "command": [
+      "/usr/local/bin/python3",
+      "-m",
+      "swebench.harness.run_evaluation",
+      "--dataset_name",
+      "princeton-nlp/SWE-bench_Lite",
+      "--predictions_path",
+      "/workspace/benchmarks/swebench/predictions/candidate_mcp.jsonl",
+      "--max_workers",
+      "2",
+      "--run_id",
+      "coding_tools_mcp_smoke",
+      "--instance_ids",
+      "astropy__astropy-12907",
+      "django__django-11099",
+      "matplotlib__matplotlib-18869",
+      "pallets__flask-4992",
+      "psf__requests-2317",
+      "pydata__xarray-3364",
+      "pytest-dev__pytest-5221",
+      "scikit-learn__scikit-learn-10297",
+      "sphinx-doc__sphinx-10325",
+      "sympy__sympy-12419"
+    ],
+    "completed": null,
+    "count": 10,
+    "errors": [],
+    "expected": null,
+    "missing_report_ids": [],
+    "model_names": [
+      "candidate_mcp_scaffold"
+    ],
+    "path": "/workspace/benchmarks/swebench/predictions/candidate_mcp.jsonl",
+    "placeholder": true,
+    "report_paths": [],
+    "resolved": null,
+    "resolved_ids": [],
+    "run": {
+      "command": [
+        "/usr/local/bin/python3",
+        "-m",
+        "swebench.harness.run_evaluation",
+        "--dataset_name",
+        "princeton-nlp/SWE-bench_Lite",
+        "--predictions_path",
+        "/workspace/benchmarks/swebench/predictions/candidate_mcp.jsonl",
+        "--max_workers",
+        "2",
+        "--run_id",
+        "coding_tools_mcp_smoke",
+        "--instance_ids",
+        "astropy__astropy-12907",
+        "django__django-11099",
+        "matplotlib__matplotlib-18869",
+        "pallets__flask-4992",
+        "psf__requests-2317",
+        "pydata__xarray-3364",
+        "pytest-dev__pytest-5221",
+        "scikit-learn__scikit-learn-10297",
+        "sphinx-doc__sphinx-10325",
+        "sympy__sympy-12419"
+      ],
+      "ran": false,
+      "returncode": null,
+      "stderr": "",
+      "stdout": ""
+    },
+    "unresolved_ids": []
+  },
+  "conclusion": "PREFLIGHT_ONLY",
+  "dataset_name": "princeton-nlp/SWE-bench_Lite",
+  "docker": {
+    "ran": false,
+    "returncode": null,
+    "stderr": "",
+    "stdout": ""
+  },
+  "environment": {
+    "cwd": "/workspace",
+    "executables": {
+      "docker": null,
+      "git": "/usr/bin/git"
+    },
+    "github": {
+      "actions": null,
+      "ref": null,
+      "repository": "cf-pages/coding-tools-mcp",
+      "run_attempt": null,
+      "run_id": null,
+      "runner_os": null,
+      "sha": null
+    },
+    "packages": {
+      "datasets": null,
+      "docker": null,
+      "swebench": null
+    },
+    "platform": "Linux-6.8.0-1052-azure-x86_64-with-glibc2.36",
+    "python": "3.12.13 (main, Jun 24 2026, 02:09:08) [GCC 12.2.0]",
+    "python_executable": "/usr/local/bin/python3"
+  },
+  "instances": [
+    {
+      "instance_id": "astropy__astropy-12907",
+      "project": "astropy",
+      "repo": "astropy/astropy"
+    },
+    {
+      "instance_id": "django__django-11099",
+      "project": "django",
+      "repo": "django/django"
+    },
+    {
+      "instance_id": "matplotlib__matplotlib-18869",
+      "project": "matplotlib",
+      "repo": "matplotlib/matplotlib"
+    },
+    {
+      "instance_id": "pytest-dev__pytest-5221",
+      "project": "pytest",
+      "repo": "pytest-dev/pytest"
+    },
+    {
+      "instance_id": "psf__requests-2317",
+      "project": "requests",
+      "repo": "psf/requests"
+    },
+    {
+      "instance_id": "scikit-learn__scikit-learn-10297",
+      "project": "scikit-learn",
+      "repo": "scikit-learn/scikit-learn"
+    },
+    {
+      "instance_id": "sphinx-doc__sphinx-10325",
+      "project": "sphinx",
+      "repo": "sphinx-doc/sphinx"
+    },
+    {
+      "instance_id": "sympy__sympy-12419",
+      "project": "sympy",
+      "repo": "sympy/sympy"
+    },
+    {
+      "instance_id": "pallets__flask-4992",
+      "project": "flask",
+      "repo": "pallets/flask"
+    },
+    {
+      "instance_id": "pydata__xarray-3364",
+      "project": "xarray",
+      "repo": "pydata/xarray"
+    }
+  ],
+  "limitations": [
+    "Prediction files are schema-valid placeholders, not model-generated patches.",
+    "Official SWE-bench evaluation requires a working Docker daemon.",
+    "Official SWE-bench evaluation requires an importable swebench harness."
+  ],
+  "preflight": [
+    "docker: missing - docker executable not found",
+    "swebench package: missing - Python package swebench is not installed or not importable",
+    "baseline predictions: 10 rows, placeholder=True",
+    "candidate predictions: 10 rows, placeholder=True"
+  ],
+  "raw_dir": "reports/benchmark/swebench-regression/raw",
+  "split": "test",
+  "subset_path": "/workspace/benchmarks/swebench/subsets/smoke-lite-10.json",
+  "swebench_help": {
+    "command": [
+      "/usr/local/bin/python3",
+      "-m",
+      "swebench.harness.run_evaluation",
+      "--help"
+    ],
+    "ran": true,
+    "returncode": 1,
+    "stderr": "/usr/local/bin/python3: Error while finding module specification for 'swebench.harness.run_evaluation' (ModuleNotFoundError: No module named 'swebench')\n",
+    "stdout": ""
+  },
+  "swebench_install": null
+}

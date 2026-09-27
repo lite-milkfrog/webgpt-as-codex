@@ -1,0 +1,23 @@
+import pytest
+
+from solidlsp import SolidLanguageServer
+from solidlsp.ls_config import LanguageServerId
+from test.conftest import language_server_tests_enabled
+from test.solidlsp.util.diagnostics import assert_file_diagnostics
+
+pytestmark = pytest.mark.skipif(
+    not language_server_tests_enabled(LanguageServerId.SYSTEMVERILOG),
+    reason="SystemVerilog tests are disabled (verible-verilog-ls not available)",
+)
+
+
+@pytest.mark.systemverilog
+class TestSystemverilogDiagnostics:
+    @pytest.mark.parametrize("language_server", [LanguageServerId.SYSTEMVERILOG], indirect=True)
+    def test_file_diagnostics(self, language_server: SolidLanguageServer) -> None:
+        assert_file_diagnostics(
+            language_server,
+            "diagnostics_sample.sv",
+            (),
+            min_count=1,
+        )

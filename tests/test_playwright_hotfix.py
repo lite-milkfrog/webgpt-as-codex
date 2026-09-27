@@ -112,6 +112,53 @@ def test_playwright_hotfix_locator_honors_explicit_bundle(
     assert result["ok"] is True
 
 
+def test_playwright_hotfix_locator_supports_nested_bundled_npm_layout(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    root = tmp_path / "playwright-root"
+    bundle = (
+        root
+        / "node_modules"
+        / "@playwright"
+        / "mcp"
+        / "node_modules"
+        / "playwright-core"
+        / "lib"
+        / "coreBundle.js"
+    )
+    bundle.parent.mkdir(parents=True)
+    bundle.write_text(_vendor_fixture(), encoding="utf-8")
+    monkeypatch.delenv("WEBGPT_CODEX_PLAYWRIGHT_CORE_BUNDLE", raising=False)
+    monkeypatch.setenv("WEBGPT_CODEX_PLAYWRIGHT_MCP_ROOT", str(root))
+    monkeypatch.setattr(hotfix, "_npm_global_node_modules", lambda: None)
+
+    assert hotfix.locate_playwright_core_bundle() == bundle.resolve()
+
+
+def test_playwright_hotfix_locator_discovers_nested_global_npm_layout(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    node_modules = tmp_path / "global-node-modules"
+    bundle = (
+        node_modules
+        / "@playwright"
+        / "mcp"
+        / "node_modules"
+        / "playwright-core"
+        / "lib"
+        / "coreBundle.js"
+    )
+    bundle.parent.mkdir(parents=True)
+    bundle.write_text(_vendor_fixture(), encoding="utf-8")
+    monkeypatch.delenv("WEBGPT_CODEX_PLAYWRIGHT_CORE_BUNDLE", raising=False)
+    monkeypatch.delenv("WEBGPT_CODEX_PLAYWRIGHT_MCP_ROOT", raising=False)
+    monkeypatch.setattr(hotfix, "_npm_global_node_modules", lambda: node_modules)
+
+    assert hotfix.locate_playwright_core_bundle() == bundle.resolve()
+
+
 def test_playwright_action_timeout_is_patched_idempotently(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,

@@ -87,6 +87,8 @@ def ensure_state_dirs() -> Path:
         "handoffs",
         "loop",
         "runtime",
+        "skills",
+        "workflow-runs",
     ):
         (root / name).mkdir(parents=True, exist_ok=True)
     return root

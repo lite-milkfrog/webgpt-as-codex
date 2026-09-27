@@ -1,0 +1,394 @@
+[build-system]
+build-backend = "hatchling.build"
+requires = ["hatchling"]
+
+[project]
+name = "serena-agent"
+version = "1.7.0"
+description = "A powerful MCP toolkit for coding, providing semantic retrieval and editing capabilities - the IDE for your agent"
+authors = [{ name = "Oraios AI", email = "info@oraios-ai.de" }]
+readme = "README.md"
+requires-python = ">=3.11, <3.15"
+classifiers = [
+  "License :: OSI Approved :: MIT License",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+  "Programming Language :: Python :: 3.14",
+]
+dependencies = [
+  "requests==2.33.0",
+  "overrides==7.7.0",
+  "python-dotenv==1.2.2",
+  "mcp==1.28.1",
+  "flask==3.1.3", # bumped from 3.1.1 for CVE fix (also fixes werkzeug alert)
+  "sensai-utils==1.5.0",
+  "pydantic==2.12.5",
+  "types-pyyaml==6.0.12.20250516",
+  "pyyaml==6.0.2",
+  "ruamel.yaml==0.18.14",
+  "jinja2==3.1.6",
+  "dotenv==0.9.9",
+  "pathspec==0.12.1",
+  "psutil==7.0.0",
+  "docstring_parser==0.17.0",
+  "joblib==1.5.1",
+  "tqdm==4.67.1",
+  "tiktoken==0.12.0",
+  "anthropic==0.117.0",
+  "beautifulsoup4==4.14.2",
+  "pywebview==6.2",
+  "pystray==0.19.5",
+  "pygls==2.1.1", # used to implement an msl language server
+  "lsprotocol==2025.0.0",
+  # Transitive deps pinned for security (dependabot alerts).
+  # Exact pins because uvx installs from git, ignoring the lock file.
+  "urllib3==2.7.0",
+  "werkzeug==3.1.7",
+  "starlette==1.3.1",
+  "python-multipart==0.0.31",
+  "filelock==3.25.2",
+  "cryptography==50.0.0",
+  "regex==2026.2.28",
+  "pythonnet==3.1.0 ; sys_platform == 'win32'",
+  "oslex==2.0.0",
+]
+
+
+[[tool.uv.index]]
+name = "testpypi"
+url = "https://test.pypi.org/simple/"
+publish-url = "https://test.pypi.org/legacy/"
+explicit = true
+
+[project.scripts]
+serena = "serena.cli:top_level"
+serena-agent = "serena.cli:top_level"
+serena-hooks = "serena.hooks:hook_commands"
+
+[project.license]
+text = "MIT"
+
+[project.optional-dependencies]
+dev = [
+  "jinja2==3.1.6",
+  # In version 1.0.4 we get a NoneType error related to some config conversion (yml_analytics is None and should be a list)
+  "ty==0.0.24",
+  "poethepoet==0.36.0",
+  "pytest==8.4.1",
+  "pytest-xdist==3.8.0",
+  "ruff==0.12.5",
+  "toml-sort==0.24.2",
+  "types-pyyaml==6.0.12.20250516",
+  "syrupy==4.9.1",
+  "types-requests==2.32.4.20250809",
+  # docs
+  "sphinx==7.4.7",
+  "sphinx_rtd_theme==2.0.0",
+  "sphinx_book_theme==1.1.4",
+  "sphinx-toolbox==3.7.0",
+  "jupyter-book==1.0.4.post1",
+  "pyinstrument==5.1.1",
+  "pytest-timeout==2.4.0",
+  # Transitive dev deps pinned for security (dependabot alerts).
+  # Exact pins because uvx installs from git, ignoring the lock file.
+  "tornado==6.5.7",
+  "wheel==0.46.3",
+  "pyasn1==0.6.4",
+  "PyJWT==2.12.0",
+]
+agno = ["agno==2.6.6", "sqlalchemy==2.0.41"]  # agno bumped for session state overwrite CVE
+google = ["google-genai==1.27.0"]
+
+[project.urls]
+Homepage = "https://github.com/oraios/serena"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/serena", "src/interprompt", "src/solidlsp"]
+
+[tool.doc8]
+max-line-length = 1000
+
+[tool.ty.environment]
+python-version = "3.11"
+# Analyze for all platforms rather than defaulting to the OS ty happens to run on. This keeps the
+# check deterministic across the CI matrix (Linux/Windows/macOS) and lets platform-conditional stdlib
+# members (e.g. subprocess.CREATE_NO_WINDOW, ctypes.windll, pwd) resolve without per-OS type-ignores.
+python-platform = "all"
+
+[tool.ty.rules]
+# Mirror mypy's ignore_missing_imports=true: optional extras (e.g. agno, google-genai) and
+# platform-specific modules (e.g. AppKit on macOS) are not installed in the default dev environment,
+# so we do not want unresolvable imports to fail the type check.
+unresolved-import = "ignore"
+possibly-missing-submodule = "ignore"
+
+[tool.ty.src]
+# NOTE: test/resources is intentionally NOT excluded here. This config is also discovered by the ty
+# language server (used by the PYTHON_TY diagnostics provider) when it analyzes the sample fixture
+# repos under test/resources; excluding them here would suppress the diagnostics those tests rely on.
+# test/resources is instead excluded from the `ty check test` CLI task via its --exclude flag.
+exclude = ["build/", "docs/"]
+
+[[tool.ty.overrides]]
+# Test code is heavily dynamic (pytest fixtures, MagicMock, intentionally loose Optionals). ty models
+# pytest's fail/skip helpers and MagicMock far more strictly than mypy did (mypy inferred `Any` for
+# these), which produces hundreds of diagnostics that are not real bugs. We therefore relax these
+# specific type rules for tests only, while still catching genuinely broken test code (undefined
+# names, syntax errors, unused type-ignore comments, etc.). The sample fixture repos under
+# test/resources are excluded so the ty language server still reports real diagnostics on them.
+include = ["test/**"]
+exclude = ["test/resources/"]
+
+[tool.ty.overrides.rules]
+invalid-argument-type = "ignore"
+invalid-key = "ignore"
+invalid-return-type = "ignore"
+no-matching-overload = "ignore"
+not-subscriptable = "ignore"
+parameter-already-assigned = "ignore"
+too-many-positional-arguments = "ignore"
+unresolved-attribute = "ignore"
+unsupported-operator = "ignore"
+
+[tool.poe.env]
+PYDEVD_DISABLE_FILE_VALIDATION = "1"
+
+[tool.poe.executor]
+# This is important when using poe with uv, because otherwise poe will try to run commands through
+# uv, which in turn will try to recreate the environment, which in turn will fail if any process
+# using the environment is already running! Naturally, processes using the env are running all the
+# time (e.g. a Serena MCP server), so using the default executor (uv) is not an option!
+type = "simple"
+
+[tool.poe.tasks]
+# For custom markers, use poe test -m ...
+test = "pytest test -vv"
+_ruff_check = "ruff check src scripts test"
+_ruff_format_check = "ruff format --check src scripts test"
+_ruff_fix = "ruff check --fix src scripts test"
+_ruff_format = "ruff format src scripts test"
+lint = ["_ruff_format_check", "_ruff_check"]
+format = ["_ruff_fix", "_ruff_format"]
+_ty_core = "ty check src/serena src/solidlsp"
+_ty_test = "ty check test --exclude test/resources"
+type-check = ["_ty_core", "_ty_test"]
+ty = ["type-check"]
+# docs
+_autogen_docs = "python docs/autogen_docs.py"
+_sphinx_build = "sphinx-build -b html docs docs/_build -W --keep-going"
+_jb_generate_toc = "python docs/create_toc.py"
+_jb_generate_config = "jupyter-book config sphinx docs/"
+doc-clean = "rm -rf docs/_build docs/03_api"
+doc-generate-files = ["_autogen_docs", "_jb_generate_toc", "_jb_generate_config"]
+doc-build = ["doc-clean", "doc-generate-files", "_sphinx_build"]
+
+[tool.ruff]
+target-version = "py311"
+line-length = 140
+exclude = ["src/solidlsp/language_servers/**/static", "src/multilspy", "test/resources/repos"]
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+line-ending = "auto"
+skip-magic-trailing-comma = false
+docstring-code-format = true
+
+[tool.ruff.lint]
+select = [
+  "ASYNC",
+  "B",
+  "C4",
+  "C90",
+  "COM",
+  "D",
+  "DTZ",
+  "E",
+  "F",
+  "FLY",
+  "G",
+  "I",
+  "ISC",
+  "PIE",
+  "PLC",
+  "PLE",
+  "PLW",
+  "RET",
+  "RUF",
+  "RSE",
+  "SIM",
+  "TID",
+  "UP",
+  "W",
+  "YTT",
+]
+ignore = [
+  "PLC0415",
+  "RUF002",
+  "RUF005",
+  "RUF059",
+  "SIM118",
+  "SIM108",
+  "E501",
+  "E741",
+  "B008",
+  "B011",
+  "B028",
+  "D100",
+  "D101",
+  "D102",
+  "D103",
+  "D104",
+  "D105",
+  "D107",
+  "D200",
+  "D203",
+  "D213",
+  "D401",
+  "D402",
+  "DTZ005",
+  "E402",
+  "E501",
+  "E701",
+  "E731",
+  "C408",
+  "E203",
+  "G004",
+  "RET505",
+  "D106",
+  "D205",
+  "D212",
+  "PLW2901",
+  "B027",
+  "D404",
+  "D407",
+  "D408",
+  "D409",
+  "D400",
+  "D415",
+  "COM812",
+  "RET503",
+  "RET504",
+  "F403",
+  "F405",
+  "C401",
+  "C901",
+  "ASYNC230",
+  "ISC003",
+  "B024",
+  "B007",
+  "SIM102",
+  "W291",
+  "W293",
+  "B009",
+  "SIM103",   # forbids multiple returns
+  "SIM110",   # requires use of any(...) instead of for-loop
+  "G001",     # forbids str.format in log statements
+  "E722",     # forbids unspecific except clause
+  "SIM105",   # forbids empty/general except clause
+  "SIM113",   # wants to enforce use of enumerate
+  "E712",     # forbids equality comparison with True/False
+  "UP007",    # forbids some uses of Union
+  "TID252",   # forbids relative imports
+  "B904",     # forces use of raise from other_exception
+  "RUF012",   # forbids mutable attributes as ClassVar
+  "SIM117",   # forbids nested with statements
+  "C400",     # wants to unnecessarily force use of list comprehension
+  "UP037",    # can incorrectly (!) convert quoted type to unquoted type, causing an error
+  "UP045",    # imposes T | None instead of Optional[T]
+  "UP031",    # forbids % operator to format strings
+  "UP042",    # wants str,Enum -> StrEnum (breaking change)
+  "PLW0108",  # unnecessary lambda (style preference)
+  "PLC0207",  # split vs rsplit optimization (style preference)
+  "RSE102",   # wants to force use of raise with class instead of instance (style preference)
+]
+unfixable = ["F841", "F601", "F602", "B018"]
+extend-fixable = ["F401", "B905", "W291"]
+
+[tool.ruff.lint.mccabe]
+max-complexity = 20
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = ["D103"]
+"scripts/**" = ["D103"]
+# BSL integration tests deliberately contain Cyrillic identifiers (1C:Enterprise metadata
+# object names and procedure names). ruff's ambiguous-unicode rules flag every such char.
+"test/solidlsp/bsl/**" = ["RUF001", "RUF002", "RUF003"]
+
+[tool.pytest.ini_options]
+markers = [
+  "clojure: language server running for Clojure",
+  "crystal: language server running for Crystal",
+  "cue: language server running for CUE",
+  "python: language server running for Python",
+  "go: language server running for Go",
+  "java: language server running for Java",
+  "kotlin: language server running for kotlin",
+  "groovy: language server running for Groovy",
+  "rust: language server running for Rust",
+  "typescript: language server running for TypeScript",
+  "deno: language server running for Deno (uses the built-in deno lsp)",
+  "svelte: language server running for Svelte (uses svelte-language-server)",
+  "vue: language server running for Vue (uses TypeScript LSP)",
+  "php: language server running for PHP",
+  "perl: language server running for Perl",
+  "csharp: language server running for C#",
+  "elixir: language server running for Elixir",
+  "elm: language server running for Elm",
+  "terraform: language server running for Terraform",
+  "swift: language server running for Swift",
+  "bash: language server running for Bash",
+  "r: language server running for R",
+  "snapshot: snapshot tests for symbolic editing operations",
+  "ruby: language server running for Ruby (uses ruby-lsp)",
+  "zig: language server running for Zig",
+  "lua: language server running for Lua",
+  "luau: language server running for Luau",
+  "nextflow: language server running for Nextflow",
+  "nix: language server running for Nix",
+  "dart: language server running for Dart",
+  "erlang: language server running for Erlang",
+  "ocaml: language server running for OCaml and Reason",
+  "scala: language server running for Scala",
+  "al: language server running for AL (Microsoft Dynamics 365 Business Central)",
+  "fsharp: language server running for F#",
+  "rego: language server running for Rego",
+  "markdown: language server running for Markdown",
+  "latex: language server running for LaTeX",
+  "julia: Julia language server tests",
+  "fortran: language server running for Fortran",
+  "haskell: Haskell language server tests",
+  "haxe: Haxe language server tests",
+  "yaml: language server running for YAML",
+  "json: language server running for JSON (uses vscode-json-languageserver)",
+  "powershell: language server running for PowerShell",
+  "pascal: language server running for Pascal (Free Pascal/Lazarus)",
+  "cpp: language server running for C/C++",
+  "slow: tests that require additional Expert instances and have long startup times (~60-90s each)",
+  "toml: language server running for TOML",
+  "matlab: language server running for MATLAB (requires MATLAB R2021b+)",
+  "systemverilog: language server running for SystemVerilog (uses verible-verilog-ls)",
+  "hlsl: language server running for HLSL shaders (uses shader-language-server)",
+  "lean4: language server running for Lean 4",
+  "solidity: language server running for Solidity (uses @nomicfoundation/solidity-language-server)",
+  "ansible: language server running for Ansible (uses @ansible/ansible-language-server)",
+  "msl: language server running for mSL (mIRC Scripting Language)",
+  "bsl: language server running for BSL (1C:Enterprise / OneScript)",
+  "html: language server running for HTML (vscode-html-language-server, used as companion by Angular)",
+  "scss: language server running for SCSS / Sass / CSS (some-sass-language-server)",
+  "angular: language server running for Angular (uses @angular/language-server + @angular/language-service tsserver plugin)",
+  "ada: language server running for Ada / SPARK (uses AdaCore Ada Language Server)",
+  "qml: language server running for QML (uses Qt's qmlls)",
+  "gleam: language server running for Gleam (uses the Gleam compiler's bundled `gleam lsp`)",
+  "wolfram: language server running for Wolfram Language (requires Mathematica 13.0+ or Wolfram Engine 12.1+)",
+]
+
+[tool.codespell]
+# Ref: https://github.com/codespell-project/codespell#using-a-config-file
+# We skip third-party test fixture repositories entirely (they contain
+# external package lockfiles, minified code, and arbitrary dependency strings).
+skip = '.git*,*.svg,*.lock,*.min.*,*test_memories_manager.py,./test/resources/repos'
+check-hidden = true
+ignore-regex = '\.\w+'
+ignore-words-list = 'paket,EDN,als,ue'

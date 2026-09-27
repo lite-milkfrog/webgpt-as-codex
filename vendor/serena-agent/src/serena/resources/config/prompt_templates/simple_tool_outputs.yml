@@ -1,0 +1,41 @@
+# Some of Serena's tools are just outputting a fixed text block without doing anything else.
+# Such tools are meant to encourage the agent to think in a certain way, to stay on track
+# and so on. The (templates for) outputs of these tools are contained here.
+prompts:
+  onboarding_prompt: |
+    You are viewing the project for the first time.
+    Your task is to assemble durable, non-obvious information about the project and write it
+    to memory files that future agents will consult.
+    The project is being developed on the system: {{ system }}.
+
+    **Before writing anything, read `mem:{{ memory_maintenance_name }}`** using the `read_memory` tool.
+    It defines the style, naming, reference, and add/update threshold conventions that every
+    memory in this project must follow. Do not skip this step.
+
+    Target memory layout — use the `write_memory` tool, one call per memory:
+
+    * `mem:core` — top-level source map and project-wide invariants that don't belong in a
+      focused memory.
+    * `mem:tech_stack` — language(s), framework(s), build tools, package manager, version
+      pins where they matter.
+    * `mem:suggested_commands` — project commands the user will actually run (dev, test, lint,
+      format, run entrypoints) and any system util commands (`git`, `ls`, `grep`, …) whose
+      form differs on {{ system }} from a standard unix shell. Skip generic commands that
+      behave identically across systems.
+    * `mem:conventions` — code style, naming, type hints, docstring conventions, design
+      patterns specific to this codebase.
+    * `mem:task_completion` — exact commands to run when a coding task is considered done
+      (linter, formatter, test runner, type checker, etc.).
+
+    If the project has clearly distinct modules (e.g. frontend/backend), create per-module
+    `mem:<module>/core` memories with module-specific references to further memories instead 
+    of pushing everything into `mem:core`.
+
+    Acquire information using the available tools. Read only the files needed; do not load
+    entire directory trees. If essential information is missing, ask the user.
+
+    When all memories are written, sanity-check the references by mentioning that the user can run
+    `serena memories check` from the project root.
+
+    **Important**: the onboarding is only complete once you have actually called `write_memory`
+    for each memory above — do not summarize the content in chat and skip writing.

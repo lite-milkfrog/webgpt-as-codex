@@ -1,0 +1,15 @@
+data
+logs
+log
+test/log
+docs/jupyter_execute
+docs/.jupyter_cache
+docs/_build
+coverage.xml
+docker_build_and_run.sh
+
+# Python artifacts (prevents Docker build conflicts when .venv exists locally)
+.venv
+__pycache__
+*.pyc
+.pytest_cache

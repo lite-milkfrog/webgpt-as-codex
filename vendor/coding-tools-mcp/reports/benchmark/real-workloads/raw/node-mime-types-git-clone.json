@@ -1,0 +1,14 @@
+{
+  "command": [
+    "git",
+    "clone",
+    "--depth",
+    "1",
+    "https://github.com/jshttp/mime-types.git",
+    "/tmp/codex-real-workloads-sluu9_7_/node-mime-types"
+  ],
+  "elapsed_seconds": 0.45,
+  "returncode": 0,
+  "stderr": "Cloning into '/tmp/codex-real-workloads-sluu9_7_/node-mime-types'...\n",
+  "stdout": ""
+}

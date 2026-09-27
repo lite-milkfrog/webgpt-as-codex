@@ -17,8 +17,14 @@ webgpt-codex deploy
 ## Phase 0 — 语言与仓库事实
 
 1. 选择 English 或 Chinese。
-2. 读取 `AGENTS.md`、本文件、`docs/CURRENT-PROJECT-STATE.md`、`docs/ARCHITECTURE.md`、WebGPT Skill。
+2. 读取 `AGENTS.md`、本文件、`docs/CURRENT-PROJECT-STATE.md`、`docs/ARCHITECTURE.md`、`skills/webgpt-as-codex/SKILL.md`、`session-bootstrap.md` 和 `routing.md`。
 3. 不把上一台机器的 installed state 当作 fresh-machine prerequisite。
+4. 解析用户给出的仓库 URL 与当前 default branch；普通“部署这个项目”默认部署该 default branch 的最新远端 HEAD，除非用户明确指定 tag/commit/release。
+5. fresh machine clone 当前 default branch；已有 checkout 先核对 remote 并 fetch。只在 clean/non-divergent 时 fast-forward，禁止为了追最新用 `reset --hard` / `clean` 丢未知本地工作。
+6. dirty/diverged checkout 要 preserve；可行时另建安全目录 fresh clone。
+7. 实际安装前再次 fetch，记录 `SOURCE_REPOSITORY / SOURCE_BRANCH / SOURCE_HEAD`，并确认 source HEAD 等于 `origin/<default-branch>`。
+8. 保留该 checkout，并优先 source-preserving/editable install。lifecycle/deploy 命令以 checkout 根为 cwd；执行器会改变 cwd 时设置 `WEBGPT_CODEX_SOURCE_ROOT=<checkout-root>`，确保 venv 中的 WAC 仍能定位 `vendor/` bundled derivative source。
+9. 开始实质性 WAC 本机工作前完成当前 session 的 Skill bootstrap；复杂任务先选 Workflow，再只加载 active Stage 需要的 leaf Skills。
 
 ## Phase 1 — 环境门禁
 
@@ -58,6 +64,14 @@ Gateway/Edge runtime dependency 由 WebGPT 管理。缺失 approved artifact 从
 2. detect process/listener；
 3. 安全时 detect installed version；
 4. 经 component adapter 查询 upstream latest stable；
+
+仓库内 bundled derivative 是正式部署源，不是临时 patch。component 一旦声明 `bundled_derivative=true` 和 `bundled-uv-tool`，其 `vendor/` 目录就是该 WAC component 版本的 release source；即使 PyPI/npm 有相同版本号，也不得偷偷换回未修改上游包。
+
+当前 bundled derivative：
+- `vendor/coding-tools-mcp/`：完整 Coding Tools MCP 源码快照，基于 upstream `bedb632e1afd2e9ec9b268a50fe0b04695c22c64`，包含 WAC 的 Windows/process/desktop 修复、Apache-2.0 LICENSE/NOTICE、修改声明和 exact derivative diff。
+- `vendor/serena-agent/`：完整 Serena v1.7.0 源码快照，基于 tag commit `949a27ef1e5fda1a6e7b561e777bcece345c6ffd`（最后一个 MIT Serena release），包含已验收的 `find_implementations` exact-name-and-kind fallback 和 exact derivative diff。
+
+验收 bundled install 前必须确认 source 目录、`pyproject.toml`、license/provenance 都存在；通过 repository lifecycle adapter 安装成功，并继续通过 MCP readiness/safe-call 合同。
 5. 可达时 MCP initialize + tools/list；
 6. 只调用 manifest-declared safe tool；
 7. 分类 preserve / install / upgrade / diagnose / incompatible；

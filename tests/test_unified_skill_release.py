@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import importlib.util
 import json
+import re
 import tomllib
 from pathlib import Path
 
@@ -27,10 +28,16 @@ def test_canonical_skill_version_and_name() -> None:
     manifest = json.loads((WAC_SKILL / "manifest.json").read_text(encoding="utf-8"))
     skill = (WAC_SKILL / "SKILL.md").read_text(encoding="utf-8")
     assert manifest["name"] == "webgpt-as-codex"
-    assert manifest["version"] == "1.3.2"
     assert manifest["canonical_skill"] is True
     assert "name: webgpt-as-codex" in skill
-    assert "version: 1.3.2" in skill
+    version = re.search(
+        r"(?m)^\s*version:\s*([0-9]+\.[0-9]+\.[0-9]+)\s*$",
+        skill,
+    )
+    assert version is not None
+    assert manifest["version"] == version.group(1)
+    assert manifest["canonical_skill"] is True
+    assert "name: webgpt-as-codex" in skill
 
 
 def test_experience_and_regressions_are_preserved() -> None:

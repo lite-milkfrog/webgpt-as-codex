@@ -19,6 +19,11 @@
       "prefix": "skills/webgpt-as-codex/",
       "status": "LOCALIZED_OPERATIONAL_PROFILE",
       "reason": "The single canonical WebGPT-as-Codex Skill preserves the user operational workflow, mixed Chinese/English technical identifiers, and excludes machine-local overlays from release."
+    },
+    {
+      "prefix": "vendor/",
+      "status": "VENDORED_THIRD_PARTY_DERIVATIVE_SOURCE",
+      "reason": "Complete upstream derivative source is redistributed for reproducible deployment. Preserve upstream source, license/NOTICE, technical identifiers and exact modification evidence rather than translating thousands of third-party source files."
     }
   ],
   "authoritative_legal_file": "LICENSE",
@@ -897,6 +902,27 @@
       "path": "scripts/sync_computer_agent_skill.py",
       "status": "NOT_HUMAN_READER_CONTENT",
       "reason": "Retired pre-1.3.0 sync utility retained only as a tracked-deletion candidate until the consolidation commit removes it from the index."
+    },
+    {
+      "path": "docs/SKILL-WORKFLOW-CONTROL-PLANE.md",
+      "status": "MIRRORED_CURRENT",
+      "mirror_path": "docs/zh-CN/SKILL-WORKFLOW-CONTROL-PLANE.md",
+      "reason": "Current Skill Workflow Control Plane SoT with a deterministic Simplified Chinese mirror."
+    },
+    {
+      "path": "docs/zh-CN/SKILL-WORKFLOW-CONTROL-PLANE.md",
+      "status": "MIRROR_TARGET",
+      "reason": "Simplified Chinese mirror; identifiers, paths, commands, status values and hashes preserve source semantics."
+    },
+    {
+      "path": "src/webgpt_as_codex/skill_workflow.py",
+      "status": "NOT_HUMAN_READER_CONTENT",
+      "reason": "Executable control-plane source; code identifiers, protocol strings and schema keys are not documentation translation targets."
+    },
+    {
+      "path": "tests/test_skill_workflow.py",
+      "status": "NOT_HUMAN_READER_CONTENT",
+      "reason": "Executable regression tests; code identifiers and fixture strings are not documentation translation targets."
     }
   ]
 }

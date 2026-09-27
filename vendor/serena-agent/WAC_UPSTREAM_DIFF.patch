@@ -1,0 +1,68 @@
+diff --git a/src/serena/tools/symbol_tools.py b/src/serena/tools/symbol_tools.py
+index 32ea7ab..979fc1f 100644
+--- a/src/serena/tools/symbol_tools.py
++++ b/src/serena/tools/symbol_tools.py
+@@ -374,17 +374,56 @@ class FindImplementationsTool(Tool, ToolMarkerSymbolicRead):
+         parsed_exclude_kinds: Sequence[SymbolKind] | None = [SymbolKind(k) for k in exclude_kinds] if exclude_kinds else None
+         symbol_retriever = self.create_language_server_symbol_retriever()
+ 
+-        implementing_symbols = symbol_retriever.find_implementing_symbols(
+-            name_path,
+-            relative_file_path=relative_path,
+-            include_body=include_body,
+-            include_kinds=parsed_include_kinds,
+-            exclude_kinds=parsed_exclude_kinds,
+-        )
++        implementation_fallback: str | None = None
++        try:
++            implementing_symbols = symbol_retriever.find_implementing_symbols(
++                name_path,
++                relative_file_path=relative_path,
++                include_body=include_body,
++                include_kinds=parsed_include_kinds,
++                exclude_kinds=parsed_exclude_kinds,
++            )
++        except Exception as exc:
++            # Some otherwise healthy LSP backends (notably the current
++            # Pyright/SolidLSP combination) do not expose
++            # textDocument/implementation and answer with JSON-RPC -32601.
++            # Keep this read-only tool useful instead of failing the whole
++            # request.  The fallback is deliberately conservative: exact leaf
++            # name, same symbol kind, nested-vs-top-level shape preserved, and
++            # the queried declaration itself excluded.
++            message = str(exc)
++            if "-32601" not in message and "textDocument/implementation" not in message:
++                raise
++            target = symbol_retriever.find_unique(
++                name_path,
++                substring_matching=False,
++                within_relative_path=relative_path,
++            )
++            target_name_path = target.get_name_path()
++            leaf_name = target_name_path.rsplit("/", 1)[-1]
++            target_kind = SymbolKind(target.symbol_kind)
++            fallback_include_kinds = parsed_include_kinds or [target_kind]
++            candidates = symbol_retriever.find(
++                leaf_name,
++                include_kinds=fallback_include_kinds,
++                exclude_kinds=parsed_exclude_kinds,
++                substring_matching=False,
++            )
++            target_is_nested = "/" in target_name_path
++            implementing_symbols = [
++                candidate
++                for candidate in candidates
++                if candidate.location != target.location
++                and (("/" in candidate.get_name_path()) == target_is_nested)
++            ]
++            implementation_fallback = "exact-name-and-kind"
+ 
+         symbol_dicts = [
+             dict(s.to_dict(kind=True, relative_path=True, depth=0, body=include_body, body_location=True)) for s in implementing_symbols
+         ]
++        if implementation_fallback:
++            for symbol_dict in symbol_dicts:
++                symbol_dict["implementation_fallback"] = implementation_fallback
+         if include_info:
+             info_by_symbol = symbol_retriever.request_info_for_symbol_batch(implementing_symbols)
+             for s, s_dict in zip(implementing_symbols, symbol_dicts, strict=True):
