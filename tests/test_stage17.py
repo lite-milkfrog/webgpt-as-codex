@@ -118,12 +118,18 @@ def test_bilingual_resources_share_one_functional_contract(monkeypatch, manager_
         assert 'src="/manager.js"' in html
         assert 'href="/manager.css"' in html
         assert 'aria-live="polite"' in html
+        assert 'id="theme-preference"' in html
+        assert 'class="section-nav"' in html
+        assert "<script>" not in html
     for endpoint in ("/api/local-config", "/api/oauth-password", "/api/components", "/api/environment", "/api/coding-tools", "/api/activity"):
         assert endpoint in script
     assert 'id="coding-tools-form"' in english
     assert 'id="coding-tools-form"' in chinese
     assert "navigator.clipboard" in script and "window.open" in script
+    assert "localStorage.getItem('wac-theme')" in script
+    assert "matchMedia('(prefers-color-scheme: dark)')" in script
     assert "prefers-reduced-motion" in css and ":focus-visible" in css
+    assert "prefers-color-scheme:dark" in css and 'data-theme="dark"' in css
 
 
 def test_local_config_is_public_safe(manager_server) -> None:

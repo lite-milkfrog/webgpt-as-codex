@@ -10,29 +10,27 @@
 <main class="shell">
   <header class="hero">
     <div>
-      <div class="eyebrow" data-i18n="eyebrow">Local control plane</div>
       <h1>WebGPT-as-Codex Manager</h1>
       <p class="muted" data-i18n="subtitle">Loopback-only control surface. Closing this page does not stop agent runtimes.</p>
     </div>
     <nav class="language" aria-label="Language">
-      <a href="/en" lang="en">English</a>
+      <label class="theme-control">Theme <select id="theme-preference" aria-label="Theme"><option value="system">System</option><option value="light">Light</option><option value="dark">Dark</option></select></label>
+      <a href="/en" lang="en" aria-current="page">English</a>
       <a href="/zh" lang="zh-CN">中文</a>
     </nav>
   </header>
   <div id="notice" class="notice" role="status" aria-live="polite"></div>
-  <section aria-labelledby="overview-title">
-    <div class="section-head"><h2 id="overview-title" data-i18n="overview">Overview</h2></div>
-    <div id="overview" class="cards"></div>
-  </section>
-  <section aria-labelledby="urls-title">
-    <div class="section-head"><h2 id="urls-title" data-i18n="connectionUrls">Connection URLs</h2></div>
-    <div id="urls" class="panel"></div>
-  </section>
+  <nav class="section-nav" aria-label="Manager sections"><a href="#home">Home</a><a href="#workspace">Workspace</a><a href="#tools">Tools &amp; MCP</a><a href="#troubleshooting">Troubleshooting</a><a href="#advanced">Advanced</a></nav>
+  <div id="home"></div><div id="readiness" class="readiness panel" role="status" aria-live="polite"></div>
   <section aria-labelledby="actions-title">
     <div class="section-head"><h2 id="actions-title" data-i18n="runtimeActions">Runtime actions</h2></div>
     <div id="actions" class="actions panel"></div>
   </section>
-  <section aria-labelledby="coding-tools-title">
+  <section aria-labelledby="overview-title">
+    <div class="section-head"><h2 id="overview-title" data-i18n="overview">Overview</h2></div>
+    <div id="overview" class="cards"></div>
+  </section>
+  <div id="workspace"></div><section aria-labelledby="coding-tools-title">
     <div class="section-head"><h2 id="coding-tools-title" data-i18n="codingToolsSettings">Coding Tools workspace & permissions</h2></div>
     <div class="panel stack">
       <div id="coding-tools-status" class="coding-tools-status"></div>
@@ -45,11 +43,16 @@
       <p class="hint" data-i18n="codingToolsHint">The selected workspace is the filesystem boundary for Coding Tools. Changes are persisted and applied to the one-click launcher.</p>
     </div>
   </section>
-  <section aria-labelledby="environment-title">
+  <div id="tools"></div><section aria-labelledby="urls-title">
+    <div class="section-head"><h2 id="urls-title" data-i18n="connectionUrls">Connection URLs</h2></div>
+    <div id="urls" class="panel"></div>
+  </section>
+
+  <div id="troubleshooting"></div><section aria-labelledby="environment-title">
     <div class="section-head"><h2 id="environment-title" data-i18n="environment">Environment</h2></div>
     <div id="environment" class="panel"></div>
   </section>
-  <section aria-labelledby="oauth-title">
+  <div id="advanced"></div><section aria-labelledby="oauth-title">
     <div class="section-head"><h2 id="oauth-title" data-i18n="oauthPassword">OAuth password</h2></div>
     <div class="panel stack">
       <div id="oauth-status" class="muted"></div>

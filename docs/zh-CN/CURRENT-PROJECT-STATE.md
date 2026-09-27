@@ -2,6 +2,8 @@
 
 [English](../CURRENT-PROJECT-STATE.md) | **简体中文**
 
+> 2026-09-27 Manager v3 最终整合：Codex worktree `feat/manager-v3-20260927` / `853b8d557d1fb874292d8059c4a5fed0c948126f` 提供了 readiness-first 分区导航、操作/组件分组、System/Light/Dark 三态主题、更克制的语言入口与响应式工作台布局。最终 main 保留这些 UI 改进，并补上 CSP-safe 主题启动逻辑（不再使用 inline script）。真实 9200 端口浏览器验收已覆盖中英切换、主题三态、分区锚点，以及 375 / 768 / 1024 / 1440 四档响应式布局，均无页面级横向溢出。Stage 17 定向回归 10 PASS；仓库全量回归 292 PASS。
+
 PROJECT = WebGPT-as-Codex  
 CURRENT_STAGE = GLOBAL_LOOP_COMPLETE
 NEXT_STAGE = TERMINAL

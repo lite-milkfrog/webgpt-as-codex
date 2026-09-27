@@ -10,20 +10,21 @@
 <main class="shell">
   <header class="hero">
     <div>
-      <div class="eyebrow" data-i18n="eyebrow">本机控制面</div>
       <h1>WebGPT-as-Codex 本机管理器</h1>
       <p class="muted" data-i18n="subtitle">仅限本机回环访问。关闭此页面不会停止 Agent 或 MCP 运行时。</p>
     </div>
     <nav class="language" aria-label="语言">
+      <label class="theme-control">主题 <select id="theme-preference" aria-label="主题"><option value="system">跟随系统</option><option value="light">浅色</option><option value="dark">深色</option></select></label>
       <a href="/en" lang="en">English</a>
-      <a href="/zh" lang="zh-CN">中文</a>
+      <a href="/zh" lang="zh-CN" aria-current="page">中文</a>
     </nav>
   </header>
   <div id="notice" class="notice" role="status" aria-live="polite"></div>
-  <section aria-labelledby="overview-title"><div class="section-head"><h2 id="overview-title" data-i18n="overview">总览</h2></div><div id="overview" class="cards"></div></section>
-  <section aria-labelledby="urls-title"><div class="section-head"><h2 id="urls-title" data-i18n="connectionUrls">连接地址</h2></div><div id="urls" class="panel"></div></section>
+  <nav class="section-nav" aria-label="管理分区"><a href="#home">首页</a><a href="#workspace">工作区</a><a href="#tools">工具与 MCP</a><a href="#troubleshooting">故障排查</a><a href="#advanced">高级设置</a></nav>
+  <div id="home"></div><div id="readiness" class="readiness panel" role="status" aria-live="polite"></div>
   <section aria-labelledby="actions-title"><div class="section-head"><h2 id="actions-title" data-i18n="runtimeActions">运行时操作</h2></div><div id="actions" class="actions panel"></div></section>
-  <section aria-labelledby="coding-tools-title">
+  <section aria-labelledby="overview-title"><div class="section-head"><h2 id="overview-title" data-i18n="overview">总览</h2></div><div id="overview" class="cards"></div></section>
+  <div id="workspace"></div><section aria-labelledby="coding-tools-title">
     <div class="section-head"><h2 id="coding-tools-title" data-i18n="codingToolsSettings">Coding Tools 工作区与权限</h2></div>
     <div class="panel stack">
       <div id="coding-tools-status" class="coding-tools-status"></div>
@@ -36,8 +37,10 @@
       <p class="hint" data-i18n="codingToolsHint">所选工作区就是 Coding Tools 的文件系统边界；设置会持久化，并由桌面一键启动继续使用。</p>
     </div>
   </section>
-  <section aria-labelledby="environment-title"><div class="section-head"><h2 id="environment-title" data-i18n="environment">环境</h2></div><div id="environment" class="panel"></div></section>
-  <section aria-labelledby="oauth-title">
+  <div id="tools"></div><section aria-labelledby="urls-title"><div class="section-head"><h2 id="urls-title" data-i18n="connectionUrls">连接地址</h2></div><div id="urls" class="panel"></div></section>
+
+  <div id="troubleshooting"></div><section aria-labelledby="environment-title"><div class="section-head"><h2 id="environment-title" data-i18n="environment">环境</h2></div><div id="environment" class="panel"></div></section>
+  <div id="advanced"></div><section aria-labelledby="oauth-title">
     <div class="section-head"><h2 id="oauth-title" data-i18n="oauthPassword">OAuth 密码</h2></div>
     <div class="panel stack">
       <div id="oauth-status" class="muted"></div>

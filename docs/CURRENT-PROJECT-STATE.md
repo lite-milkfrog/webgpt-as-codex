@@ -2,6 +2,8 @@
 
 [**English**](CURRENT-PROJECT-STATE.md) | [简体中文](zh-CN/CURRENT-PROJECT-STATE.md)
 
+> 2026-09-27 Manager v3 final integration: Codex worktree `feat/manager-v3-20260927` / `853b8d557d1fb874292d8059c4a5fed0c948126f` supplied the readiness-led navigation, grouped actions/components, System/Light/Dark themes, quieter language links and responsive workbench layout. The final mainline version preserves that UI and adds a CSP-safe theme bootstrap (no inline script). Real-port browser acceptance passed for Chinese/English navigation, System/Light/Dark switching, section anchors and 375 / 768 / 1024 / 1440 responsive layouts with no page-level horizontal overflow. Stage 17 targeted regression: 10 PASS. Repository full regression: 292 PASS.
+
 CURRENT_STAGE = GLOBAL_LOOP_COMPLETE
 NEXT_STAGE = TERMINAL
 AFTER_NEXT_STAGE = TERMINAL
