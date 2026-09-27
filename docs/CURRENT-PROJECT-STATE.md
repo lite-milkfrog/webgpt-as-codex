@@ -1,6 +1,6 @@
 # Current Project State
 
-> 2026-09-27 local supplemental branch `feat/manager-v3-20260927`: the Manager source now has readiness-led navigation, grouped actions/components, System/Light/Dark themes and quieter language links. Targeted tests: 20 PASS; desktop/mobile browser QA on a disposable 9224 instance PASS. Existing 9200 was not restarted. This source update does not change the historical Stage 1–19 acceptance recorded below.
+> 2026-09-27 local supplemental branch `feat/manager-v3-20260927`: the Manager source now has readiness-led navigation, grouped actions/components, System/Light/Dark themes and quieter language links. The four static files were copied into the local `main` checkout used by the existing 9200 process; real-port browser checks passed across 12 language/theme/viewport combinations. Targeted tests: 20 PASS. No GitHub push was made. This source update does not change the historical Stage 1–19 acceptance recorded below.
 
 [**English**](CURRENT-PROJECT-STATE.md) | [简体中文](zh-CN/CURRENT-PROJECT-STATE.md)
 
