@@ -1,0 +1,28 @@
+{
+  "id": "skills-control-plane",
+  "display_name": "Skills Manager",
+  "role": "skill_workflow_control_plane",
+  "required": true,
+  "enabled_by_default": true,
+  "upstream": "https://github.com/lite-milkfrog/skills-manager",
+  "license_note": "external standalone repository; WAC references and launches it but does not redistribute its source",
+  "transport": "streamable_http",
+  "default_endpoint": "http://127.0.0.1:8943/mcp",
+  "version_command": [],
+  "process_contains": [
+    "skill_control_plane",
+    "8943"
+  ],
+  "install_hint": "powershell -ExecutionPolicy Bypass -File scripts/install_skills_manager.ps1 -Update",
+  "safe_tool": "skills_status",
+  "safe_tool_args": {},
+  "operating_guide": "skills/webgpt-as-codex/mcp-guides/skills-manager.md",
+  "ownership_mode": "external_local",
+  "startup_priority": 25,
+  "dependencies": [
+    "mcpjungle"
+  ],
+  "readiness_contract": "mcp-initialize-tools-list",
+  "gateway_exposure": "gateway",
+  "refresh_registration": true
+}

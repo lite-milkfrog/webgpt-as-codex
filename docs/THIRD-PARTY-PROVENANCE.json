@@ -9,6 +9,13 @@
   },
   "components": [
     {
+      "id": "skills-control-plane",
+      "source": "components/skills-control-plane.json",
+      "upstream": "https://github.com/lite-milkfrog/skills-manager",
+      "license_field": "license_note",
+      "license": "external standalone repository; WAC references and launches it but does not redistribute its source"
+    },
+    {
       "id": "mcpjungle",
       "source": "components/mcpjungle.json",
       "upstream": "https://github.com/mcpjungle/MCPJungle",

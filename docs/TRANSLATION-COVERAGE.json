@@ -85,6 +85,11 @@
       "reason": "Authoritative component/protocol/install metadata; JSON keys, commands, URLs, package identities and hashes must remain exact."
     },
     {
+      "path": "components/skills-control-plane.json",
+      "status": "LANGUAGE_NEUTRAL",
+      "reason": "Authoritative component/protocol/install metadata; JSON keys, commands, URLs, package identities and hashes must remain exact."
+    },
+    {
       "path": "components/mcp-auth-proxy.json",
       "status": "LANGUAGE_NEUTRAL",
       "reason": "Authoritative component/protocol/install metadata; JSON keys, commands, URLs, package identities and hashes must remain exact."
@@ -865,6 +870,11 @@
     },
     {
       "path": "tests/test_stage18.py",
+      "status": "NOT_HUMAN_READER_CONTENT",
+      "reason": "Executable source/test/script artifact; code identifiers/protocol strings are not documentation translation targets."
+    },
+    {
+      "path": "tests/test_skills_manager_integration.py",
       "status": "NOT_HUMAN_READER_CONTENT",
       "reason": "Executable source/test/script artifact; code identifiers/protocol strings are not documentation translation targets."
     },
