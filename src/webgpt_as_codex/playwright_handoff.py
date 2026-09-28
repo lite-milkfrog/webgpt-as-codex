@@ -468,6 +468,11 @@ def _wait_for_active_composer(
         try:
             return _textbox_ref(last_snapshot, require_active=True), request_id
         except RuntimeError:
+            refs = list(dict.fromkeys(re.findall(r"textbox .*?\[ref=(e\d+)\]", last_snapshot)))
+            if len(refs) == 1:
+                if recoveries is not None and "focused-unique-ref-fallback" not in recoveries:
+                    recoveries.append("focused-unique-ref-fallback")
+                return refs[0], request_id
             if recoveries is not None and "active-ref-refresh" not in recoveries:
                 recoveries.append("active-ref-refresh")
             time.sleep(0.25)
@@ -548,7 +553,9 @@ def _chat_state(
     client: PlaywrightMcpClient,
     *,
     request_id: int,
+    expected_head: str = "",
 ) -> tuple[dict[str, Any], int]:
+    expected_head_json = json.dumps(expected_head)
     body = client.tool(
         "browser_evaluate",
         {
@@ -560,10 +567,20 @@ def _chat_state(
                 " || document.querySelector('[contenteditable=\\\"true\\\"][role=\\\"textbox\\\"]');"
                 "const composerText=composer ? "
                 "(typeof composer.value==='string' ? composer.value : (composer.innerText || composer.textContent || '')) : '';"
+                f"const expectedHead={expected_head_json};"
+                "const bodyText=document.body ? (document.body.innerText || '') : '';"
+                "const assistantRunning=Array.from(document.querySelectorAll('button')).some(button => {"
+                "const label=(button.getAttribute('aria-label') || button.innerText || button.textContent || '').trim();"
+                "if(!(label==='停止' || /^stop(?: generating)?$/i.test(label)))return false;"
+                "const s=getComputedStyle(button), r=button.getBoundingClientRect();"
+                "return s.display!=='none' && s.visibility!=='hidden' && r.width>1 && r.height>1;"
+                "});"
                 "return JSON.stringify({"
                 "url: location.href,"
                 "users: Array.from(document.querySelectorAll('[data-message-author-role=\\\"user\\\"]')).map(x => x.innerText),"
                 "assistantCount: document.querySelectorAll('[data-message-author-role=\\\"assistant\\\"]').length,"
+                "expectedHeadVisible: expectedHead ? bodyText.includes(expectedHead) : false,"
+                "assistantRunning,"
                 "composerText"
                 "});"
                 "}"
@@ -592,7 +609,11 @@ def _wait_for_submission_verification(
     last_state: dict[str, Any] = {}
     while time.monotonic() < deadline:
         try:
-            last_state, request_id = _chat_state(client, request_id=request_id)
+            last_state, request_id = _chat_state(
+                client,
+                request_id=request_id,
+                expected_head=expected_head,
+            )
         except (requests.RequestException, RuntimeError, ValueError, TypeError) as exc:
             raise AmbiguousSubmissionError(
                 "post-submit browser state could not be recovered; refusing duplicate submit"
@@ -601,8 +622,11 @@ def _wait_for_submission_verification(
         url = str(last_state.get("url", ""))
         assistant_count = int(last_state.get("assistantCount", 0))
         composer_empty = not str(last_state.get("composerText", "")).strip()
-        sent = any(expected_head in str(message) for message in users)
-        if sent and assistant_count >= 1 and "/c/" in url and composer_empty:
+        sent = any(expected_head in str(message) for message in users) or bool(
+            last_state.get("expectedHeadVisible")
+        )
+        assistant_started = assistant_count >= 1 or bool(last_state.get("assistantRunning"))
+        if sent and assistant_started and "/c/" in url and composer_empty:
             return url, request_id
         time.sleep(0.75)
     raise AmbiguousSubmissionError(

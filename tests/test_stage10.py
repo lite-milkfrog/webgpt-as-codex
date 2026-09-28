@@ -23,6 +23,7 @@ from webgpt_as_codex.playwright_handoff import (
     _prepare_prompt_draft,
     _submit_once_and_verify,
     _target_new_chatgpt_tab_index,
+    _wait_for_submission_verification,
 )
 
 
@@ -268,6 +269,33 @@ def test_submit_once_never_retries_enter_after_ambiguous_response(monkeypatch) -
     assert url.endswith("/c/abc")
     assert client.press_count == 1
     assert recoveries == ["submit-response-ambiguous"]
+
+def test_submission_verification_accepts_modern_dom_evidence(monkeypatch) -> None:
+    class FakeClient:
+        pass
+
+    monkeypatch.setattr(
+        "webgpt_as_codex.playwright_handoff._chat_state",
+        lambda *_args, **_kwargs: (
+            {
+                "url": "https://chatgpt.com/c/abc",
+                "users": [],
+                "assistantCount": 0,
+                "expectedHeadVisible": True,
+                "assistantRunning": True,
+                "composerText": "",
+            },
+            12,
+        ),
+    )
+    url, next_id = _wait_for_submission_verification(
+        FakeClient(),
+        expected_head="deadbeef",
+        timeout_seconds=1,
+        first_request_id=11,
+    )
+    assert url.endswith("/c/abc")
+    assert next_id == 12
 
 
 def test_submit_once_refuses_duplicate_when_post_state_stays_ambiguous(monkeypatch) -> None:

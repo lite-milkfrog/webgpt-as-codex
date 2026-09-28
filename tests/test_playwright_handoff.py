@@ -64,6 +64,27 @@ def test_wait_focuses_visible_dom_composer_before_accepting_active_ref() -> None
     assert next_id == 7
     assert client.calls == ["browser_evaluate", "browser_snapshot"]
 
+def test_wait_accepts_unique_snapshot_textbox_when_focus_probe_confirmed() -> None:
+    class FakeClient:
+        def __init__(self) -> None:
+            self.calls: list[str] = []
+
+        def tool(self, name: str, _arguments: dict, *, request_id: int) -> dict:
+            self.calls.append(name)
+            if name == "browser_evaluate":
+                text = '### Result\n{"value":"{\\\"focused\\\":true,\\\"tag\\\":\\\"DIV\\\"}"}'
+            else:
+                text = '### Snapshot\n- textbox "询问 ChatGPT" [ref=e681]:'
+            return {"result": {"content": [{"type": "text", "text": text}]}}
+
+    client = FakeClient()
+    ref, next_id = _wait_for_active_composer(
+        client, timeout_seconds=1.0, first_request_id=5
+    )
+    assert ref == "e681"
+    assert next_id == 7
+    assert client.calls == ["browser_evaluate", "browser_snapshot"]
+
 
 def test_targets_current_blank_chatgpt_tab_when_new_action_marks_it_current() -> None:
     tabs = (
