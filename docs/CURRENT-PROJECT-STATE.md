@@ -314,3 +314,16 @@ Authorization hardening:
 - reboot/shutdown/sign-out/sleep/hibernate/network interruption/Tailscale logout-reset require explicit same-turn approval for that exact action;
 - "continue", "finish remaining work", "auto-close", and equivalent general execution language do not authorize those actions;
 - if local human interaction is required to restore networking after reboot, a remote Agent must not initiate reboot without explicit approval and a confirmed local recovery path.
+
+
+## 2026-09-29 post-complete maintenance follow-up — remote OAuth password input
+
+`PROGRAM_STATE` remains `GLOBAL_LOOP_COMPLETE`; a new maintenance defect is OPEN and does not rewrite historical Stage 1-19 acceptance.
+
+Reported symptom: when a remote-control path connects to an OAuth-protected MCP, the authentication UI may not accept/focus/submit the OAuth password reliably.
+
+Canonical follow-up:
+- `docs/MAINTENANCE-OAUTH-CREDENTIAL-ENTRY-FOLLOWUP-20260929.md`
+- status: `OPEN_NEEDS_REPRO`
+- secrets rule: no real password may enter repository docs, logs, screenshots, MCP transcripts, or durable receipts.
+- closure requires real interaction-path reproduction, safe input/submission evidence, post-submit verification, regression coverage for any WAC-owned defect, and a passing secret scan.
