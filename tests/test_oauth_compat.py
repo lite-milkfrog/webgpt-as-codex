@@ -91,3 +91,51 @@ def test_compat_challenge_points_to_path_scoped_metadata(monkeypatch: pytest.Mon
         server.shutdown()
         server.server_close()
         thread.join(timeout=3)
+
+
+
+def test_compat_streams_mcp_get_without_buffering() -> None:
+    release = threading.Event()
+
+    class StreamingHandler(http.server.BaseHTTPRequestHandler):
+        protocol_version = "HTTP/1.1"
+
+        def log_message(self, fmt: str, *args) -> None:
+            return
+
+        def do_GET(self) -> None:
+            self.send_response(200)
+            self.send_header("Content-Type", "text/event-stream")
+            self.end_headers()
+            self.wfile.write(b"event: message\n")
+            self.wfile.write(b'data: {"ok":true}\n\n')
+            self.wfile.flush()
+            release.wait(timeout=2)
+
+    upstream_server, upstream_thread = _serve(StreamingHandler)
+    compat = oauth_compat._handler(
+        f"http://127.0.0.1:{upstream_server.server_port}",
+        "https://example.test",
+    )
+    compat_server, compat_thread = _serve(compat)
+    try:
+        conn = http.client.HTTPConnection(
+            "127.0.0.1",
+            compat_server.server_port,
+            timeout=1,
+        )
+        conn.request("GET", "/mcp")
+        response = conn.getresponse()
+        assert response.status == 200
+        assert response.getheader("Content-Type") == "text/event-stream"
+        assert response.readline() == b"event: message\n"
+        assert response.readline() == b'data: {"ok":true}\n'
+        assert response.readline() == b"\n"
+    finally:
+        release.set()
+        upstream_server.shutdown()
+        upstream_server.server_close()
+        upstream_thread.join(timeout=3)
+        compat_server.shutdown()
+        compat_server.server_close()
+        compat_thread.join(timeout=3)

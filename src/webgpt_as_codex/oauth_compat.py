@@ -72,6 +72,45 @@ def _handler(upstream: str, external_url: str):
                 except (BrokenPipeError, ConnectionAbortedError, ConnectionResetError):
                     self.close_connection = True
 
+        def _write_stream(
+            self,
+            response: requests.Response,
+            headers: dict[str, str],
+            extra_set_cookie: list[str] | None = None,
+        ) -> None:
+            self.send_response(response.status_code)
+            skip = {
+                "content-length",
+                "connection",
+                "transfer-encoding",
+                "set-cookie",
+                "content-encoding",
+            }
+            for key, value in headers.items():
+                if key.lower() not in skip:
+                    self.send_header(key, value)
+            for value in extra_set_cookie or []:
+                self.send_header("Set-Cookie", value)
+            self.send_header("Connection", "close")
+            self.end_headers()
+            self.close_connection = True
+            try:
+                while True:
+                    chunk = response.raw.read1(1, decode_content=True)
+                    if not chunk:
+                        break
+                    self.wfile.write(chunk)
+                    self.wfile.flush()
+            except (
+                BrokenPipeError,
+                ConnectionAbortedError,
+                ConnectionResetError,
+                requests.RequestException,
+            ):
+                self.close_connection = True
+            finally:
+                response.close()
+
         def _upstream_error(self, status: int, message: bytes) -> None:
             self._write(
                 status,
@@ -89,6 +128,7 @@ def _handler(upstream: str, external_url: str):
                 else path
             )
             body = self._body()
+            stream_response = self.command == "GET" and path == "/mcp"
             try:
                 response = requests.request(
                     self.command,
@@ -96,7 +136,8 @@ def _handler(upstream: str, external_url: str):
                     headers=self._headers(),
                     data=body if body else None,
                     allow_redirects=False,
-                    timeout=20,
+                    stream=stream_response,
+                    timeout=(20, None) if stream_response else 20,
                 )
             except requests.Timeout:
                 self._upstream_error(504, b"upstream timeout")
@@ -140,6 +181,9 @@ def _handler(upstream: str, external_url: str):
                     return
 
             headers = dict(response.headers)
+            if stream_response and 200 <= response.status_code < 300:
+                self._write_stream(response, headers, _set_cookies(response))
+                return
             response_body = response.content
 
             if response.status_code == 200 and path in {
