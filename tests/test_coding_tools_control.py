@@ -119,6 +119,9 @@ def test_managed_launcher_upgrades_known_legacy_wrapper_and_uses_config(
     assert "Port 8766 is owned by an unexpected process" in text
     assert "start-coding-tools-remote-v2.ps1" in text
     assert "if (-not $Restart -and $legacy" in text
+    assert "[Environment]::GetFolderPath('LocalApplicationData')" in text
+    assert "WebGPT-as-Codex\\coding-tools-mcp" in text
+    assert "$runtimeRoot = 'D:\\\\AgentData\\\\20_State\\\\coding-tools-mcp'" not in text
 
 
 def test_apply_config_can_save_without_restart(

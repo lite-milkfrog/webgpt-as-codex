@@ -202,7 +202,7 @@ $ErrorActionPreference = 'Stop'
 $configPath = {_ps_quote(str(config))}
 $server = {_ps_quote(str(server))}
 $legacy = {legacy_text}
-$runtimeRoot = 'D:\\AgentData\\20_State\\coding-tools-mcp'
+$runtimeRoot = Join-Path ([Environment]::GetFolderPath('LocalApplicationData')) 'WebGPT-as-Codex\\coding-tools-mcp'
 $logRoot = Join-Path $runtimeRoot 'logs'
 New-Item -ItemType Directory -Force -Path $logRoot,(Join-Path $runtimeRoot 'runtime') | Out-Null
 
