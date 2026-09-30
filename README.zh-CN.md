@@ -28,11 +28,11 @@ WebGPT-as-Codex 解决的不是“怎么再接一个 MCP”，而是 MCP 多起�
 
 WebGPT-as-Codex 自己就是最直接的 dogfooding 案例。
 
-早期核心开发曾按 **Stage 1 → Stage 8** 连续推进：每个 Stage 只负责一块明确成果，先读取真实 Repo SoT / Git HEAD，再开发、测试、更新文档、commit，最后生成下一阶段 Prompt。
+这个项目后来实际跑成了一条 **20 阶段级开发 / 验收链**：仓库里保留了 `Stage 1 → Stage 19` 的编号 closure，最后再进入 Final Overall Acceptance / Project Complete / TERMINAL 收口。每个阶段只负责一块明确成果，先读取真实 Repo SoT / Git HEAD，再开发、测试、更新文档、commit，最后生成下一阶段 Prompt。
 
 收口以后，不是我手动复制一句“继续”。**Playwright 会复用已经登录的浏览器上下文，打开/选择新的 ChatGPT 对话，把下一棒 Prompt 提交进去，再验证下一窗口真的开始接管。** 仓库里的 [`STAGE-7-CLOSURE.md`](docs/STAGE-7-CLOSURE.md) 和 [`STAGE-8-CLOSURE.md`](docs/STAGE-8-CLOSURE.md) 还保留了真实交接过程中遇到的 composer、tab/session、重复提交防护等问题和修复记录。
 
-后来这条链并没有停在 Stage 8，而是继续扩展到 **Stage 19**。也就是说，这里的 Loop Engineering 不是为了 README 发明出来的概念，而是这个项目自己真的靠它跨过多个 ChatGPT 窗口继续开发。
+也就是说，这里的 Loop Engineering 不是为了 README 发明出来的概念，而是这个项目自己真的靠它跨过 **20 个阶段级里程碑**、多个 ChatGPT 窗口持续开发和收口。编号 Stage 的真实历史可以直接从 [`STAGE-1-CLOSURE.md`](docs/STAGE-1-CLOSURE.md) 一路查到 [`STAGE-19-CLOSURE.md`](docs/STAGE-19-CLOSURE.md)，最终总验收和项目收口也都留在仓库里。
 
 ```text
 Stage N
@@ -54,7 +54,11 @@ Playwright 复用登录态打开新对话
 Stage N+1 继续
 ```
 
-这也是我现在对 Agent 开发最明确的体会：**能力本身通常不是最先撞到的瓶颈。真正决定一个 Agent 能不能连续干几个小时、跨几个窗口还不乱的，是项目管理、单 writer、SoT、验证、恢复和交接。**
+这已经不是一个“写几个脚本试试”的小 Demo 了，而是一个相当长的工程项目。以我自己的实际开发强度判断：**如果把这整条 20 阶段链全部压到 Codex 的专用用量里，单个 Plus 账号一个月的包含额度很可能都不够用。** 这不是官方给出的固定换算——Codex 实际消耗会受模型、上下文、推理强度、工具和任务长度影响；OpenAI 自己也明确说明，长时间运行的任务可能比短请求消耗显著更多用量。
+
+这也是我现在对 Agent 开发最明确的体会：**能力本身通常不是最先撞到的瓶颈。真正决定一个 Agent 能不能连续干几个小时、跨很多窗口还不乱的，是项目管理、单 writer、SoT、验证、恢复和交接。**
+
+WAC 的意义不是声称“网页版 ChatGPT 比 Codex 更强”，而是把现有 ChatGPT 会话、本地工具、浏览器、Windows 和一套可持续的工程 Harness 组合起来。只要本地项目管理与交接做得足够扎实，很多原本会被上下文、窗口寿命、工具状态和用量额度切断的大任务，都可以继续往下跑。
 
 ## Skill 是核心，不是附属 Prompt
 
