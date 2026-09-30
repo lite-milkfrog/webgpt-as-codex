@@ -12,7 +12,7 @@
 >
 > WebGPT-as-Codex 的目标不是让你再买一份 API 算力，而是把你现有的 ChatGPT 计划、本地电脑、本地 MCP、浏览器和桌面能力组合起来，获得一定程度上的 **“算力自由”**。尤其适合 **Codex 额度不够、但你还想继续让 Agent 干活** 的时候：代码、测试、Git、浏览器、Windows GUI、自动化任务都可以继续走本地工具链。
 >
-> 经过本人长期实测，它已经能完成非常非常多的真实任务：仓库开发、测试与修复、Git 工作流、网页自动化、Windows 桌面操作、MCP 部署、OAuth 恢复、跨对话长任务接力等。
+> 这不是我只拿来做 Demo 的东西。我自己已经长期用它开发、维护和迭代多个真实项目：仓库开发、测试与修复、Git 工作流、网页自动化、Windows 桌面操作、MCP 部署、OAuth 恢复、跨对话长任务接力都在日常使用范围里。真正决定效果的，往往已经不是“模型会不会写代码”，而是**本地项目管理、SoT、验证和交接有没有做好**。
 
 ChatGPT 本身仍然遵守你当前套餐和客户端的使用额度；这里的“不消耗 tokens”指的是 **不需要额外购买 OpenAI API Token / API 余额，也不会因为 WAC 本身再产生一份 API 调用账单**。只要你的 ChatGPT 客户端支持 MCP/Plugins，就可以基于你现有的计划使用这套本地能力。
 
@@ -23,6 +23,60 @@ WebGPT-as-Codex 解决的不是“怎么再接一个 MCP”，而是 MCP 多起�
 > **MCP 给它手，Skill 告诉它怎么干，SoT（Source of Truth，项目当前真实状态的权威记录）让项目不失忆，Loop Engineering（阶段化执行 + 验证 + 落盘 + 自动交接）让它跨过一个又一个聊天窗口继续干。**
 
 所以这里的 `skills/webgpt-as-codex/` 不是几条“遇到网页就用 Playwright”式的提示词。它是一套真正参与执行的 Agent 工作系统：工具路由、权限边界、失败恢复、单 writer、并发隔离、验证、Experience Ledger、regression eval、跨会话 handoff，以及长任务的 Loop Engineering 都在里面。机器自己的端口、路径、当前健康状态和 handoff receipt 则留在 machine-local overlay，不往公开仓库里塞私有状态。
+
+## 这套东西不是概念：它自己就是第一个长期测试项目
+
+WebGPT-as-Codex 自己就是最直接的 dogfooding 案例。
+
+早期核心开发曾按 **Stage 1 → Stage 8** 连续推进：每个 Stage 只负责一块明确成果，先读取真实 Repo SoT / Git HEAD，再开发、测试、更新文档、commit，最后生成下一阶段 Prompt。
+
+收口以后，不是我手动复制一句“继续”。**Playwright 会复用已经登录的浏览器上下文，打开/选择新的 ChatGPT 对话，把下一棒 Prompt 提交进去，再验证下一窗口真的开始接管。** 仓库里的 [`STAGE-7-CLOSURE.md`](docs/STAGE-7-CLOSURE.md) 和 [`STAGE-8-CLOSURE.md`](docs/STAGE-8-CLOSURE.md) 还保留了真实交接过程中遇到的 composer、tab/session、重复提交防护等问题和修复记录。
+
+后来这条链并没有停在 Stage 8，而是继续扩展到 **Stage 19**。也就是说，这里的 Loop Engineering 不是为了 README 发明出来的概念，而是这个项目自己真的靠它跨过多个 ChatGPT 窗口继续开发。
+
+```text
+Stage N
+  ↓
+读取真实 SoT / Git HEAD
+  ↓
+开发 + 测试 + 验证
+  ↓
+更新项目文档
+  ↓
+commit
+  ↓
+生成 Stage N+1 Prompt
+  ↓
+Playwright 复用登录态打开新对话
+  ↓
+提交下一棒并验证接管
+  ↓
+Stage N+1 继续
+```
+
+这也是我现在对 Agent 开发最明确的体会：**能力本身通常不是最先撞到的瓶颈。真正决定一个 Agent 能不能连续干几个小时、跨几个窗口还不乱的，是项目管理、单 writer、SoT、验证、恢复和交接。**
+
+## Skill 是核心，不是附属 Prompt
+
+如果说 MCP 只是“给 Agent 装上手”，那 Skill 更接近它的**工作方法、操作纪律和长期经验层**。
+
+同样一套 Coding Tools、Serena、Playwright、Windows-MCP，如果没有 Skill，Agent 很容易退化成：哪个工具顺手就用哪个、失败就乱换工具、超时就重复执行、多个窗口同时写同一个仓库、网页交棒重复发送、看到端口活着就以为服务正常。
+
+`skills/webgpt-as-codex/` 现在实际负责的远不只是路由：
+
+- **Session bootstrap**：每个新的 WAC 会话都重新读取 canonical Skill，不能拿上一窗口的记忆冒充当前规则；
+- **工具分工**：Serena 做语义定位，Coding Tools 负责 repo 写入/测试/Git，Playwright 负责网页和 ChatGPT handoff，Windows-MCP / RDC 处理对应的 GUI / 主机级任务；
+- **单 writer 与并发边界**：同一个 worktree 默认只有一个 active writer，避免多个 Agent 把项目互相覆盖；
+- **恢复状态机**：失败先看真实后态、判断故障类型、同工具自恢复，再做结构化 fallback，不允许一出错就停工或盲重试；
+- **验证纪律**：`命令返回成功`、`点击成功`、`端口在线` 都不等于业务完成，必须继续验证真实结果；
+- **Loop Engineering**：Stage 拆分、SoT、commit、下一棒 Prompt、Playwright 自动交棒、takeover 验证和 durable receipt 都在 Skill 合同里；
+- **Exactly-once handoff**：交棒前先写 receipt，提交后先查后态，避免网络抖动以后重复把同一 Prompt 发两遍；
+- **Experience absorption**：真实踩过且值得复用的坑，会继续沉淀进 Skill / MCP Guide / regression eval，让下一棒默认继承经验；
+- **安全与权限边界**：能操作电脑不等于无限授权，高风险动作仍然受明确的 permission contract 约束。
+
+所以 WAC 的定位并不是“把一堆 MCP 聚合到 ChatGPT”。更准确地说，是：
+
+> **MCP 提供能力，Skill 组织能力，SoT 保存真实状态，Loop Engineering 让这些能力能长期、连续、可验证地工作。**
 
 ### 先把几个词说人话
 
