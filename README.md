@@ -52,7 +52,7 @@ submit exactly once + verify takeover
 Stage N+1 continues
 ```
 
-This is already far beyond a small demo project. Based on my own development intensity, **if the entire 20-phase chain had been pushed through dedicated Codex allowance alone, I would expect a single Plus account's included monthly usage to be insufficient.** That is an author estimate, not an official conversion: actual Codex usage depends on model, context, reasoning, tools and task length, and OpenAI itself notes that long-running tasks can consume substantially more usage than short requests.
+This is already far beyond a small demo project. Based on my own development intensity, **if the entire 20-phase chain had been pushed through dedicated Codex allowance alone, I would expect a single Plus account's included monthly usage to be insufficient.** That is an author estimate, not an official conversion: actual Codex usage depends on model, context, reasoning, tools and task length, and [OpenAI's own usage guidance](https://help.openai.com/en/articles/11369540-using-codex-with-your-chatgpt-plan) notes that long-running tasks can consume substantially more usage than short requests.
 
 The important lesson is not that WAC somehow makes the model “stronger than Codex.” It is that once local project management, SoT, validation, recovery and handoff are handled well, a general ChatGPT session can keep doing useful engineering work across many windows instead of collapsing when one context or one tool session ends.
 
