@@ -12,7 +12,7 @@
 >
 > WebGPT-as-Codex is designed to use your existing ChatGPT plan instead of asking you to buy a separate API balance. That gives you a practical degree of **local compute freedom**: when Codex quota is tight, you can keep working through your own local tools, browser and computer. It is especially useful for long coding, automation and desktop-control tasks that would otherwise burn through dedicated coding-agent quota.
 >
-> Personally tested across a very wide range of real tasks: repository development, testing, Git workflows, browser automation, Windows GUI control, MCP deployment, OAuth recovery, long-running handoffs and more.
+> This is not a demo-only stack. I use it to build, maintain and iterate real projects: repository development, testing and repair, Git workflows, browser automation, Windows GUI control, MCP deployment, OAuth recovery and long-running cross-conversation work. In practice, the bottleneck is often no longer “can the model write code?” but whether local project management, SoT, validation and handoff are disciplined enough.
 
 ChatGPT itself still follows the limits of your current plan and client. In practice, the project does **not** require a separate OpenAI API key or additional API-token spend. If your ChatGPT client supports MCP/Plugins, the same local stack can be used from the plan you already have.
 
@@ -23,6 +23,58 @@ One thing became obvious after using it on real work: **giving an agent tools on
 > **MCP gives it hands. The Skill teaches it how to work. SoT (Source of Truth—the authoritative record of the project's real state) keeps the project from forgetting. Loop Engineering (staged execution + validation + persistence + automatic handoff) keeps it moving across conversation windows.**
 
 That is why `skills/webgpt-as-codex/` is not a thin “use Playwright for websites” prompt. It is an execution system: tool routing, permission boundaries, recovery, single-writer discipline, concurrency isolation, validation, the Experience Ledger, regression evals, cross-conversation handoff and Loop Engineering. Machine-specific ports, paths, live health and handoff receipts stay in the machine-local overlay instead of being pushed into the public repository.
+
+## This is dogfooded on the project itself
+
+WebGPT-as-Codex is its own first long-running test case.
+
+The project ultimately became a **20-phase development / acceptance chain**: the repository keeps numbered closures from `Stage 1` through `Stage 19`, followed by Final Overall Acceptance / Project Complete / TERMINAL closeout as the final phase. Each Stage owns one bounded outcome, reads the real repository SoT / Git HEAD, implements, tests, updates docs, commits, and only then generates the next-stage prompt.
+
+At closure time, I do not manually copy “continue” into another chat. **Playwright reuses the authenticated browser context, opens or selects a fresh ChatGPT conversation, submits the next prompt, and verifies that the next window actually takes over.** [`STAGE-7-CLOSURE.md`](docs/STAGE-7-CLOSURE.md) and [`STAGE-8-CLOSURE.md`](docs/STAGE-8-CLOSURE.md) preserve real failures around composer selection, tab/session churn and duplicate-submit protection. The numbered history continues all the way through [`STAGE-19-CLOSURE.md`](docs/STAGE-19-CLOSURE.md).
+
+```text
+Stage N
+  ↓
+read real SoT / Git HEAD
+  ↓
+implement + test + validate
+  ↓
+update project docs
+  ↓
+commit
+  ↓
+generate Stage N+1 prompt
+  ↓
+Playwright reuses authenticated browser state
+  ↓
+submit exactly once + verify takeover
+  ↓
+Stage N+1 continues
+```
+
+This is already far beyond a small demo project. Based on my own development intensity, **if the entire 20-phase chain had been pushed through dedicated Codex allowance alone, I would expect a single Plus account's included monthly usage to be insufficient.** That is an author estimate, not an official conversion: actual Codex usage depends on model, context, reasoning, tools and task length, and OpenAI itself notes that long-running tasks can consume substantially more usage than short requests.
+
+The important lesson is not that WAC somehow makes the model “stronger than Codex.” It is that once local project management, SoT, validation, recovery and handoff are handled well, a general ChatGPT session can keep doing useful engineering work across many windows instead of collapsing when one context or one tool session ends.
+
+## The Skill is core infrastructure, not an accessory prompt
+
+If MCP gives the agent hands, the Skill is closer to its **operating method, discipline and accumulated engineering experience**.
+
+With the same Coding Tools, Serena, Playwright and Windows-MCP stack but no Skill, an agent can easily degrade into using whichever tool is convenient, switching tools blindly after failure, retrying side effects after timeouts, letting multiple sessions write the same worktree, duplicating browser handoffs, or treating an open port as proof that a service is healthy.
+
+`skills/webgpt-as-codex/` owns much more than routing:
+
+- **Session bootstrap**: every new WAC session rereads the canonical Skill; memory from a previous chat is not accepted as current policy;
+- **Tool ownership**: Serena for semantic navigation, Coding Tools for repository writes/tests/Git, Playwright for web + ChatGPT handoff, Windows-MCP / RDC for their GUI and host-control domains;
+- **Single-writer and concurrency boundaries**: one active writer per worktree by default;
+- **Recovery state machine**: observe post-state, classify failure, recover within the same tool first, then use structured fallback instead of stopping or blindly retrying;
+- **Validation discipline**: command success, click success and listener presence are not business-level proof;
+- **Loop Engineering**: Stage design, SoT, commit, next prompt, Playwright handoff, takeover verification and durable receipts are part of the operating contract;
+- **Exactly-once handoff**: write-ahead receipts and post-state verification prevent duplicate prompt submission after network/session failures;
+- **Experience absorption**: reusable failures are distilled into the Skill, MCP Guides or regression evals so the next worker inherits the lesson;
+- **Permission boundaries**: computer control does not imply unlimited authority; destructive/high-impact actions remain gated.
+
+> **MCP provides capability. The Skill organizes capability. SoT preserves truth. Loop Engineering keeps the whole system working continuously and verifiably.**
 
 ### A few terms in plain English
 
