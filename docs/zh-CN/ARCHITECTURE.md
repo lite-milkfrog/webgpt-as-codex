@@ -5,27 +5,35 @@
 ## 平面
 
 1. Agent plane：可复用 Skill、本地 SoT、stage/handoff rules。
-2. Control plane：bootstrap、component registry、Doctor/Repair、Manager。
-3. Runtime plane：Serena、Coding Tools、Playwright MCP、Windows-MCP。
-4. Gateway plane：可替换 MCPJungle adapter + curated Tool Groups。
-5. Edge plane：OAuth compatibility adapter -> mcp-auth-proxy -> MCPJungle，经 Tailscale Funnel 发布。
-6. Optional full-machine plane：Remote Desktop Commander vendor relay。
+2. Skills / Workflow plane：独立 Skills Manager（`skills-control-plane`），负责多 root Skill 发现、递归解析、版本化 Workflow/Run、gate 与 evidence。
+3. Control plane：bootstrap、component registry、Doctor/Repair、Manager。
+4. Runtime plane：Serena、Coding Tools、Playwright MCP、Windows-MCP。
+5. Gateway plane：可替换 MCPJungle adapter + curated Tool Groups。
+6. Edge plane：OAuth compatibility adapter -> mcp-auth-proxy -> MCPJungle，经 Tailscale Funnel 发布。
+7. Optional full-machine plane：Remote Desktop Commander vendor relay。
 
 ## Supplemental deployment topology
 
 WebGPT-as-Codex 是 repository-level deployment authority，用户/Agent 从本仓库开始，不依赖散落在各 MCP 项目的人工 checklist。
 
 ```text
-ChatGPT
+ChatGPT / 任意支持 MCP 的客户端
+（电脑或手机；前提是客户端本身支持 MCP，并完成网络/授权配置）
 ├─ Remote Desktop Commander (independent rescue/control plane)
 └─ WebGPT-as-Codex public HTTPS /mcp
    -> OAuth compatibility adapter
    -> mcp-auth-proxy
    -> MCPJungle
    -> localhost MCP backends
+      ├─ Coding Tools / Serena / Playwright / Windows-MCP
+      └─ Skills Manager（Skill / Workflow / Run control plane）
 ```
 
 backend-specific public tunnel 是可选项，不是 unified path 前提。Coding Tools 即使自身提供 Cloudflare remote client，也可继续只在 localhost 运行。
+
+Skills Manager 也是同样的关系：它本身是独立可部署项目，自己的源码和 Workflow spec 由独立仓库负责；WAC 只通过稳定的 `skills-control-plane` 组件把它接进统一 Gateway。原始 8943 backend 完全可以继续只监听 loopback。
+
+这也是 WAC 能从“本机工具聚合”再往前走一步的原因。WAC 不是把每个 MCP 端口直接扔到公网，而是给支持 MCP 的客户端提供一个统一、受 OAuth 保护的入口。只要电脑端或手机端客户端本身支持 MCP，并能完成配置好的 HTTPS/OAuth 流程，就可以通过 WAC Edge 访问同一套本地能力。
 
 Deployment controller 分离 upstream/source authority、installation/version authority、route authority、lifecycle authority。健康 external MCP 可先被路由，不因此授予 WebGPT kill/restart。WebGPT 新安装实例只有在 identity/ownership evidence 建立后才可能获得 lifecycle authority。
 

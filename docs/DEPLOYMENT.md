@@ -93,6 +93,8 @@ Never deploy a duplicate healthy instance merely because a package executable is
 
 `skills-control-plane` is a required WAC component, but its source of truth is the standalone `https://github.com/lite-milkfrog/skills-manager` repository rather than a vendored copy inside WAC.
 
+The relationship is intentional: Skills Manager owns structured Skill discovery/resolution plus Workflow/Run/gate/evidence semantics; WAC owns the integration declaration, lifecycle supervision, unified Gateway exposure and remote OAuth/HTTPS edge. Local Skills remain normal files in their own roots. Skills Manager indexes and resolves them instead of replacing them.
+
 From the verified WAC checkout, install or update it with:
 
 ```powershell
@@ -104,6 +106,8 @@ The installer is intentionally non-destructive:
 - existing clean checkout + update -> fetch and fast-forward only to `origin/main`;
 - dirty checkout -> refuse automatic overwrite;
 - after source setup -> editable install, production Workflow import, and WAC integration wrapper installation.
+
+The production import must include the repository-backed WAC workflows when present, including Loop Engineering and Parallel Agent Orchestration. WAC deployment separately runs its canonical Skill sync/validation path. Acceptance should prove that the live Skills MCP can resolve the canonical `webgpt-as-codex` Skill and return the imported WAC Workflow definitions; a cloned repository alone is not sufficient integration evidence.
 
 Deployment acceptance must record the standalone repository URL, branch and actual HEAD, and prove that its HEAD equals the freshly fetched remote default-branch HEAD. The resulting 8943 MCP must pass initialize/tools/list/read-only acceptance, and the WAC external-ensure binding must point to the standalone `skills-manager` checkout rather than the historical `skill-control-plane` development workspace.
 

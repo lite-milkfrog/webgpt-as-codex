@@ -4,11 +4,12 @@
 
 ## Planes
 1. Agent plane: reusable Skill, local SoT, stage/handoff rules.
-2. Control plane: bootstrap, component registry, Doctor/Repair, Manager.
-3. Runtime plane: Serena, Coding Tools, Playwright MCP, Windows-MCP.
-4. Gateway plane: replaceable MCPJungle adapter and curated Tool Groups.
-5. Edge plane: OAuth compatibility adapter -> mcp-auth-proxy -> MCPJungle, published by Tailscale Funnel.
-6. Optional full-machine plane: Remote Desktop Commander vendor relay.
+2. Skills / Workflow plane: standalone Skills Manager (`skills-control-plane`) for multi-root Skill discovery, recursive resolution, versioned Workflows/Runs, gates and evidence.
+3. Control plane: bootstrap, component registry, Doctor/Repair, Manager.
+4. Runtime plane: Serena, Coding Tools, Playwright MCP, Windows-MCP.
+5. Gateway plane: replaceable MCPJungle adapter and curated Tool Groups.
+6. Edge plane: OAuth compatibility adapter -> mcp-auth-proxy -> MCPJungle, published by Tailscale Funnel.
+7. Optional full-machine plane: Remote Desktop Commander vendor relay.
 
 ## Supplemental deployment topology
 
@@ -17,16 +18,23 @@ WebGPT-as-Codex is the repository-level deployment authority. A user or Agent st
 The target public topology is:
 
 ```text
-ChatGPT
+ChatGPT / any MCP-capable client
+(desktop or mobile, when client + auth/network support it)
 ├─ Remote Desktop Commander (independent rescue/control plane)
 └─ WebGPT-as-Codex public HTTPS /mcp
    -> OAuth compatibility adapter
    -> mcp-auth-proxy
    -> MCPJungle
    -> localhost MCP backends
+      ├─ Coding Tools / Serena / Playwright / Windows-MCP
+      └─ Skills Manager (Skill / Workflow / Run control plane)
 ```
 
 Backend-specific public tunnels are optional and are not required by the unified path. In particular, Coding Tools may remain a localhost MCP even if its own distribution also offers a Cloudflare-based remote client.
+
+Skills Manager follows the same rule. It is an independently deployable project and owns its own source/Workflow specifications, but WAC registers it as the stable `skills-control-plane` component and can expose it through the unified Gateway. The raw 8943 backend may remain loopback-only.
+
+This is also what makes WAC useful away from the host desktop. WAC does not make every backend public; it gives compatible MCP clients one authenticated front door. If a desktop or mobile client supports MCP and can complete the configured HTTPS/OAuth flow, it can reach the same local capability set through the WAC edge without directly exposing each backend port.
 
 The deployment controller separates:
 - upstream/source authority;

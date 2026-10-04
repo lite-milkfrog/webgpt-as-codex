@@ -95,6 +95,44 @@ WAC 的意义不是声称“网页版 ChatGPT 比 Codex 更强”，而是把现
 - **READY**：不是“某个端口亮了”就算成功，而是进程、MCP、OAuth、HTTPS 等关键层都通过检查，才认为整套服务真的可以用。
 - **Start All / 一键启动**：启动或恢复整套运行环境的入口。它会保留已经健康的服务，只补起缺失部分，不会每点一次就重复开一套。
 
+## 电脑里明明已经有 Skills，为什么还需要 Skills MCP？
+
+这个问题其实很正常。我一开始也会觉得：Skill 不就是一些文件吗？电脑里已经有 `.agents/skills`、项目自己的 Skills、Obsidian 里的 Skills，Agent 需要的时候搜一下不就行了？
+
+Skill 少的时候，确实可以这么干。
+
+但当数量从十几个涨到几百、几千以后，问题就变了。真正麻烦的已经不是“有没有这个 Skill”，而是：**现在这个阶段到底该加载哪一个？同名的几份里哪一份才是 canonical？它还依赖谁？这一步做完以后凭什么允许进入下一步？**
+
+普通文件搜索最多能告诉 Agent：“这里有一个 `frontend-design`。”可它并不会顺手告诉 Agent：现在已经进入 Browser QA，当前 owner 应该是 `webapp-testing`，`web-design-guidelines` 只是可选项，设计阶段的 owner 不应该继续当 writer，而且这一阶段没有通过 gate 就不能往后走。
+
+所以我后来把 [Skills Manager](https://github.com/lite-milkfrog/skills-manager) 单独做成了一个项目。它不是为了重新发明 Skill，也不是把你本地所有 Skill 再复制一遍。它更像是**压在 Skill 集合上面的一层结构化索引 + 解析器 + Workflow/Run 执行层**：
+
+- 它会从多个 Skill root 里发现能力，同时保留 authority tier 和不同 variant，不会因为同名就粗暴覆盖；
+- Agent 可以直接走结构化的 `search / get / resources / resolve`，不用在几千个文件里自己 grep，然后再猜哪个结果更可信；
+- Workflow 可以明确绑定 **Stage -> Skill -> gate -> next Stage**，把“什么时候该用什么 Skill”从经验问题变成可执行结构；
+- Workflow 版本、Run、evidence、retry、fallback、audit history 都能机器读取，不再只活在某个聊天窗口里；
+- Manager UI 只是给人看的控制面，Agent 真正工作时直接读 MCP/backend，不需要把网页一直开着。
+
+它和 WAC 的关系也故意没有做成“一个仓库里的子文件夹”。**Skills Manager 是独立项目，也是 WAC 的伴生项目。** 它有自己的仓库和版本，WAC 只通过稳定的 `skills-control-plane` 组件把它接进 Gateway。部署 WAC 时，canonical WebGPT-as-Codex Skill 会同步进去，Skills Manager 仓库里版本化的生产 Workflow 也会被导入，所以 Agent 每次开工不用从一堆 Skill 文件里重新猜一遍整套流程。
+
+说白了，两者解决的不是同一个问题：
+
+> **本地 Skills 回答的是“我手里有什么能力”；Skills MCP 回答的是“这个阶段到底该谁上、该怎么解析、满足什么条件才能往下走”。**
+
+现在 WAC 自己的普通 Loop Engineering 和刚做好的 Parallel Agent Fan-out/Fan-in 也都已经进入 Skills MCP。前者负责一个 Agent 怎么长期、稳定地干活；后者负责父 Agent 怎么把任务拆给多个子 Agent，等你之后手动回来再统一汇总、Build 和独立审计。
+
+## 本地 MCP 也不应该只能在这台电脑上用
+
+WAC 还有一个我觉得很实用的点：**它可以把本地 MCP 变成一个统一、可远程连接的入口。**
+
+你原来的 Coding Tools、Serena、Playwright、Windows-MCP、Skills Manager，完全可以继续只监听 localhost。WAC 在外面加一层 Gateway + OAuth/HTTPS，把这些本地能力收口成一个受保护的 MCP 地址。
+
+这样只要另一个客户端本身支持 MCP，并且网络和授权配置完成，它就不一定非得坐在这台电脑前面。桌面上的 ChatGPT 可以用，别的 Agent 客户端也可以接；如果手机端客户端支持 MCP，WAC 的远程 Edge 又已经配置好，**手机也可以变成你这台电脑的一个远程 Agent 入口**。
+
+这和“把每个本地 MCP 端口直接暴露到公网”不是一回事。后端仍然待在本地，WAC 统一做 OAuth、Gateway、路由和恢复；每个 MCP 自己的 lifecycle/ownership 边界也不会因为被接进来就自动丢掉。
+
+所以我现在更愿意把 WAC 理解成：**给整套本地 Agent 基础设施装了一个可以带走的前门。** 电脑里还是那些代码、浏览器和 MCP，但你从哪个支持 MCP 的客户端进来、当前该调用什么 Skill、任务做到哪一步、断了以后怎么恢复，这些终于不再全靠人脑记。
+
 ## 最快的使用方式：把仓库交给 AI
 
 仓库地址：**[https://github.com/lite-milkfrog/webgpt-as-codex](https://github.com/lite-milkfrog/webgpt-as-codex)**
@@ -220,6 +258,8 @@ Remote Desktop Commander
 |---|---|
 | **统一入口** | ChatGPT 只需要面对一个 OAuth-protected MCP Gateway，而不是分别维护一堆公网 MCP |
 | **正确路由** | Serena 看语义，Coding Tools 改代码/跑测试，Playwright 操作网页，Windows-MCP 操作原生 GUI |
+| **结构化 Skills / Workflow** | Skills Manager 负责大规模 Skill 发现与解析，把 Skill 绑定到具体 Stage，并持久化 Workflow / Run / gate / evidence |
+| **远程 MCP 入口** | 本地 MCP 后端继续留在 localhost，WAC 用统一 OAuth/HTTPS MCP 入口提供给兼容的桌面或手机客户端 |
 | **一键启动** | 桌面脚本和 Windows Autostart（登录 Windows 后自动启动）先恢复本机后端，再启动 Gateway/OAuth/Manager，并做真实 READY（整套链路可用）判定 |
 | **断线自恢复** | 区分 process / listener / MCP / OAuth / public edge，不用“端口活着”冒充健康 |
 | **长任务持续执行** | Loop Engineering（阶段化执行 + 自动接力）把 SoT（项目真相）、验证、commit、下一阶段 prompt 和跨会话 handoff（交棒）变成可重复流程 |
@@ -230,7 +270,8 @@ Remote Desktop Commander
 ## 30 秒架构
 
 ```text
-ChatGPT / Web AI
+ChatGPT / 支持 MCP 的 Agent
+电脑端或手机端
         │
         │ HTTPS + OAuth 2.1 / PKCE
         ▼
@@ -241,7 +282,8 @@ ChatGPT / Web AI
    ├─ Coding Tools   → 改代码 / 测试 / Git
    ├─ Serena         → symbols / references / semantic navigation
    ├─ Playwright     → Web / 已登录浏览器
-   └─ Windows-MCP    → Windows 原生 GUI
+   ├─ Windows-MCP    → Windows 原生 GUI
+   └─ Skills Manager → Skill 发现 / Workflow / Run / gates
 
 Remote Desktop Commander
    └─ 独立整机恢复与控制，不是 Gateway 的硬依赖
@@ -282,7 +324,8 @@ webgpt-codex doctor
 - Start All 幂等，能 preserve 健康外部服务，不重复拉实例；
 - OAuth Edge READY 不再只看 9340/9341 本地端口，还校验真实 Funnel 443 target；
 - 桌面 launcher 与 Autostart 可安全升级、可逆、无凭据；
-- 唯一正式 Skill 为 `skills/webgpt-as-codex/`；Skill 1.4.0 强制每个 WAC session 重新 bootstrap，当前 registry 共 60 个 regression scenarios（含 legacy compatibility aliases）；
+- 唯一正式 Skill 为 `skills/webgpt-as-codex/`；Skill 1.4.1 强制每个 WAC session 重新 bootstrap，并已经包含 Loop Engineering 与 Parallel Agent 编排，当前校验覆盖 64 个 regression scenarios；
+- 独立 Skills Manager 以 `skills-control-plane` 组件接入 WAC，负责结构化 Skill 解析与版本化 Workflow/Run；WAC Loop Engineering v1 和 WAC Parallel Agent Orchestration v1 已作为生产 Workflow 可用；
 - Coding Tools / Serena / Playwright MCP 与对应 Playwright Core 的完整源码基线都在 `vendor/`；Playwright runtime derivative 由 WAC deterministic overlay + exact diff 复现；
 - Manager 提供中英文 UI、Doctor/Repair、版本/环境/Gateway/OAuth/HTTPS 状态，但普通状态接口不泄露 Secret。
 

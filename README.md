@@ -89,6 +89,40 @@ With the same Coding Tools, Serena, Playwright and Windows-MCP stack but no Skil
 - **READY**: not merely “a port is open.” The relevant process, MCP, OAuth and HTTPS layers must pass their checks before the stack is treated as usable.
 - **Start All / one-click startup**: the startup path that recovers missing services and preserves already healthy ones instead of blindly launching duplicates.
 
+## Why Skills Manager exists when you already have Skills
+
+This is a fair question. A machine can already have dozens, hundreds, or even thousands of Skills sitting under `.agents/skills`, project folders, Obsidian vaults, or other tool-specific roots. An agent can search those files. So why add another MCP?
+
+Because once the collection gets large, the hard part is no longer **finding a file named like the task**. The hard part is deciding **which Skill should be active at this stage, which variant is authoritative, what it depends on, and what is allowed to happen next**.
+
+A plain search can tell an agent that `frontend-design` exists. It does not automatically tell the agent that the current Stage is browser acceptance, that `webapp-testing` owns the Stage, that `web-design-guidelines` is optional, that the design owner should no longer be the active writer, or that the Stage cannot advance until a gate is satisfied. That is the gap Skills Manager is meant to close.
+
+[Skills Manager](https://github.com/lite-milkfrog/skills-manager) is therefore not a replacement for local Skills. It is the structured layer above them:
+
+- it discovers Skills across multiple roots while preserving authority tiers and conflicting variants instead of flattening everything into one folder;
+- it exposes structured `search / get / resources / resolve` operations, so an agent can retrieve the right capability without manually grepping a huge Skill tree;
+- it lets Workflows bind **Stage -> Skill -> gate -> next Stage**, which is much more precise than “search for something relevant and hope the agent remembers when to use it”;
+- it keeps Workflow versions, Runs, evidence, retries, fallbacks and audit history machine-readable;
+- and it remains useful even without the Manager UI—the MCP backend is the execution surface, the UI is only for humans who want to inspect it.
+
+WAC treats Skills Manager as a **standalone companion project**. Its source of truth lives in the separate Skills Manager repository, while WAC registers it through the stable `skills-control-plane` component and exposes it through the same Gateway. During deployment, WAC also synchronizes the canonical WebGPT-as-Codex Skill and imports the version-controlled production Workflows, so the agent does not have to rediscover the execution structure from scratch every time.
+
+The practical difference is simple:
+
+> **Local Skills answer “what capabilities do I have?” Skills Manager answers “which capability owns this Stage, how do I resolve it, and what has to be true before I move on?”**
+
+This matters even more for long-running work. The current production set includes the normal WAC Loop Engineering workflow as well as Parallel Agent Fan-out/Fan-in, where a parent Agent can dispatch research/development children, stop at a manual barrier, rescan their handoffs later, then run Build and independent Audit.
+
+## Your local MCPs are not limited to one desktop Agent
+
+WAC also solves a different problem that raw local MCP projects do not solve by themselves: **remote, unified access**.
+
+A local MCP can stay bound to localhost. WAC can route it behind one OAuth-protected HTTPS MCP endpoint, alongside the rest of your local tool stack. Any client that actually supports MCP and can complete the required network/authentication flow can use that same gateway—not only the ChatGPT tab sitting on the host computer.
+
+That means the control surface can move. A desktop agent can use the stack locally; another MCP-capable agent can connect remotely; and, when the mobile client supports MCP and the WAC edge is configured, a phone can become a remote entry point for the same local machine. The raw backend does not need to be exposed directly to the Internet, and each backend keeps its own lifecycle/ownership boundary behind WAC.
+
+So WAC is not just “a way to let ChatGPT call my PC.” It is closer to a **portable front door for the local agent stack**: one authenticated endpoint, structured Skills/Workflows, multiple specialist MCPs behind it, and enough recovery/ownership rules to make the setup usable after the novelty wears off.
+
 ## Fastest path: give the repository to an AI agent
 
 Repository: **[https://github.com/lite-milkfrog/webgpt-as-codex](https://github.com/lite-milkfrog/webgpt-as-codex)**
@@ -214,6 +248,8 @@ An unhealthy plane is never chosen to repair itself, and recovery is not allowed
 |---|---|
 | **One endpoint** | Your web AI talks to one OAuth-protected MCP Gateway instead of several public MCP registrations |
 | **Correct routing** | Serena for semantics, Coding Tools for edits/tests/Git, Playwright for the web, Windows-MCP for native GUI |
+| **Structured Skills / Workflows** | Skills Manager discovers and resolves large Skill collections, binds Skills to Stages, and keeps Workflow/Run/gate/evidence state machine-readable |
+| **Remote MCP access** | Local MCP backends can stay local while WAC exposes one OAuth-protected HTTPS MCP endpoint to compatible desktop or mobile clients |
 | **One-click startup** | Desktop and Windows-login launchers recover local backends, then start Gateway/OAuth/Manager and verify real READY state instead of trusting a live port |
 | **Recovery with evidence** | Process, listener, MCP, OAuth and public-edge health are separate states; a live port is never called “healthy” by itself |
 | **Durable long tasks** | Loop Engineering (staged execution + automatic handoff) persists SoT (project truth), validation, commits and verified next-conversation handoff |
@@ -224,7 +260,8 @@ An unhealthy plane is never chosen to repair itself, and recovery is not allowed
 ## 30-second architecture
 
 ```text
-ChatGPT / Web AI
+ChatGPT / MCP-capable Agent
+desktop or mobile
         │ HTTPS + OAuth / PKCE
         ▼
  WebGPT-as-Codex Edge
@@ -233,7 +270,8 @@ ChatGPT / Web AI
    ├─ Coding Tools   → edit / test / Git
    ├─ Serena         → symbols / references / semantic navigation
    ├─ Playwright     → web apps / authenticated browser
-   └─ Windows-MCP    → native Windows GUI
+   ├─ Windows-MCP    → native Windows GUI
+   └─ Skills Manager → Skill discovery / Workflow / Run / gates
 
 Remote Desktop Commander
    └─ independent full-machine recovery/control plane
@@ -274,7 +312,8 @@ Keep the verified source checkout in place. It contains the complete WAC-maintai
 - Start All is idempotent and preserves healthy unmanaged services instead of duplicating them;
 - OAuth Edge readiness verifies the real Funnel 443 target, not only local 9340/9341 listeners;
 - desktop launcher and autostart are reversible, credential-free and structurally upgradeable;
-- the only canonical Skill is `skills/webgpt-as-codex/`; Skill 1.4.0 requires per-session WAC bootstrap and the current registry carries 60 regression scenarios including legacy compatibility aliases;
+- the only canonical Skill is `skills/webgpt-as-codex/`; Skill 1.4.1 requires per-session WAC bootstrap, includes Loop Engineering plus Parallel Agent orchestration, and currently validates 64 regression scenarios;
+- the standalone Skills Manager is registered as the `skills-control-plane` component and exposes structured Skill resolution plus versioned Workflow/Run execution; WAC Loop Engineering v1 and WAC Parallel Agent Orchestration v1 are available as production Workflows;
 - complete Coding Tools, Serena, Playwright MCP and matching Playwright Core source baselines are carried in `vendor/`; Playwright's runtime derivative remains a deterministic WAC overlay with exact diff evidence;
 - the bilingual Manager exposes Doctor/Repair and environment/Gateway/OAuth/HTTPS state without returning secrets in normal status.
 
