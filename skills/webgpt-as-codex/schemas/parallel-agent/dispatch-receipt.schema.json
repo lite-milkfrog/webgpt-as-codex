@@ -1,0 +1,33 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "wac://parallel-agent/dispatch-receipt.schema.json",
+  "title": "WAC Parallel Agent Dispatch Receipt",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "agent_id",
+    "prompt_path",
+    "prompt_sha256",
+    "state"
+  ],
+  "properties": {
+    "schema_version": {"const": 1},
+    "agent_id": {"type": "string", "minLength": 1},
+    "prompt_path": {"type": "string", "minLength": 1},
+    "prompt_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "state": {
+      "enum": [
+        "PROMPT_READY",
+        "DISPATCH_ATTEMPTED",
+        "DISPATCHED",
+        "TAKEOVER_CONFIRMED"
+      ]
+    },
+    "conversation_url": {"type": ["string", "null"]},
+    "attempted_at": {"type": ["string", "null"]},
+    "confirmed_at": {"type": ["string", "null"]},
+    "notes": {"type": ["string", "null"]}
+  }
+}
+

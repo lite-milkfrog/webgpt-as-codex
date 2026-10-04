@@ -436,6 +436,131 @@
           }
         }
       ]
+    },
+    {
+      "id": "parallel-agent-orchestration",
+      "title": "Parallel Agent Fan-out / Fan-in",
+      "description": "Parent-orchestrated parallel ChatGPT workers with exactly-once Playwright dispatch, manual fan-in rescan, isolated development worktrees, Build integration, and independent audit.",
+      "supporting_workflows": [
+        "coding.md",
+        "browser.md",
+        "cross-tool.md",
+        "loop-engineering.md",
+        "parallel-agent-orchestration.md",
+        "parallel-agent-contracts.md"
+      ],
+      "stages": [
+        {
+          "id": "orchestrator-bootstrap",
+          "title": "Parent bootstrap and stage freeze",
+          "skills": [],
+          "outputs": [
+            "stage contract",
+            "execution map",
+            "parallelization decision"
+          ],
+          "gate": {
+            "type": "evidence",
+            "requires": [
+              "repo and SoT truth",
+              "base HEAD",
+              "parallelization boundaries"
+            ]
+          }
+        },
+        {
+          "id": "fanout-plan",
+          "title": "Child contracts and isolated ownership",
+          "skills": [],
+          "outputs": [
+            "STAGE-MANIFEST.json",
+            "FANOUT-PLAN.md",
+            "child TASK.md",
+            "child PROMPT.md"
+          ],
+          "gate": {
+            "type": "artifact",
+            "requires": [
+              "all mandatory child contracts",
+              "DEV branch/worktree ownership",
+              "zero-guess prompts"
+            ]
+          }
+        },
+        {
+          "id": "exactly-once-dispatch",
+          "title": "Exactly-once Playwright fan-out",
+          "skills": [],
+          "outputs": [
+            "DISPATCH-RECEIPT.json",
+            "takeover evidence",
+            "WAITING_FOR_CHILDREN"
+          ],
+          "gate": {
+            "type": "runtime",
+            "requires": [
+              "mandatory children dispatched",
+              "no ambiguous duplicate submission",
+              "parent stopped at waiting barrier"
+            ]
+          }
+        },
+        {
+          "id": "manual-fanin-rescan",
+          "title": "Manual resume and fresh child-state reconstruction",
+          "skills": [],
+          "outputs": [
+            "verified child status",
+            "FANIN-SUMMARY.md",
+            "BUILD-PLAN.json"
+          ],
+          "gate": {
+            "type": "evidence",
+            "requires": [
+              "filesystem handoff rescan",
+              "Git branch/worktree/commit verification",
+              "dependency and conflict analysis"
+            ]
+          }
+        },
+        {
+          "id": "build-integration",
+          "title": "Build and integration",
+          "skills": [],
+          "outputs": [
+            "integration branch/worktree",
+            "BUILD-RESULT.md",
+            "integration commit",
+            "integration test evidence"
+          ],
+          "gate": {
+            "type": "validation",
+            "requires": [
+              "only verified ready handoffs consumed",
+              "conflicts resolved semantically",
+              "integration gates pass"
+            ]
+          }
+        },
+        {
+          "id": "independent-audit-closure",
+          "title": "Independent audit and return to main program",
+          "skills": [],
+          "outputs": [
+            "AUDIT-RESULT.md",
+            "stage closure evidence",
+            "next main-stage decision"
+          ],
+          "gate": {
+            "type": "review",
+            "requires": [
+              "independent evidence review",
+              "parallel ownership integrity",
+              "stage exit criteria"
+            ]
+          }
+        }
+      ]
     }
   ],
   "session_bootstrap": {

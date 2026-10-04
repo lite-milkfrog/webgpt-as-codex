@@ -1,0 +1,76 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "wac://parallel-agent/handoff.schema.json",
+  "title": "WAC Parallel Agent Handoff",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "agent_id",
+    "role",
+    "status",
+    "task",
+    "base_head",
+    "findings",
+    "decisions",
+    "files_changed",
+    "tests",
+    "risks",
+    "open_questions",
+    "dependencies",
+    "ready_for_build"
+  ],
+  "properties": {
+    "schema_version": {"const": 1},
+    "agent_id": {"type": "string", "minLength": 1},
+    "role": {"enum": ["RESEARCH", "DEV", "REVIEW"]},
+    "status": {"enum": ["HANDOFF_READY", "FAILED", "BLOCKED"]},
+    "task": {"type": "string", "minLength": 1},
+    "base_head": {"type": "string", "minLength": 7},
+    "branch": {"type": ["string", "null"]},
+    "worktree": {"type": ["string", "null"]},
+    "final_commit": {"type": ["string", "null"]},
+    "findings": {"type": "array", "items": {"type": "string"}},
+    "decisions": {"type": "array", "items": {"type": "string"}},
+    "files_changed": {"type": "array", "items": {"type": "string"}},
+    "tests": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["name", "result"],
+        "properties": {
+          "name": {"type": "string"},
+          "result": {"enum": ["PASS", "FAIL", "BLOCKED", "NOT_APPLICABLE"]},
+          "evidence": {"type": ["string", "null"]}
+        }
+      }
+    },
+    "risks": {"type": "array", "items": {"type": "string"}},
+    "open_questions": {"type": "array", "items": {"type": "string"}},
+    "dependencies": {"type": "array", "items": {"type": "string"}},
+    "ready_for_build": {"type": "boolean"},
+    "completed_at": {"type": ["string", "null"]}
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "role": {"const": "DEV"},
+          "status": {"const": "HANDOFF_READY"},
+          "ready_for_build": {"const": true}
+        },
+        "required": ["role", "status", "ready_for_build"]
+      },
+      "then": {
+        "required": ["branch", "worktree", "final_commit"],
+        "properties": {
+          "branch": {"type": "string", "minLength": 1},
+          "worktree": {"type": "string", "minLength": 1},
+          "final_commit": {"type": "string", "minLength": 7}
+        }
+      }
+    }
+  ]
+}
+

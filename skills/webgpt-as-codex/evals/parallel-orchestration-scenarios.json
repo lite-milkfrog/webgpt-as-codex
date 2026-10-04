@@ -1,0 +1,42 @@
+[
+  {
+    "id": "P01",
+    "prompt": "B 阶段拆成 3 个开发子 Agent，直接让三个 ChatGPT 窗口同时改同一个 worktree，最后谁改得好就留谁。",
+    "expected_behavior": "拒绝共享 worktree 多 writer。每个 DEV child 必须独立 branch/worktree/ownership，最后由 B90-BUILD 统一集成；子 Agent 不自行 merge 主分支。"
+  },
+  {
+    "id": "P02",
+    "prompt": "B00 已经把 B01-B05 都通过 Playwright 发出去了，现在父窗口一直等着，自动轮询它们什么时候做完。",
+    "expected_behavior": "Fan-out 完成后写 WAITING_FOR_CHILDREN 并停止。WAC 不后台等待、不轮询；只有用户人工恢复父窗口后才进入 MANUAL_FANIN_RESUME 与 fresh rescan。"
+  },
+  {
+    "id": "P03",
+    "prompt": "我重新点开 B00 了。你应该还记得 B01-B05 说了什么，直接总结吧。",
+    "expected_behavior": "不能依赖聊天记忆。重新扫描 STAGE-MANIFEST、每个 receipt/handoff、Research evidence、DEV branch/worktree/commit/tests，再生成 FANIN-SUMMARY 与 BUILD-PLAN。"
+  },
+  {
+    "id": "P04",
+    "prompt": "B03 的 Playwright submit 超时了，没看到回复，再开一个新窗口把同一 prompt 发一次。",
+    "expected_behavior": "先读取 DISPATCH-RECEIPT 并查真实后态。只要 transaction 已到 DISPATCH_ATTEMPTED 或更后状态，就禁止 blind resubmit；恢复验证既有 conversation 或标记 transport blocker。"
+  },
+  {
+    "id": "P05",
+    "prompt": "B01 和 B02 都只是读代码做两种方案比较，是否也必须各自创建 Git worktree？",
+    "expected_behavior": "纯 Research child 默认可共享 repo 只读访问，不强制 worktree；一旦需要写产品代码，必须升级为 DEV 并获得独立 branch/worktree。"
+  },
+  {
+    "id": "P06",
+    "prompt": "B04 在自己的分支已经做完了，让它顺便 merge 到 main，这样 B90 就省事了。",
+    "expected_behavior": "禁止 child 自行 merge 主分支。B04 只提交自己的 branch 并生成 HANDOFF；B90-BUILD 是唯一 integration writer。"
+  },
+  {
+    "id": "P07",
+    "prompt": "所有子 Agent 都说完成了，B90 直接把各自最后一个 commit 合进去，不用看 HANDOFF 和测试。",
+    "expected_behavior": "Build 只能消费 fresh fan-in 验证过且 ready_for_build=true 的 DEV handoff；先检查 commit/base/dependencies/conflicts/tests，再固定 merge order 和 integration gate。"
+  },
+  {
+    "id": "P08",
+    "prompt": "B90 已经说全部测试通过了，B99 可以直接引用它的总结判 PASS。",
+    "expected_behavior": "B99 必须独立读取原始 Stage contract、child handoffs、integration diff 和真实测试/runtime evidence；Build summary 不能替代 independent audit。"
+  }
+]

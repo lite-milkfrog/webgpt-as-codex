@@ -21,6 +21,28 @@
 - Workflow 的 canonical 定义来自仓库 `workflow-registry.json`；运行态/证据属于 machine-local run state。
 - Stage 通过 gate 后再进入下一 Stage；失败先按对应 Skill/本文件恢复规则处理，不因为一个 Skill 失败就重做整个 Workflow。
 
+### 0.1 多 Agent 并行编排
+
+当用户明确要求“子 Agent / 多 Agent / Playwright 开多个独立 ChatGPT 窗口 / Fan-out / Fan-in / 并行调研或开发”时，优先匹配 `parallel-agent-orchestration`，并读取：
+
+- `workflows/parallel-agent-orchestration.md`
+- `workflows/parallel-agent-contracts.md`
+
+此模式位于普通 Loop Engineering 之上：
+
+`Parent Orchestrator -> child contracts -> exactly-once dispatch -> WAITING_FOR_CHILDREN -> manual resume -> fresh rescan -> Build -> independent audit`
+
+关键边界：
+
+- 父 Agent 第一次运行只负责编排、合同与 dispatch，不吞掉已经分配给 child 的工作；
+- Research child 默认只读，可共享 repo 读取；
+- DEV child 必须独立 branch + worktree + ownership，禁止共享 worktree 多 writer；
+- Fan-out 后父 Agent 停在 `WAITING_FOR_CHILDREN`，不后台等待、不持续轮询；
+- 用户重新唤醒父窗口后必须从文件/Git/receipt/handoff fresh rescan，不能靠聊天记忆直接汇总；
+- child 不自行 merge 主分支；`<STAGE>90-BUILD` 是唯一 integration writer；
+- `<STAGE>99-AUDIT` 独立审计真实产物，不能只引用 Build summary；
+- Playwright 只负责 transport；任务合同、prompt、dispatch receipt、handoff、build plan 必须先落盘。
+
 如果没有匹配 Workflow，回到下面的直接工具路由。
 
 ## 1. 决策顺序
@@ -202,3 +224,5 @@
 - `workflows/handoff-template.md`
 
 同一 Git worktree 默认只有一个 active writer。多个 ChatGPT 窗口可以并行只读调研；要并行修改必须独立 worktree/branch + ownership。
+
+当同一语义 Stage 需要通过多个独立 ChatGPT worker 并行调研/开发并最终汇总时，不把普通递归 handoff 伪装成并行；改用 `workflows/parallel-agent-orchestration.md` 的 Fan-out / Manual Fan-in 协议。

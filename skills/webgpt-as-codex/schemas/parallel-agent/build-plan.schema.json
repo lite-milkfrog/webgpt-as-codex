@@ -1,0 +1,54 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "wac://parallel-agent/build-plan.schema.json",
+  "title": "WAC Parallel Agent Build Plan",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "program_id",
+    "stage_id",
+    "base_head",
+    "source_handoffs",
+    "merge_order",
+    "integration_branch",
+    "integration_worktree",
+    "required_tests",
+    "known_conflicts",
+    "ready"
+  ],
+  "properties": {
+    "schema_version": {"const": 1},
+    "program_id": {"type": "string", "minLength": 1},
+    "stage_id": {"type": "string", "minLength": 1},
+    "base_head": {"type": "string", "minLength": 7},
+    "source_handoffs": {
+      "type": "array",
+      "items": {"type": "string"},
+      "uniqueItems": true
+    },
+    "merge_order": {
+      "type": "array",
+      "items": {"type": "string"},
+      "uniqueItems": true
+    },
+    "integration_branch": {"type": "string", "minLength": 1},
+    "integration_worktree": {"type": "string", "minLength": 1},
+    "required_tests": {"type": "array", "items": {"type": "string"}},
+    "known_conflicts": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["agents", "scope", "resolution"],
+        "properties": {
+          "agents": {"type": "array", "items": {"type": "string"}, "minItems": 2},
+          "scope": {"type": "string"},
+          "resolution": {"type": "string"}
+        }
+      }
+    },
+    "ready": {"type": "boolean"}
+  }
+}
+

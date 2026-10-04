@@ -31,9 +31,16 @@ REQUIRED = [
     "workflows/cross-tool.md",
     "workflows/loop-engineering.md",
     "workflows/handoff-template.md",
+    "workflows/parallel-agent-orchestration.md",
+    "workflows/parallel-agent-contracts.md",
     "workflows/WORKFLOW-SCHEMA.md",
     "workflow-registry.json",
     "evals/scenarios.json",
+    "evals/parallel-orchestration-scenarios.json",
+    "schemas/parallel-agent/stage-manifest.schema.json",
+    "schemas/parallel-agent/dispatch-receipt.schema.json",
+    "schemas/parallel-agent/handoff.schema.json",
+    "schemas/parallel-agent/build-plan.schema.json",
     "manifest.json",
     "CHANGELOG.md",
     "scripts/mcp-http-client.mjs",
@@ -121,6 +128,71 @@ if not any("handoff-template.md" in (s.get("expected_behavior") or "") for s in 
     errors.append("no Zero-Guess handoff-template scenario")
 if not any("worktree" in (s.get("expected_behavior") or "") and "writer" in (s.get("expected_behavior") or "") for s in scenarios):
     errors.append("no single-writer worktree scenario")
+
+try:
+    parallel_scenarios = json.loads(
+        (ROOT / "evals/parallel-orchestration-scenarios.json").read_text(encoding="utf-8")
+    )
+except (OSError, json.JSONDecodeError) as exc:
+    errors.append(f"invalid parallel-orchestration-scenarios.json: {exc}")
+    parallel_scenarios = []
+
+parallel_ids = set()
+for item in parallel_scenarios:
+    if not {"id", "prompt", "expected_behavior"}.issubset(item):
+        errors.append(f"parallel scenario missing keys: {item.get('id', '?')}")
+    sid = item.get("id")
+    if sid in parallel_ids:
+        errors.append(f"duplicate parallel scenario id: {sid}")
+    parallel_ids.add(sid)
+
+for required_id in ("P01", "P02", "P03", "P04", "P05", "P06", "P07", "P08"):
+    if required_id not in parallel_ids:
+        errors.append(f"missing parallel orchestration scenario: {required_id}")
+
+parallel_schema_paths = (
+    "schemas/parallel-agent/stage-manifest.schema.json",
+    "schemas/parallel-agent/dispatch-receipt.schema.json",
+    "schemas/parallel-agent/handoff.schema.json",
+    "schemas/parallel-agent/build-plan.schema.json",
+)
+for rel in parallel_schema_paths:
+    try:
+        schema = json.loads((ROOT / rel).read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        errors.append(f"invalid parallel schema {rel}: {exc}")
+        continue
+    if schema.get("$schema") != "https://json-schema.org/draft/2020-12/schema":
+        errors.append(f"parallel schema missing draft marker: {rel}")
+    if schema.get("type") != "object":
+        errors.append(f"parallel schema root is not object: {rel}")
+
+parallel_workflow = (
+    (ROOT / "workflows/parallel-agent-orchestration.md").read_text(encoding="utf-8")
+    if (ROOT / "workflows/parallel-agent-orchestration.md").exists()
+    else ""
+)
+for marker in (
+    "WAITING_FOR_CHILDREN",
+    "MANUAL_FANIN_RESUME",
+    "DISPATCH_ATTEMPTED",
+    "B90-BUILD",
+    "B99-AUDIT",
+    "HANDOFF.json",
+):
+    if marker not in parallel_workflow:
+        errors.append(f"parallel orchestration workflow missing marker: {marker}")
+
+try:
+    workflow_registry = json.loads((ROOT / "workflow-registry.json").read_text(encoding="utf-8"))
+except (OSError, json.JSONDecodeError) as exc:
+    errors.append(f"invalid workflow-registry.json: {exc}")
+    workflow_registry = {}
+if not any(
+    workflow.get("id") == "parallel-agent-orchestration"
+    for workflow in workflow_registry.get("workflows", [])
+):
+    errors.append("workflow registry missing parallel-agent-orchestration")
 
 try:
     manifest = json.loads((ROOT / "manifest.json").read_text(encoding="utf-8"))
