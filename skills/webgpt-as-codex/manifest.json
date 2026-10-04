@@ -1,6 +1,6 @@
 {
   "name": "webgpt-as-codex",
-  "version": "1.4.0",
+  "version": "1.4.1",
   "design": "direct-mcp-with-soft-routing",
   "roles": {
     "code_semantics": {

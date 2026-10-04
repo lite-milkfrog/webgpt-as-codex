@@ -1,5 +1,14 @@
 # Changelog
 
+## 1.4.1 — 2026-10-04
+
+- Hardened the canonical ChatGPT Loop handoff helper against a real composer DOM drift where authenticated ChatGPT no longer exposed `#prompt-textarea` and instead exposed a semantic `contenteditable=true / role=textbox` editor.
+- The helper now resolves either the historical id or the semantic textbox for page-state hashing, focus and long-prompt fill while preserving the existing prompt-hash transaction and SUBMIT_ATTEMPTED blind-resubmit barrier.
+- Added browser workflow guidance and regression scenario R58 so selector drift is not misclassified as authentication failure or used as a reason to open duplicate handoff tabs.
+- Normalized blank-composer detection now treats ProseMirror's whitespace-only/newline-only `innerText` as empty via the same whitespace-normalized SHA-256 transaction rule; added R59 to prevent duplicate tabs caused by raw-length checks.
+- Send-button resolution now prefers the semantic composer form's enabled `button[type=submit]` and falls back to the historical `data-testid=send-button`; added R60 so test-id drift reuses the exact filled draft instead of re-filling or opening another tab.
+- Exact submitted-message recovery now also recognizes current `.rich-text-user-turn` user-message markup when the historical `data-message-author-role=user` attribute is absent; added R61 so observer drift upgrades an existing exact transaction instead of causing duplicate submission.
+
 ## 1.4.0 — 2026-09-27
 
 - Made the canonical WebGPT-as-Codex Skill a mandatory per-session bootstrap gate for substantive WAC work. A new Agent/session must actually load `SKILL.md` and `routing.md`; cross-session memory is not accepted as proof that the current session loaded the operating contract.

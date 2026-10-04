@@ -2,7 +2,7 @@
 name: webgpt-as-codex
 description: 让网页端大模型通过 MCP 可靠接管本地代码与电脑工作流，覆盖多 MCP 路由、自动恢复、Loop Engineering、OAuth/Gateway、桌面一键启动与跨会话持续执行。
 metadata:
-  version: 1.4.0
+  version: 1.4.1
   portability: public-safe-local-first-gpt-web-ready
   secrets-policy: no-secrets-in-skill
 ---
@@ -14,7 +14,7 @@ metadata:
 ## 发行 / 本机一致性
 
 - `skills/webgpt-as-codex/` 是唯一 canonical portable Skill。
-- 本机 `.skills/webgpt-as-codex/` 使用同一个 `1.4.0` portable core，只额外保留 `environment.local.md`、`MCP-SKILLS-INVENTORY.*`、`state/` 等 machine-local overlay。
+- 本机 `.skills/webgpt-as-codex/` 使用同一个 `1.4.1` portable core，只额外保留 `environment.local.md`、`MCP-SKILLS-INVENTORY.*`、`state/` 等 machine-local overlay。
 - portable 文件不允许“本机先长、发行版以后再补”或反向漂移；使用 `scripts/sync_webgpt_skill.py --check` 验证。
 - 旧 `computer-agent` 仅作为迁移来源；最终发行包、本机主 Skill 和 README 都只暴露 WebGPT-as-Codex。
 - Experience Ledger、MCP 专项经验、GUI/Playwright/Loop Engineering 规则必须无损保留；本地端口、路径、账户态和 transient health 仍只放 machine-local overlay，不进入 portable release。

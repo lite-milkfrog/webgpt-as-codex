@@ -15,15 +15,14 @@ const sha256 = (text) => crypto.createHash('sha256').update(text, 'utf8').digest
 function classifyPromptState(state, expectedHash) {
   if (
     state.lastUserHash === expectedHash &&
-    state.composerLength === 0 &&
+    state.composerHash === sha256('') &&
     state.url.includes('/c/')
   ) {
     return 'submitted';
   }
   if (
     state.userMessages === 0 &&
-    state.composerHash === expectedHash &&
-    state.composerLength > 0
+    state.composerHash === expectedHash
   ) {
     return 'draft';
   }
@@ -181,7 +180,9 @@ function parseTabs(text) {
 async function pageState() {
   const text = await call('browser_evaluate', {
     function: `async () => {
-      const composer = document.querySelector('#prompt-textarea');
+      const composer = document.querySelector(
+        '#prompt-textarea, [contenteditable="true"][role="textbox"]'
+      );
       const composerText = composer?.innerText ?? '';
       const normalized = composerText.replace(/\\s+/g, '');
       const composerDigest = await crypto.subtle.digest(
@@ -191,7 +192,9 @@ async function pageState() {
       const composerHash = [...new Uint8Array(composerDigest)]
         .map((b) => b.toString(16).padStart(2, '0')).join('');
 
-      const users = [...document.querySelectorAll('[data-message-author-role="user"]')];
+      const users = [...document.querySelectorAll(
+        '[data-message-author-role="user"], .rich-text-user-turn'
+      )];
       const last = users.at(-1);
       const lastText = last?.innerText ?? last?.textContent ?? '';
       const lastNormalized = lastText.replace(/\\s+/g, '');
@@ -202,7 +205,9 @@ async function pageState() {
       const lastUserHash = [...new Uint8Array(lastDigest)]
         .map((b) => b.toString(16).padStart(2, '0')).join('');
 
-      const send = document.querySelector('button[data-testid="send-button"]');
+      const send =
+        composer?.closest('form')?.querySelector('button[type="submit"]') ??
+        document.querySelector('button[data-testid="send-button"]');
       let lease = null;
       try {
         lease = sessionStorage.getItem('__webgpt_as_codex_handoff_tab_lease_v1');
@@ -219,9 +224,10 @@ async function pageState() {
         lastUserStart: lastText.slice(0, 180),
         lastUserEnd: lastText.slice(-260),
         hasStop: !!document.querySelector('button[data-testid="stop-button"]'),
-        assistantMessages: document.querySelectorAll(
-          '[data-message-author-role="assistant"]'
-        ).length,
+        assistantMessages:
+          document.querySelectorAll('[data-message-author-role="assistant"]').length ||
+          [...document.querySelectorAll('main [class*="MarkdownRoot"]')]
+            .filter((element) => !element.classList.contains('rich-text-user-turn')).length,
         hasSend: !!send,
         sendDisabled:
           !!send?.disabled || send?.getAttribute('aria-disabled') === 'true',
@@ -333,7 +339,9 @@ async function verifyTakeover(state) {
 async function focusComposer() {
   const text = await call('browser_evaluate', {
     function: `() => {
-      const composer = document.querySelector('#prompt-textarea');
+      const composer = document.querySelector(
+        '#prompt-textarea, [contenteditable="true"][role="textbox"]'
+      );
       if (!composer) return { focused: false, reason: 'composer-missing' };
       composer.focus();
       return { focused: document.activeElement === composer };
@@ -348,7 +356,12 @@ async function focusComposer() {
 async function activateSendButton() {
   const text = await call('browser_evaluate', {
     function: `() => {
-      const element = document.querySelector('button[data-testid="send-button"]');
+      const composer = document.querySelector(
+        '#prompt-textarea, [contenteditable="true"][role="textbox"]'
+      );
+      const element =
+        composer?.closest('form')?.querySelector('button[type="submit"]') ??
+        document.querySelector('button[data-testid="send-button"]');
       if (
         !element ||
         element.disabled ||
@@ -458,7 +471,7 @@ if (existing?.kind === 'draft') {
   await call('browser_wait_for', { time: 1 });
 
   state = await pageState();
-  if (state.userMessages !== 0 || state.composerLength !== 0) {
+  if (state.userMessages !== 0 || state.composerHash !== sha256('')) {
     throw new Error(`New ChatGPT target is not blank: ${JSON.stringify(state)}`);
   }
   await pinCurrentTab();
@@ -466,7 +479,7 @@ if (existing?.kind === 'draft') {
   let fillError = null;
   try {
     await call('browser_type', {
-      target: '#prompt-textarea',
+      target: '#prompt-textarea, [contenteditable="true"][role="textbox"]',
       element: 'ChatGPT message composer',
       text: prompt,
       submit: false,

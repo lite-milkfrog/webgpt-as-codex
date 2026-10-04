@@ -588,6 +588,50 @@
     "expected_behavior": "????????????? session bootstrap????? WAC/Skill locator ????????? substantive ?? mutation ??????? canonical SKILL.md ? routing.md??????? Inventory/environment???????? workflow-registry.json??????? Stage ?? leaf Skills?? portable core ???? sync --check / validate ?????"
   },
   {
+    "id": "R58",
+    "prompt": "Loop handoff helper 打开已登录 ChatGPT 后找不到 #prompt-textarea，但页面里有唯一 contenteditable=true、role=textbox 的“询问 ChatGPT”编辑器。把它当登录失败重新开窗口吧？",
+    "should_trigger": true,
+    "primary": "Playwright",
+    "secondary": [
+      "Coding Tools"
+    ],
+    "permission": "P2",
+    "expected_behavior": "不要把历史 #prompt-textarea selector 消失误判为认证失败。先在同一 Playwright MCP session 检查页面登录态与语义 composer；canonical handoff helper 必须支持 #prompt-textarea 和 [contenteditable=\"true\"][role=\"textbox\"] fallback。若尚未越过 submit boundary，可恢复填充；已有 SUBMIT_ATTEMPTED/SUBMITTED receipt 时继续遵守 blind-resubmit barrier。"
+  },
+  {
+    "id": "R59",
+    "prompt": "新 ChatGPT 对话的 contenteditable composer 看起来是空的，但 innerText 长度是 1，因为只有一个换行。helper 说它不是 blank，所以再开一个 tab 试试？",
+    "should_trigger": true,
+    "primary": "Playwright",
+    "secondary": [
+      "Coding Tools"
+    ],
+    "permission": "P2",
+    "expected_behavior": "不要用 ProseMirror raw innerText length 判断 handoff composer 是否为空，也不要因此连续开 tab。使用与 transaction 相同的 whitespace-normalized SHA-256；只有空白标准化 hash 非空或已有真实 user content 时才判定非 blank。提交后的 composer-cleared 判断也使用 normalized empty hash。"
+  },
+  {
+    "id": "R60",
+    "prompt": "交接 prompt 已经完整填好且 hash 一致，但 ChatGPT 没有 data-testid=send-button，composer 的 form 里只有一个启用的 button[type=submit]、aria-label=发送。重新开页重填吧？",
+    "should_trigger": true,
+    "primary": "Playwright",
+    "secondary": [
+      "Coding Tools"
+    ],
+    "permission": "P2",
+    "expected_behavior": "禁止丢弃 exact draft 或重新填。canonical helper 从已解析 composer 的最近 form 中查找启用 button[type=submit]，并保留旧 data-testid 兼容；在同一 prompt-hash transaction 内写 SUBMIT_ATTEMPTED 后 only-once submit，再验证 exact user hash/takeover。"
+  },
+  {
+    "id": "R61",
+    "prompt": "Loop handoff 已经形成 /c/ 对话、composer 清空、assistant 正在生成，但页面不再有 data-message-author-role=user；实际用户正文带 rich-text-user-turn。helper 因为找不到旧 selector 说 exact prompt 不可见，要不要再发一次？",
+    "should_trigger": true,
+    "primary": "Playwright",
+    "secondary": [
+      "Coding Tools"
+    ],
+    "permission": "P2",
+    "expected_behavior": "这是 observer DOM drift，不是 submit failure。canonical helper 必须兼容 [data-message-author-role=user] 与 .rich-text-user-turn，对最后 user turn 做相同 whitespace-normalized SHA-256；若 exact hash、/c/ URL、normalized-empty composer 和 assistant generating/response 已证明，则只升级 SUBMIT_ATTEMPTED -> SUBMITTED -> HANDOFF_OK，绝不第二次 submit。"
+  },
+  {
     "id": "serena-down",
     "prompt": "Serena 当前不可达，但任务仍需完成代码分析。",
     "should_trigger": true,

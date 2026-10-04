@@ -131,6 +131,18 @@ Programmatic DOM activation 只能替代已经授权、正常可执行但被页�
 4. hash 一致即可把 fill 视为成功，不要重复输入；
 5. ProseMirror 的 `textContent` 与 `innerText` 对换行/块结构计数不同，不能只拿字符数差异判断“被截断”。
 
+### 真实案例：ChatGPT composer selector 漂移
+
+ChatGPT 的 composer DOM 可能不再提供历史 `#prompt-textarea` id，而只保留 `contenteditable=true + role=textbox` 的语义编辑器。自动 handoff 不得把单一历史 selector 当成长期协议：
+
+- canonical helper 同时支持 `#prompt-textarea` 与 `[contenteditable="true"][role="textbox"]`；
+- 发现旧 selector 不存在时，先检查页面登录态、body/语义 textbox 与真实后态，不要误报 AUTH failure；
+- 如果语义 textbox 唯一且页面已登录，继续在同一个 Playwright MCP session 使用该 composer；
+- selector 漂移发生在 submit boundary 之前时，可以修复/重新填充；如果已有 `SUBMIT_ATTEMPTED` 则仍受 receipt blind-resubmit barrier 约束。
+- ProseMirror 空编辑器的 `innerText` 可能是一个换行而不是长度 0；handoff 的“空白/已清空”判断必须基于与 prompt transaction 相同的 whitespace-normalized hash，而不能只看 raw character length。
+- ChatGPT send control 也可能不再提供历史 `data-testid=send-button`；helper 应优先从已解析 composer 的最近 `form` 中取得启用的 `button[type=submit]`，再兼容旧 data-testid。不要因为测试 id 漂移就重新填 prompt 或新开 tab。
+- ChatGPT 已提交 user turn 也可能不再提供 `data-message-author-role=user`；当前语义正文可由 `.rich-text-user-turn` 识别。exact-hash recovery 必须兼容两者，否则一个真实已提交且正在生成的 `/c/` 对话可能被误报成“未观察到 exact prompt”。这种识别失败只能修 observer，不能触发第二次 submit。
+
 ### 真实案例：ChatGPT 发送按钮被 thread overlay 拦截
 
 如果普通 `browser_click` 显示 `intercepts pointer events`：
